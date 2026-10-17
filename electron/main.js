@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require('electron');
+const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const {createExperienceManager}=require('./experience-manager.cjs');
@@ -117,6 +118,36 @@ app.whenReady().then(() => {
         }
         return shell.openExternal(parsed.href);
     });
+    ipcMain.handle('spark:copy-diagnostics', async (event, report) => {
+        // Accept only a generated, whitelisted systems report, never raw
+        // device secrets, chat, local files or unbounded provider output.
+        if (!mainWindow || event.sender.id !== mainWindow.webContents.id ||
+            typeof report !== 'string' || report.length > 4000 ||
+            !report.startsWith('SPARK systems report — no keys or conversation content')) {
+            throw new Error('Invalid diagnostic report');
+        }
+        clipboard.writeText(report);
+        return {copied:true};
+    });
+
+    ipcMain.handle('spark:save-transcript', async (event, content) => {
+        if (!mainWindow || event.sender.id !== mainWindow.webContents.id ||
+            typeof content !== 'string' || content.length > 210000 ||
+            !content.startsWith('# SPARK session transcript')) {
+            throw new Error('Invalid transcript export');
+        }
+        const day = new Date().toISOString().slice(0,10);
+        const result = await dialog.showSaveDialog(mainWindow, {
+            title: 'Save SPARK conversation — may contain private data',
+            defaultPath: 'SPARK-Session-'+day+'.md',
+            filters: [{name:'Markdown',extensions:['md']}],
+            properties:['showOverwriteConfirmation','createDirectory'],
+        });
+        if (result.canceled || !result.filePath) return {saved:false};
+        await fs.writeFile(result.filePath, content, {encoding:'utf8'});
+        return {saved:true};  // Do not leak the selected local path to renderer.
+    });
+
     ipcMain.on('window-minimize', () => {
         if (mainWindow) mainWindow.minimize();
     });
