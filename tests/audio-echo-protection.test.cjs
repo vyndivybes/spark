@@ -12,7 +12,7 @@ test('SPARK suppresses mic capture and queued outbound PCM during assistant play
   assert.match(ada, /self\.echo_gate\.on_playback_finished\(/);
 });
 test('echo guard resets on provider reconnection and output still reaches speaker', () => {
-  assert.match(ada, /self\.session = session\s+self\.echo_gate\.reset\(\)/);
+  assert.match(ada, /self\.session = session\s+self\.echo_gate\.reset\(hold_for_rearm=is_reconnect/);
   assert.match(ada, /await asyncio\.to_thread\(stream\.write, bytestream\)/);
 });
 
