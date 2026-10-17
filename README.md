@@ -2,6 +2,51 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Stage 7 — Live Google Search grounding (explicit opt-in)
+
+The Windows-tested `cinematic_tools` profile remains unchanged. Stage 7
+adds an **experimental** `cinematic_search` profile: the original Charon
+British-style cinematic voice, existing approval-gated Calculator / Notepad /
+Paint functions, and native Google Search grounding in the same Live
+WebSocket (per Google's Gemini Live tool-combination specification).
+
+**Cost / no-money boundary:** Search is **never activated automatically**.
+Google's official Live model pricing states Search grounding is supported in
+the free tier; a Google project with **paid-tier billing** may incur per-query
+charges after its included allowance. SPARK cannot inspect the project's
+billing status or impose a hard monetary cap on Google's server-side queries.
+Use this mode **only when you have verified the API key's project is a
+free-tier project with no paid billing**, or when you explicitly accept
+the potential charges. These flags do not enable or modify billing.
+
+To test the new feature, after closing the old SPARK process:
+
+```powershell
+cd "$HOME\\spark"
+git pull --ff-only origin main
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -LiveProfile cinematic_search -EnableGoogleSearch -AudioTransport browser_aec -LiveModel gemini-3.8-live
+```
+
+The required `-EnableGoogleSearch` launch flag is intentional. Without it,
+the launcher exits safely; a direct backend session also refuses to assemble
+a grounding config unless `SPARK_ENABLE_GOOGLE_SEARCH=1` was explicitly set.
+
+Ask: **"SPARK, use Google Search to find today's latest aerospace news and
+give me the sources."** The cockpit displays provider-supplied source cards
+when Gemini returns `grounding_metadata`. Clicking a source opens it in
+the default Windows web browser through restricted Electron IPC, never in
+SPARK's privileged renderer. If no citations arrive, SPARK must not claim
+it has verified them. Follow up with **"SPARK, open Calculator"** and
+approve the normal popup; desktop actions remain restricted.
+
+If Google rejects this experimental Live combination (including 1008),
+do **not** repeatedly retry. Restart with `-LiveProfile cinematic_tools`
+and omit `-EnableGoogleSearch` to restore the already-qualified voice tools.
+The base `cinematic` mode stays unchanged. GitHub CI checks schema,
+grounding source sanitization, and display wiring, not Google billing
+eligibility or on-device search execution.
+
 ## Stage 6 — cinematic voice with narrowly permitted desktop tools (opt-in)
 
 The verified default `-LiveProfile cinematic` stays unchanged and tool-free.
