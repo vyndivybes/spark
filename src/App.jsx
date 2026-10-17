@@ -8,7 +8,7 @@ import BrowserWindow from './components/BrowserWindow';
 import ChatModule from './components/ChatModule';
 import ToolsModule from './components/ToolsModule';
 import {BrowserEchoAudio} from './audio/BrowserEchoAudio.mjs';
-import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock } from 'lucide-react';
+import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock, Activity } from 'lucide-react';
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 // MemoryPrompt removed - memory is now actively saved to project
 import ConfirmationPopup from './components/ConfirmationPopup';
@@ -16,6 +16,8 @@ import AuthLock from './components/AuthLock';
 import KasaWindow from './components/KasaWindow';
 import PrinterWindow from './components/PrinterWindow';
 import SettingsWindow from './components/SettingsWindow';
+import SystemCenter from './components/SystemCenter';
+import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
 
 
@@ -86,6 +88,9 @@ function App() {
     const [selectedSpeakerId, setSelectedSpeakerId] = useState(() => localStorage.getItem('selectedSpeakerId') || '');
     const [selectedWebcamId, setSelectedWebcamId] = useState(() => localStorage.getItem('selectedWebcamId') || '');
     const [showSettings, setShowSettings] = useState(false);
+    const [showSystems, setShowSystems] = useState(false);
+    const [diagnostics, setDiagnostics] = useState(null);
+    const [systemsNotice, setSystemsNotice] = useState('');
     const [showExperiences, setShowExperiences] = useState(false);
     const [experienceBusy, setExperienceBusy] = useState('');
     const [experienceMessage, setExperienceMessage] = useState('Choose an experience. Camera and microphone remain off until you activate them.');
@@ -336,6 +341,9 @@ function App() {
             setSocketConnected(true);
             socket.emit('get_settings');
             socket.emit('get_audio_transport');
+        });
+        socket.on('spark_diagnostics', (data) => {
+            if (data && typeof data === 'object') setDiagnostics(data);
         });
         socket.on('audio_transport_config', (data) => {
             const mode = data?.mode === 'native' ? 'native' : 'browser_aec';
@@ -744,6 +752,7 @@ function App() {
             socket.off('status');
             socket.off('ai_status');
             socket.off('audio_transport_config');
+            socket.off('spark_diagnostics');
             socket.off('audio_transport_status');
             socket.off('mic_safety');
             socket.off('audio_level');
@@ -775,6 +784,15 @@ function App() {
             socket.emit('get_audio_transport');
         }
     }, []);
+
+    // The systems pane observes only existing local service health.
+    // It never sends LLM requests or polls any paid external provider.
+    useEffect(() => {
+        if (!showSystems || !socketConnected) return undefined;
+        socket.emit('get_diagnostics');
+        const refresh = setInterval(() => socket.emit('get_diagnostics'), 10000);
+        return () => clearInterval(refresh);
+    }, [showSystems, socketConnected]);
 
     // Persist device selections to localStorage when they change
     useEffect(() => {
@@ -1258,6 +1276,39 @@ function App() {
         }
     };
 
+    const copySystemsReport = async () => {
+        try {
+            await ipcRenderer.invoke('spark:copy-diagnostics', formatHealthReport(diagnostics));
+            setSystemsNotice('Safe diagnostic report copied. No API keys or chat text included.');
+        } catch (_) {
+            setSystemsNotice('Unable to copy diagnostics.');
+        }
+    };
+
+    const saveSessionTranscript = async () => {
+        try {
+            const content = formatTranscript(messages);
+            const result = await ipcRenderer.invoke('spark:save-transcript', content);
+            setSystemsNotice(result?.saved ? 'Session transcript saved to the chosen file.' :
+                'File save cancelled. Nothing was written.');
+        } catch (_) {
+            setSystemsNotice('Could not save transcript. Check folder permissions.');
+        }
+    };
+
+    // Ctrl+Shift+M is a deliberate shortcut, not a wake-word listener
+    // or another audio capture engine.
+    useEffect(() => {
+        const onKeyDown = (event) => {
+            if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'm') {
+                event.preventDefault();
+                toggleMute();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isConnected, isMuted]);
+
     const handleSend = (e) => {
         if (e.key === 'Enter' && inputValue.trim()) {
             socket.emit('user_input', { text: inputValue });
@@ -1644,6 +1695,19 @@ function App() {
                     >
                         <Hand size={15} /> EXPERIENCE DECK
                     </button>
+                    <button type="button"
+                        onClick={() => {
+                            setShowSystems(open => !open);
+                            setShowSettings(false);
+                            setSystemsNotice('');
+                        }}
+                        aria-expanded={showSystems}
+                        aria-controls="spark-systems-panel"
+                        className="flex items-center gap-2 rounded-lg border border-cyan-700/70 px-3 py-2
+                            text-sm font-semibold tracking-wide text-cyan-200 hover:bg-cyan-900/50"
+                        title="System diagnostics and session export">
+                        <Activity size={17}/> SYSTEMS
+                    </button>
                     {/* Live Clock */}
                     <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/70 font-mono px-2">
                         <Clock size={12} className="text-cyan-500/50" />
@@ -1660,6 +1724,22 @@ function App() {
                     </button>
                 </div>
             </div>
+
+            {showSystems && (
+                <div id="spark-systems-panel" style={{WebkitAppRegion:'no-drag'}}>
+                    <SystemCenter
+                        diagnostics={diagnostics}
+                        socketConnected={socketConnected}
+                        muted={isMuted}
+                        transcriptCount={messages.length}
+                        onClose={() => setShowSystems(false)}
+                        onRefresh={() => { socket.emit('get_diagnostics'); setSystemsNotice('Health refresh requested.'); }}
+                        onCopyReport={copySystemsReport}
+                        onSaveTranscript={saveSessionTranscript}
+                        notice={systemsNotice}
+                    />
+                </div>
+            )}
 
             {showExperiences && (
                 <section id="spark-experience-panel" className="spark-experience-panel" role="region" aria-label="SPARK experiences" style={{WebkitAppRegion:'no-drag'}}>
