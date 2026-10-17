@@ -26,6 +26,7 @@ import ada
 from spark_live_config import live_status, live_status_report
 from spark_live_profile import live_profile
 from spark_audio_meter import AudioMeter
+from spark_browser_audio import select_transport, validate_pcm
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -60,6 +61,7 @@ live_state = "idle"
 live_message = ""
 authenticator = None
 kasa_agent = KasaAgent()
+AUDIO_TRANSPORT = select_transport(os.environ.get("SPARK_AUDIO_TRANSPORT"))
 SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
@@ -133,12 +135,14 @@ async def startup_event():
 async def status():
     return {"status": "running", "service": "SPARK Core",
             "gemini_configured": ada.client is not None,
-            "live_model": ada.MODEL, "live_profile": live_profile(),
+            "live_model": ada.MODEL, "live_profile": live_profile(), "audio_transport": AUDIO_TRANSPORT,
+            "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **live_status_report(live_state, live_message)}
 
 @sio.event
 async def connect(sid, environ):
     print(f"Client connected: {sid}")
+    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT}, room=sid)
     await sio.emit('status', {'msg': 'Connected to SPARK Core backend'}, room=sid)
     await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL), room=sid)
 
@@ -178,8 +182,20 @@ async def connect(sid, environ):
             await sio.emit('auth_status', {'authenticated': True})
 
 @sio.event
+async def get_audio_transport(sid):
+    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT}, room=sid)
+
+
+@sio.event
 async def disconnect(sid):
     print(f"Client disconnected: {sid}")
+    # AEC playback reference disappears when the Electron owner disconnects.
+    # Stop the session rather than switch behind the user's back to a live mic.
+    if audio_loop and audio_loop.browser_audio and audio_loop.owner_sid == sid:
+        audio_loop.set_paused(True)
+        audio_loop.stop()
+        if loop_task and not loop_task.done():
+            loop_task.cancel()
 
 @sio.event
 async def start_audio(sid, data=None):
@@ -199,6 +215,10 @@ async def start_audio(sid, data=None):
         await sio.emit('ai_status', live_status(False, ada.MODEL), room=sid)
         return
 
+    request_transport = data.get("transport") if isinstance(data, dict) else None
+    if request_transport and request_transport != AUDIO_TRANSPORT:
+        await sio.emit('error', {'msg': 'Audio transport mismatch; restart SPARK with the selected launcher mode.'}, room=sid)
+        return
     print("Starting SPARK Live Audio Loop...")
     
     device_index = None
@@ -229,6 +249,10 @@ async def start_audio(sid, data=None):
         level = audio_meter.sample(data_bytes)
         if level is not None:
             asyncio.create_task(sio.emit('audio_level', {'value': level}))
+
+    def on_browser_audio(data_bytes):
+        # Socket.IO emits raw binary; never JSON-serialize speaker PCM.
+        asyncio.create_task(sio.emit('browser_audio', data_bytes, room=sid))
 
     # Callback to send CAL data to frontend
     def on_cad_data(data):
@@ -302,6 +326,8 @@ async def start_audio(sid, data=None):
         audio_loop = ada.AudioLoop(
             video_mode="none", 
             on_audio_data=on_audio_data,
+            on_browser_audio=on_browser_audio if AUDIO_TRANSPORT == "browser_aec" else None,
+            browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,
             on_transcription=on_transcription,
@@ -320,9 +346,16 @@ async def start_audio(sid, data=None):
         )
         print("AudioLoop initialized successfully.")
 
+        audio_loop.owner_sid = sid if AUDIO_TRANSPORT == "browser_aec" else None
+        audio_loop.browser_ready = False
+
         # Apply current permissions
         audio_loop.update_permissions(SETTINGS["tool_permissions"])
         
+        # Browser mode cannot transmit until the renderer verifies actual AEC.
+        if AUDIO_TRANSPORT == "browser_aec":
+            audio_loop.set_paused(True)
+
         # Check initial mute state
         if data and data.get('muted', False):
             print("Starting with Audio Paused")
@@ -419,14 +452,55 @@ async def monitor_printers_loop():
 
 @sio.event
 async def stop_audio(sid):
-    global audio_loop, live_state
+    global audio_loop, loop_task, live_state
     if audio_loop:
-        audio_loop.stop() 
+        audio_loop.stop()
+        if loop_task and not loop_task.done():
+            loop_task.cancel()  # Cancel old Live socket and all native/browser audio tasks.
         print("Stopping Audio Loop")
         audio_loop = None
         live_state = 'idle'
         await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL))
         await sio.emit('status', {'msg': 'A.D.A Stopped'})
+
+@sio.event
+async def browser_audio_ready(sid, data=None):
+    # Media access can fail. Keep mic CLOSED until Chromium reports
+    # an active echo-cancelled capture + playback graph.
+    if (AUDIO_TRANSPORT != "browser_aec" or not audio_loop
+            or not audio_loop.browser_audio or audio_loop.owner_sid != sid
+            or not audio_loop.session):
+        return
+    audio_loop.browser_ready = True
+    audio_loop.set_paused(bool(data.get("muted", False)) if isinstance(data, dict) else True)
+    await sio.emit('audio_transport_status',
+        {'ready': True, 'mode': 'browser_aec', 'muted': audio_loop.paused}, room=sid)
+
+
+@sio.event
+async def browser_audio_error(sid, data=None):
+    if audio_loop and audio_loop.browser_audio and audio_loop.owner_sid == sid:
+        audio_loop.set_paused(True)
+        audio_loop.browser_ready = False
+        await sio.emit('audio_transport_status',
+            {'ready': False, 'mode': 'browser_aec',
+             'message': 'Windows microphone AEC or Chromium speaker is unavailable.'}, room=sid)
+
+
+@sio.event
+async def browser_mic_pcm(sid, payload):
+    if (AUDIO_TRANSPORT != "browser_aec" or not audio_loop or
+            not audio_loop.browser_audio or audio_loop.owner_sid != sid
+            or not audio_loop.session or audio_loop.paused or
+            not audio_loop.browser_ready or audio_loop.out_queue is None):
+        return
+    try:
+        pcm = validate_pcm(payload)
+        audio_loop.out_queue.put_nowait({'data': pcm, 'mime_type': 'audio/pcm'})
+    except (ValueError, asyncio.QueueFull):
+        # No oversized, malformed or excessive audio may enter Gemini.
+        return
+
 
 @sio.event
 async def pause_audio(sid):
@@ -441,6 +515,17 @@ async def pause_audio(sid):
 async def resume_audio(sid):
     global audio_loop
     if audio_loop and audio_loop.session:
+        if audio_loop.browser_audio:
+            # A button may NEVER turn on raw PCM before Chrome verifies AEC.
+            if not getattr(audio_loop, "browser_ready", False):
+                await sio.emit('audio_transport_status',
+                    {'ready': False, 'mode': 'browser_aec',
+                     'message': 'Echo cancellation is not ready; microphone remains blocked.'},
+                    room=sid)
+                return
+            audio_loop.set_paused(False)
+            await sio.emit('mic_safety', {'muted': False, 'reason': 'aec_enabled'}, room=sid)
+            return
         # Never let a click re-enable mic while speaker playback or the
         # acoustic cooldown is still active. Cinematic mode also requires
         # a fresh user gesture after every assistant reply.

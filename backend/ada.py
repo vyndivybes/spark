@@ -219,7 +219,7 @@ from kasa_agent import KasaAgent
 from printer_agent import PrinterAgent
 
 class AudioLoop:
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -234,6 +234,8 @@ class AudioLoop:
         self.on_error = on_error
         self.on_live_status = on_live_status
         self.on_mic_safety = on_mic_safety
+        self.on_browser_audio = on_browser_audio
+        self.browser_audio = bool(browser_audio)
         self.input_device_index = input_device_index
         self.input_device_name = input_device_name
         self.output_device_index = output_device_index
@@ -367,7 +369,7 @@ class AudioLoop:
             if msg.get("mime_type", "").startswith("audio/pcm"):
                 # Second boundary: discard frames queued just before model
                 # speech started; the capture gate alone is not sufficient.
-                if self.echo_gate.mic_blocked():
+                if self.paused or (not self.browser_audio and self.echo_gate.mic_blocked()):
                     continue
                 await self.session.send_realtime_input(
                     audio=types.Blob(data=msg["data"], mime_type="audio/pcm;rate=16000"))
@@ -688,19 +690,21 @@ class AudioLoop:
                 async for response in turn:
                     # 1. Handle Audio Data
                     if data := response.data:
-                        # Gate before queuing audio: model output can arrive
-                        # before the local speaker begins writing samples.
-                        first_output = self.echo_gate.on_output_received()
-                        # Cinematic mode accepts exactly one user utterance per
-                        # activation. Tell the UI to display the mic as muted
-                        # immediately when assistant speech starts.
-                        if first_output and self.echo_gate.require_rearm and self.on_mic_safety:
-                            self.on_mic_safety({
-                                "muted": True,
-                                "reason": "await_user_rearm",
-                                "message": "SPARK is speaking. Tap the microphone after the reply to ask another question."
-                            })
-                        self.audio_in_queue.put_nowait(data)
+                        if self.browser_audio:
+                            # Binary PCM goes to Chromium playback, which also
+                            # supplies the acoustic echo cancellation reference.
+                            if self.on_audio_data:
+                                self.on_audio_data(data)
+                            if self.on_browser_audio:
+                                self.on_browser_audio(data)
+                        else:
+                            first_output = self.echo_gate.on_output_received()
+                            if first_output and self.echo_gate.require_rearm and self.on_mic_safety:
+                                self.on_mic_safety({
+                                    "muted": True, "reason": "await_user_rearm",
+                                    "message": "SPARK is speaking. Tap the microphone after the reply to ask another question."
+                                })
+                            self.audio_in_queue.put_nowait(data)
                         # NOTE: 'continue' removed here to allow processing transcription/tools in same packet
 
                     # 2. Handle Transcription (User & Model)
@@ -1192,8 +1196,9 @@ class AudioLoop:
                 
                 # The model turn has ended; release mic only after local
                 # output playback drains, plus a short acoustic cooldown.
-                self.echo_gate.on_turn_finished(
-                    queue_empty=self.audio_in_queue.empty())
+                if not self.browser_audio:
+                    self.echo_gate.on_turn_finished(
+                        queue_empty=self.audio_in_queue.empty())
                 # Preserve already-received PCM after a turn finishes: the speaker
                 # consumer may still be playing its queued chunks. Only the explicit
                 # interruption path (clear_audio_queue) may discard playback audio.
@@ -1282,8 +1287,9 @@ class AudioLoop:
                     # Reconnection must not reopen a microphone which the
                     # cinematic reply had latched closed.
                     self.echo_gate.reset(
-                        hold_for_rearm=is_reconnect and self.echo_gate.require_rearm)
-                    if is_reconnect and self.echo_gate.require_rearm and self.on_mic_safety:
+                        hold_for_rearm=(is_reconnect and self.echo_gate.require_rearm
+                                        and not self.browser_audio))
+                    if is_reconnect and self.echo_gate.require_rearm and not self.browser_audio and self.on_mic_safety:
                         self.on_mic_safety({
                             "muted": True, "reason": "await_user_rearm",
                             "message": "SPARK reconnected. Activate the microphone to resume."
@@ -1295,7 +1301,8 @@ class AudioLoop:
                     self.out_queue = asyncio.Queue(maxsize=10)
 
                     tg.create_task(self.send_realtime())
-                    tg.create_task(self.listen_audio())
+                    if not self.browser_audio:
+                        tg.create_task(self.listen_audio())
                     # tg.create_task(self._process_video_queue()) # Removed in favor of VAD
 
                     if self.video_mode == "camera":
@@ -1304,7 +1311,8 @@ class AudioLoop:
                         tg.create_task(self.get_screen())
 
                     tg.create_task(self.receive_audio())
-                    tg.create_task(self.play_audio())
+                    if not self.browser_audio:
+                        tg.create_task(self.play_audio())
 
                     # Handle Startup vs Reconnect Logic
                     if not is_reconnect:

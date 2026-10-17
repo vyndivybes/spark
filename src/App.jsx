@@ -7,6 +7,7 @@ import CadWindow from './components/CadWindow';
 import BrowserWindow from './components/BrowserWindow';
 import ChatModule from './components/ChatModule';
 import ToolsModule from './components/ToolsModule';
+import {BrowserEchoAudio} from './audio/BrowserEchoAudio.mjs';
 import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock } from 'lucide-react';
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 // MemoryPrompt removed - memory is now actively saved to project
@@ -25,6 +26,7 @@ function App() {
     const [status, setStatus] = useState('Disconnected');
     const [liveState, setLiveState] = useState({state:'disconnected',message:'Waiting for SPARK Core...'});
     const [socketConnected, setSocketConnected] = useState(socket.connected); // Track socket connection reactively
+    const [audioTransport, setAudioTransport] = useState('pending');
     // Auth State
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
         // Optimistically assume authenticated if face auth is NOT enabled
@@ -294,11 +296,14 @@ function App() {
     const hasAutoConnectedRef = useRef(false);
     const lastLiveNoticeRef = useRef('');
     const activationPendingRef = useRef(false);
+    const audioTransportRef = useRef('pending');
+    const audioBridgeRef = useRef(null);
+    const userMutedRef = useRef(false);
 
     // Auto-Connect Model on Start (Only after Auth and devices loaded)
     useEffect(() => {
         // Only auto-connect once: when socket connected, authenticated, and devices loaded
-        if (isConnected && isAuthenticated && socketConnected && !hasAutoConnectedRef.current) {
+        if (isConnected && isAuthenticated && socketConnected && audioTransport !== 'pending' && !hasAutoConnectedRef.current) {
             hasAutoConnectedRef.current = true;
 
             // Trigger Kasa and Printer Discovery
@@ -316,11 +321,12 @@ function App() {
                 socket.emit('start_audio', {
                     device_index: index >= 0 ? index : null,
                     device_name: deviceName,
-                    muted: isMuted
+                    muted: audioTransport === 'browser_aec' ? true : isMuted,
+                    transport: audioTransport
                 });
             }, 500);
         }
-    }, [isConnected, isAuthenticated, socketConnected, micDevices, selectedMicId]);
+    }, [isConnected, isAuthenticated, socketConnected, micDevices, selectedMicId, audioTransport]);
 
     useEffect(() => {
         // Socket IO Setup
@@ -328,10 +334,20 @@ function App() {
             setStatus('Backend Online');
             setSocketConnected(true);
             socket.emit('get_settings');
+            socket.emit('get_audio_transport');
+        });
+        socket.on('audio_transport_config', (data) => {
+            const mode = data?.mode === 'native' ? 'native' : 'browser_aec';
+            audioTransportRef.current = mode;
+            setAudioTransport(mode);
         });
         socket.on('disconnect', () => {
             setStatus('Disconnected');
             setSocketConnected(false);
+            hasAutoConnectedRef.current = false;
+            audioBridgeRef.current?.stop();
+            audioBridgeRef.current = null;
+            setIsMuted(true);
         });
         socket.on('status', (data) => {
             addMessage('System', data.msg);
@@ -347,19 +363,61 @@ function App() {
                 setStatus('Gemini Live Connected');
                 if (activationPendingRef.current) {
                     activationPendingRef.current = false;
-                    socket.emit('resume_audio');
-                    setIsMuted(false);
+                    if (audioTransportRef.current !== 'browser_aec') {
+                        socket.emit('resume_audio');
+                        setIsMuted(false);
+                    }
+                }
+                if (audioTransportRef.current === 'browser_aec' && !audioBridgeRef.current) {
+                    const bridge = new BrowserEchoAudio({
+                        socket,
+                        onError: message => {
+                            socket.emit('browser_audio_error');
+                            setIsMuted(true);
+                            addMessage('System', message);
+                        }
+                    });
+                    audioBridgeRef.current = bridge;
+                    const deviceId = localStorage.getItem('selectedMicId') || '';
+                    const outputId = localStorage.getItem('selectedSpeakerId') || '';
+                    bridge.start({deviceId, outputId}).then(() => {
+                        if (audioBridgeRef.current !== bridge) return;
+                        bridge.setMuted(userMutedRef.current);
+                        socket.emit('browser_audio_ready', {muted: userMutedRef.current});
+                        setIsMuted(userMutedRef.current);
+                        setStatus('Hands-Free AEC Active');
+                    }).catch(err => {
+                        if (audioBridgeRef.current !== bridge) return;
+                        bridge.stop();
+                        audioBridgeRef.current = null;
+                        socket.emit('browser_audio_error');
+                        setIsMuted(true);
+                        addMessage('System',
+                            'Hands-free echo cancellation unavailable: ' + String(err?.message || 'audio failure') +
+                            '. No unprocessed microphone audio was sent to Gemini.');
+                    });
                 }
             }
             else if (info.state === 'connecting') setStatus('Connecting to Gemini Live');
             else if (info.state === 'setup_required') setStatus('Gemini Setup Required');
-            else if (info.state === 'error') setStatus('Gemini Live Error');
+            else if (info.state === 'error') {
+                setStatus('Gemini Live Error');
+                audioBridgeRef.current?.stop();
+                audioBridgeRef.current = null;
+            }
             else if (info.state === 'idle' || info.state === 'disconnected') setStatus('SPARK Core Idle');
             else if (info.state === 'audio_error') setStatus('Microphone Error');
             if (['setup_required','error','audio_error'].includes(info.state)) activationPendingRef.current = false;
             if (['setup_required','error','audio_error'].includes(info.state) && info.message !== lastLiveNoticeRef.current) {
                 lastLiveNoticeRef.current = info.message;
                 addMessage('System', info.message);
+            }
+        });
+        socket.on('audio_transport_status', data => {
+            if (!data?.ready) {
+                audioBridgeRef.current?.setMuted(true);
+                setIsMuted(true);
+                if (data?.message) addMessage('System', data.message);
             }
         });
         // Only a bounded amplitude value is sent from the backend, never PCM.
@@ -663,6 +721,8 @@ function App() {
             socket.off('disconnect');
             socket.off('status');
             socket.off('ai_status');
+            socket.off('audio_transport_config');
+            socket.off('audio_transport_status');
             socket.off('mic_safety');
             socket.off('audio_level');
             socket.off('cad_data');
@@ -677,6 +737,8 @@ function App() {
             socket.off('print_status_update');
             socket.off('error');
 
+            audioBridgeRef.current?.stop();
+            audioBridgeRef.current = null;
             stopMicVisualizer();
             stopVideo();
         };
@@ -687,6 +749,7 @@ function App() {
         if (socket.connected) {
             setStatus('Connected');
             socket.emit('get_settings');
+            socket.emit('get_audio_transport');
         }
     }, []);
 
@@ -714,10 +777,12 @@ function App() {
 
     // Start/Stop Mic Visualizer
     useEffect(() => {
-        if (selectedMicId) {
+        if (audioTransport === 'native' && selectedMicId) {
             startMicVisualizer(selectedMicId);
+        } else if (audioTransport === 'browser_aec') {
+            stopMicVisualizer();
         }
-    }, [selectedMicId]);
+    }, [selectedMicId, audioTransport]);
 
     const startMicVisualizer = async (deviceId) => {
         stopMicVisualizer();
@@ -1129,20 +1194,38 @@ function App() {
 
     const togglePower = () => {
         if (isConnected) {
+            audioBridgeRef.current?.stop();
+            audioBridgeRef.current = null;
             socket.emit('stop_audio');
             setIsConnected(false);
-            setIsMuted(false); // Reset mute state
+            setIsMuted(true);
         } else {
             const index = micDevices.findIndex(d => d.deviceId === selectedMicId);
-            socket.emit('start_audio', { device_index: index >= 0 ? index : null });
+            socket.emit('start_audio', {
+                transport: audioTransportRef.current,
+                device_index: index >= 0 ? index : null,
+                muted: audioTransportRef.current === 'browser_aec'
+            });
             setIsConnected(true);
-            setIsMuted(false); // Start unmuted
+            setIsMuted(true); // Wait for the real browser AEC readiness event.
         }
     };
 
     const toggleMute = () => {
-        if (!isConnected) return; // Can't mute if not connected
-
+        if (!isConnected) return;
+        if (audioTransportRef.current === 'browser_aec') {
+            const bridge = audioBridgeRef.current;
+            if (!bridge?.ready) {
+                addMessage('System', 'Chromium echo cancellation is not ready.');
+                return;
+            }
+            const newMuted = !isMuted;
+            userMutedRef.current = newMuted;
+            bridge.setMuted(newMuted);
+            socket.emit(newMuted ? 'pause_audio' : 'resume_audio');
+            setIsMuted(newMuted);
+            return;
+        }
         if (isMuted) {
             socket.emit('resume_audio');
             setIsMuted(false);
@@ -1413,13 +1496,16 @@ function App() {
         // Do not claim the microphone is live until the provider handshake succeeds.
         // ai_status.connected resumes microphone only after an explicit activation request.
         if (liveState.state === 'connected') {
-            socket.emit('resume_audio');
+            if (audioTransportRef.current !== 'browser_aec') {
+                socket.emit('resume_audio');
+            }
             setStatus('Gemini Live Connected');
         } else {
             const mic = micDevices.find(d => d.deviceId === selectedMicId);
             socket.emit('start_audio', {
                 device_name: mic?.label || null,
-                muted: false
+                muted: audioTransportRef.current === 'browser_aec',
+                transport: audioTransportRef.current
             });
             setStatus('Connecting to Gemini Live');
         }
