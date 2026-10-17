@@ -198,17 +198,18 @@ app.on('will-quit', () => {
     experienceManager?.stopAll();
     console.log('App closing... Killing Python backend.');
     if (pythonProcess) {
-        if (process.platform === 'win32') {
-            // Windows: Force kill the process tree synchronously
-            try {
-                const { execSync } = require('child_process');
-                execSync(`taskkill /pid ${pythonProcess.pid} /f /t`);
-            } catch (e) {
-                console.error('Failed to kill python process:', e.message);
+        // A missing-Python or crashed backend has already exited. Do not send
+        // taskkill to a stale PID or produce a misleading shutdown error.
+        if (pythonProcess.pid && pythonProcess.exitCode === null && pythonProcess.signalCode === null) {
+            if (process.platform === 'win32') {
+                const { spawnSync } = require('child_process');
+                const stopped = spawnSync('taskkill',
+                    ['/PID', String(pythonProcess.pid), '/T', '/F'],
+                    { windowsHide: true, stdio: 'ignore', timeout: 3000 });
+                if (stopped.error) console.warn('Could not stop SPARK Python backend:', stopped.error.message);
+            } else {
+                pythonProcess.kill('SIGTERM');
             }
-        } else {
-            // Unix: SIGKILL
-            pythonProcess.kill('SIGKILL');
         }
         pythonProcess = null;
     }

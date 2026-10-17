@@ -1,20 +1,66 @@
-# Launch SPARK on Windows. This script installs open-source assets only on request.
-# No paid services, API credentials, permissions, or OS security policies are modified.
+# SPARK Windows launcher: isolated Python runtime, no global pip changes or paid services.
+# First run installs only the documented runtime packages. Large CAD/Playwright browser
+# binaries and machine-control permissions remain separate explicit choices.
+param([switch]$SkipBackendSetup)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
+
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Install Git for Windows before launching SPARK.' }
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { throw 'Install Node.js 22 or newer before launching SPARK.' }
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw 'Install Python and add it to PATH, or set SPARK_PYTHON to its full path.' }
-if (-not (Test-Path '.\\vendor\\holo-gestures\\holo.html') -or -not (Test-Path '.\\vendor\\brain-map\\build.py')) {
-  Write-Host 'Installing pinned MIT HOLO and Brain Map source and assets...' -ForegroundColor Cyan
-  & git submodule update --init --recursive
-  if ($LASTEXITCODE -ne 0) { throw 'The experience submodules could not be installed.' }
+
+function Find-SupportedPython {
+    if ($env:SPARK_PYTHON) {
+        if (-not (Test-Path $env:SPARK_PYTHON)) { throw 'SPARK_PYTHON does not point to an existing Python executable.' }
+        return $env:SPARK_PYTHON
+    }
+    if (Get-Command py.exe -ErrorAction SilentlyContinue) {
+        foreach ($version in @('3.12','3.11','3.13')) {
+            try {
+                $path = & py.exe "-$version" -c 'import sys; print(sys.executable)' 2>$null
+                if ($LASTEXITCODE -eq 0 -and $path -and (Test-Path $path.Trim())) { return $path.Trim() }
+            } catch {}
+        }
+    }
+    if (Get-Command python.exe -ErrorAction SilentlyContinue) {
+        $path = (Get-Command python.exe).Source
+        $ok = & $path -c 'import sys; sys.exit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 1)' 2>$null
+        if ($LASTEXITCODE -eq 0) { return $path }
+    }
+    throw 'SPARK needs Python 3.11-3.13 (3.12 recommended). Install Python 3.12 for Windows, then rerun this script. Your Python 3.14 installation remains unchanged.'
 }
-if (-not (Test-Path '.\\node_modules\\electron')) {
-  Write-Host 'Installing SPARK Node dependencies...' -ForegroundColor Cyan
-  & npm.cmd ci --no-fund
-  if ($LASTEXITCODE -ne 0) { throw 'SPARK dependency installation failed.' }
+
+$venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+if (-not (Test-Path $venvPython)) {
+    $hostPython = Find-SupportedPython
+    Write-Host 'Creating dedicated SPARK Python environment (not modifying system Python)...' -ForegroundColor Cyan
+    & $hostPython -m venv (Join-Path $PSScriptRoot '.venv')
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $venvPython)) { throw 'Could not create SPARK Python environment.' }
 }
-Write-Host 'Launching SPARK · ADA engine + HOLO Deck + Neural Atlas' -ForegroundColor Green
+
+$env:SPARK_PYTHON = $venvPython
+if (-not $SkipBackendSetup) {
+    & $venvPython '.\scripts\runtime_preflight.py'
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'Installing missing Python runtime dependencies locally. Optional CAD kernel and browsers are excluded.' -ForegroundColor Cyan
+        & $venvPython -m pip --disable-pip-version-check install -r '.\requirements-runtime.txt'
+        if ($LASTEXITCODE -ne 0) { throw 'SPARK Python package installation failed. See pip output; no global packages were changed.' }
+        & $venvPython '.\scripts\runtime_preflight.py'
+        if ($LASTEXITCODE -ne 0) { throw 'SPARK Python dependencies are incomplete or this Python version is unsupported.' }
+    }
+}
+
+if (-not (Test-Path '.\vendor\holo-gestures\holo.html') -or -not (Test-Path '.\vendor\brain-map\build.py')) {
+    Write-Host 'Installing pinned MIT HOLO and Brain Map source assets...' -ForegroundColor Cyan
+    & git submodule update --init --recursive
+    if ($LASTEXITCODE -ne 0) { throw 'Original source experiences could not be installed.' }
+}
+if (-not (Test-Path '.\node_modules\electron')) {
+    Write-Host 'Installing SPARK Node dependencies...' -ForegroundColor Cyan
+    & npm.cmd ci --no-fund
+    if ($LASTEXITCODE -ne 0) { throw 'SPARK Node dependency installation failed.' }
+}
+
+Write-Host 'Starting SPARK cockpit with original ADA, HOLO and Brain Map experiences.' -ForegroundColor Green
 & npm.cmd run dev
-if ($LASTEXITCODE -ne 0) { throw 'SPARK failed to start. Review the displayed error.' }
+if ($LASTEXITCODE -ne 0) { throw 'SPARK launch failed. Check the first backend error above.' }
+Write-Host 'SPARK window closed normally.' -ForegroundColor Green
