@@ -1279,7 +1279,15 @@ class AudioLoop:
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session = session
-                    self.echo_gate.reset()
+                    # Reconnection must not reopen a microphone which the
+                    # cinematic reply had latched closed.
+                    self.echo_gate.reset(
+                        hold_for_rearm=is_reconnect and self.echo_gate.require_rearm)
+                    if is_reconnect and self.echo_gate.require_rearm and self.on_mic_safety:
+                        self.on_mic_safety({
+                            "muted": True, "reason": "await_user_rearm",
+                            "message": "SPARK reconnected. Activate the microphone to resume."
+                        })
                     if self.on_live_status:
                         self.on_live_status({"state": "connected", "model": MODEL, "message": "SPARK Core connected to Gemini Live."})
 
