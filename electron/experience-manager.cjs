@@ -49,12 +49,27 @@ function waitForServer(port,child,timeoutMs=10000){return new Promise((resolve,r
   };
   attempt();
 });}
+// The upstream Brain Map builder prints ✓ and →. Windows Python may use a
+// legacy CP1252 codec for redirected stdout; force UTF-8 for subprocesses.
+// This is scoped to SPARK children, not the user's system Python settings.
+function experiencePythonEnvironment(base=process.env){
+  return {...base,PYTHONIOENCODING:'utf-8',PYTHONUTF8:'1'};
+}
+function formatBuildFailure(stderr){
+  const lines=String(stderr||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+  const exception=lines.slice(-5).join(' | ');
+  return (exception||'No Python traceback was returned.').slice(-600);
+}
 function completedProcess(step){return new Promise((resolve,reject)=>{
-  const child=spawn(step.command,step.args,{cwd:step.cwd,shell:false,windowsHide:true,stdio:['ignore','ignore','pipe']});
+  const child=spawn(step.command,step.args,{
+    cwd:step.cwd,shell:false,windowsHide:true,env:experiencePythonEnvironment(),
+    stdio:['ignore','ignore','pipe']
+  });
   let error='';
-  child.stderr.on('data',buf=>{if(error.length<1200)error+=String(buf).slice(0,100);});
+  child.stderr.on('data',buf=>{if(error.length<16384)error+=String(buf).slice(0,16384-error.length);});
   child.once('error',()=>reject(new Error('Unable to start the configured Python interpreter.')));
-  child.once('close',code=>code===0?resolve():reject(new Error('Brain Map could not build its local graph. '+error.slice(0,150))));
+  child.once('close',code=>code===0?resolve():reject(new Error(
+    'Brain Map could not build its local graph (exit '+code+'). '+formatBuildFailure(error))));
 });}
 function killOwnedProcess(child){
   if(!child||!child.pid)return;
@@ -73,7 +88,7 @@ function createExperienceManager({root,userData,python='python',notesDir,Browser
     await assertPortFree(plan.port);
     for(const step of plan.steps){
       if(step.once){fs.mkdirSync(path.dirname(step.args[step.args.indexOf('--out')+1]),{recursive:true});await completedProcess(step);continue;}
-      const child=spawn(step.command,step.args,{cwd:step.cwd,shell:false,windowsHide:true,stdio:'ignore'});
+      const child=spawn(step.command,step.args,{cwd:step.cwd,shell:false,windowsHide:true,stdio:'ignore',env:experiencePythonEnvironment()});
       children.set(name,child);
       const failedToStart=new Promise((_,reject)=>child.once('error',()=>reject(new Error('Python is unavailable. Configure SPARK_PYTHON or install Python.'))));
       try{await Promise.race([waitForServer(plan.port,child),failedToStart]);}
@@ -91,4 +106,4 @@ function createExperienceManager({root,userData,python='python',notesDir,Browser
   function stopAll(){for(const win of windows.values())if(!win.isDestroyed())win.close();for(const child of children.values())killOwnedProcess(child);windows.clear();children.clear();}
   return {open,stopAll};
 }
-module.exports={getExperiencePlan,createExperienceManager};
+module.exports={getExperiencePlan,createExperienceManager,experiencePythonEnvironment,formatBuildFailure};
