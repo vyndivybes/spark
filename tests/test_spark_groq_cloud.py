@@ -27,7 +27,7 @@ class CloudModeTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict("os.environ",{"SPARK_AI_PROVIDER":"ollama"},clear=True):
             self.assertEqual(cloud_provider(),"gemini")
         with patch.dict("os.environ",{"SPARK_GROQ_MODEL":"arbitrary-paid"},clear=True):
-            self.assertEqual(groq_model(),"llama-3.1-8b-instant")
+            self.assertEqual(groq_model(),"openai/gpt-oss-20b")
 
     def test_wav_is_valid_16khz_and_tts_normalizes_to_24k_pcm(self):
         result=pcm_to_wav(chunk(4000)*5)
