@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const {createExperienceManager}=require('./experience-manager.cjs');
@@ -100,6 +100,22 @@ app.whenReady().then(() => {
         if(!mainWindow||event.sender.id!==mainWindow.webContents.id)
             throw new Error('Experience launch is only available from the SPARK cockpit.');
         return experienceManager.open(name);
+    });
+    ipcMain.handle('spark:open-grounding-source', async (event, url) => {
+        // Never load third-party webpages into the privileged SPARK
+        // Electron renderer. Open only HTTPS sources in user's browser.
+        if (!mainWindow || event.sender.id !== mainWindow.webContents.id ||
+            typeof url !== 'string' || url.length > 2048) {
+            throw new Error('Grounding source not allowed.');
+        }
+        let parsed;
+        try { parsed = new URL(url); }
+        catch { throw new Error('Invalid source URL.'); }
+        if (parsed.protocol !== 'https:' || !parsed.hostname ||
+            parsed.username || parsed.password) {
+            throw new Error('Only HTTPS grounded sources may open.');
+        }
+        return shell.openExternal(parsed.href);
     });
     ipcMain.on('window-minimize', () => {
         if (mainWindow) mainWindow.minimize();
