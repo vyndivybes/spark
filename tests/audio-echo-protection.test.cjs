@@ -26,3 +26,9 @@ test('cinematic voice is single-turn: backend and frontend require explicit mic 
   assert.match(frontend,/socket\.on\('mic_safety'/);
   assert.match(frontend,/setIsMuted\(Boolean\(data\.muted\)\)/);
 });
+
+test('reconnect is silent and 1008 policy violation does not retry',()=>{
+  assert.doesNotMatch(ada,/Please acknowledge the reconnection/);
+  assert.match(ada,/Live reconnect is silent/);
+  assert.match(ada,/"1008"/);
+});
