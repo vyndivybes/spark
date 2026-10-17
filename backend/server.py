@@ -285,6 +285,11 @@ async def start_audio(sid, data=None):
         print(f"Sending Error to frontend: {msg}")
         asyncio.create_task(sio.emit('error', {'msg': msg}))
 
+    # Cinematic one-turn microphone lock is reflected in the real UI state.
+    # The backend alone is authoritative for when a user may rearm.
+    def on_mic_safety(payload):
+        asyncio.create_task(sio.emit('mic_safety', payload))
+
     # Initialize SPARK Live. A running socket is not proof of provider connection.
     def on_live_status(payload):
         global live_state, live_message
@@ -307,6 +312,7 @@ async def start_audio(sid, data=None):
             on_device_update=on_device_update,
             on_error=on_error,
             on_live_status=on_live_status,
+            on_mic_safety=on_mic_safety,
 
             input_device_index=device_index,
             input_device_name=device_name,
@@ -428,15 +434,26 @@ async def pause_audio(sid):
     if audio_loop:
         audio_loop.set_paused(True)
         print("Pausing Audio")
+        await sio.emit('mic_safety', {'muted': True, 'reason': 'user_muted'})
         await sio.emit('status', {'msg': 'Audio Paused'})
 
 @sio.event
 async def resume_audio(sid):
     global audio_loop
     if audio_loop and audio_loop.session:
+        # Never let a click re-enable mic while speaker playback or the
+        # acoustic cooldown is still active. Cinematic mode also requires
+        # a fresh user gesture after every assistant reply.
+        if not audio_loop.echo_gate.rearm():
+            await sio.emit('mic_safety', {
+                'muted': True, 'reason': 'wait_for_speaker',
+                'message': 'SPARK is still speaking. Activate the microphone after the response.'
+            }, room=sid)
+            return
         audio_loop.set_paused(False)
         print("Resuming Audio")
-        await sio.emit('status', {'msg': 'SPARK microphone resumed'})
+        await sio.emit('mic_safety', {'muted': False, 'reason': 'user_rearmed'}, room=sid)
+        await sio.emit('status', {'msg': 'SPARK microphone resumed'}, room=sid)
     else:
         await sio.emit('ai_status', {
             'state': live_state if live_state in ('error', 'setup_required') else 'disconnected',
