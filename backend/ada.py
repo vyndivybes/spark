@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from spark_live_config import live_model, live_error_message
 from spark_live_profile import live_profile, select_live_config
+from spark_echo_gate import EchoGate
 import cv2
 import pyaudio
 import PIL.Image
@@ -239,6 +240,9 @@ class AudioLoop:
         self.audio_in_queue = None
         self.out_queue = None
         self.paused = False
+        # Silence microphone transport while the assistant speaks to prevent
+        # acoustic self-feedback from loudspeakers (half-duplex by design).
+        self.echo_gate = EchoGate()
 
         self.chat_buffer = {"sender": None, "text": ""} # For aggregating chunks
         
@@ -360,6 +364,10 @@ class AudioLoop:
         while True:
             msg = await self.out_queue.get()
             if msg.get("mime_type", "").startswith("audio/pcm"):
+                # Second boundary: discard frames queued just before model
+                # speech started; the capture gate alone is not sufficient.
+                if self.echo_gate.mic_blocked():
+                    continue
                 await self.session.send_realtime_input(
                     audio=types.Blob(data=msg["data"], mime_type="audio/pcm;rate=16000"))
             elif msg.get("mime_type") == "image/jpeg":
@@ -448,7 +456,14 @@ class AudioLoop:
 
             try:
                 data = await asyncio.to_thread(self.audio_stream.read, CHUNK_SIZE, **kwargs)
-                
+
+                # Keep draining Windows microphone capture so stale speaker
+                # audio cannot be replayed after the assistant finishes.
+                if self.echo_gate.mic_blocked():
+                    self._is_speaking = False
+                    self._silence_start_time = None
+                    continue
+
                 # 1. Send Audio
                 if self.out_queue:
                     await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
@@ -672,6 +687,9 @@ class AudioLoop:
                 async for response in turn:
                     # 1. Handle Audio Data
                     if data := response.data:
+                        # Gate before queuing audio: model output can arrive
+                        # before the local speaker begins writing samples.
+                        self.echo_gate.on_output_received()
                         self.audio_in_queue.put_nowait(data)
                         # NOTE: 'continue' removed here to allow processing transcription/tools in same packet
 
@@ -1162,6 +1180,10 @@ class AudioLoop:
                         if function_responses:
                             await self.session.send_tool_response(function_responses=function_responses)
                 
+                # The model turn has ended; release mic only after local
+                # output playback drains, plus a short acoustic cooldown.
+                self.echo_gate.on_turn_finished(
+                    queue_empty=self.audio_in_queue.empty())
                 # Preserve already-received PCM after a turn finishes: the speaker
                 # consumer may still be playing its queued chunks. Only the explicit
                 # interruption path (clear_audio_queue) may discard playback audio.
@@ -1189,9 +1211,15 @@ class AudioLoop:
             return
         while True:
             bytestream = await self.audio_in_queue.get()
-            if self.on_audio_data:
-                self.on_audio_data(bytestream)
-            await asyncio.to_thread(stream.write, bytestream)
+            # Mark speaker active before producing any physical output.
+            self.echo_gate.on_playback_started()
+            try:
+                if self.on_audio_data:
+                    self.on_audio_data(bytestream)
+                await asyncio.to_thread(stream.write, bytestream)
+            finally:
+                self.echo_gate.on_playback_finished(
+                    queue_empty=self.audio_in_queue.empty())
 
     async def get_frames(self):
         cap = await asyncio.to_thread(cv2.VideoCapture, 0, cv2.CAP_AVFOUNDATION)
@@ -1241,6 +1269,7 @@ class AudioLoop:
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session = session
+                    self.echo_gate.reset()
                     if self.on_live_status:
                         self.on_live_status({"state": "connected", "model": MODEL, "message": "SPARK Core connected to Gemini Live."})
 

@@ -2,6 +2,29 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Audio feedback safety (October 2026)
+
+SPARK's native PyAudio capture does not implement hardware acoustic echo
+cancellation. On laptop speakers, a microphone (or Windows "Stereo Mix" /
+"Listen to this device" routing) can return the assistant's voice back
+to Gemini, causing endless repeated conversations. The live voice engine
+now enforces **half-duplex** transmission by default, in both full and
+voice-only profiles: it stops forwarding microphone PCM as soon as model
+audio arrives, keeps listening locally but discards captured microphone
+samples during speaker playback, and resumes upstream microphone audio
+after the playback queue is drained and a 750-ms tail. It also discards
+microphone chunks that were queued immediately before assistant audio.
+This does not modify the key, model, or quota.
+
+Limitation: you **cannot interrupt SPARK by voice while it is speaking**.
+Use the microphone mute/power controls or stop the launcher to interrupt.
+Headphones are recommended; in Windows Sound > Input, select the actual
+microphone rather than "Stereo Mix" or "What U Hear", and turn off
+"Listen to this device" when not intentionally needed. Start with laptop
+speakers at low volume and hand-tracking/camera disabled; run a single
+short spoken exchange and check there is no repeated self-response.
+CI verifies the gate logic, not real Windows echo cancellation hardware.
+
 ## Live voice isolation profile (after a successful minimal handshake)
 
 If `scripts/spark_live_handshake.py --attempt-once` reports `connected`,
