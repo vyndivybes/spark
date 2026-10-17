@@ -92,7 +92,11 @@ if ($env:SPARK_ENABLE_GOOGLE_SEARCH -eq '1') {
 $env:SPARK_LIVE_PROFILE = $LiveProfile
 $env:SPARK_AUDIO_TRANSPORT = $AudioTransport
 Write-Host "SPARK audio: $AudioTransport" -ForegroundColor Cyan
-Write-Host "SPARK Live profile: $LiveProfile (model $LiveModel)" -ForegroundColor Cyan
+if ($AIProvider -eq 'gemini') {
+    Write-Host "SPARK Live profile: $LiveProfile (model $LiveModel)" -ForegroundColor Cyan
+} else {
+    Write-Host "SPARK chat model: $GroqModel; voice: Windows/Chromium local English TTS" -ForegroundColor Cyan
+}
 
 $env:SPARK_PYTHON = $venvPython
 if (-not $SkipBackendSetup) {

@@ -244,6 +244,9 @@ async def start_groq_audio(sid, data=None):
         asyncio.create_task(sio.emit('transcription', payload, room=sid))
     def on_browser_audio(pcm):
         asyncio.create_task(sio.emit('browser_audio', pcm, room=sid))
+    def on_browser_tts(payload):
+        # Browser's installed Windows voice, not a Groq speech API request.
+        asyncio.create_task(sio.emit('browser_tts', payload, room=sid))
     def on_web_sources(payload):
         asyncio.create_task(sio.emit('web_sources', payload, room=sid))
     def on_error(message):
@@ -257,6 +260,7 @@ async def start_groq_audio(sid, data=None):
         audio_loop=GroqVoiceLoop(
             on_transcription=on_transcription,
             on_browser_audio=on_browser_audio,
+            on_browser_tts=on_browser_tts,
             on_web_sources=on_web_sources,
             on_error=on_error,
             on_live_status=on_live_status,
@@ -574,6 +578,20 @@ async def browser_audio_ready(sid, data=None):
     audio_loop.set_paused(bool(data.get("muted", False)) if isinstance(data, dict) else True)
     await sio.emit('audio_transport_status',
         {'ready': True, 'mode': 'browser_aec', 'muted': audio_loop.paused}, room=sid)
+    if getattr(audio_loop,"provider",None)=="groq":
+        # Start only after AEC and speaker readiness, not merely after a
+        # websocket connects. Groq text/Whisper are never used for greeting.
+        asyncio.create_task(audio_loop.start_greeting())
+
+
+@sio.event
+async def browser_speech_done(sid, data=None):
+    # Only the owning cockpit may release the microphone after local TTS.
+    if (not audio_loop or getattr(audio_loop,"provider",None)!="groq"
+            or audio_loop.owner_sid != sid or not audio_loop.browser_ready):
+        return
+    audio_loop.browser_speech_done(error=bool(data.get("error",False))
+                                  if isinstance(data,dict) else True)
 
 
 @sio.event

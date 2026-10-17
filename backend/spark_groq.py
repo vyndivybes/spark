@@ -209,10 +209,13 @@ class GroqVoiceLoop:
     browser_audio=True
     def __init__(self,api=None,on_transcription=None,on_browser_audio=None,
                  on_web_sources=None,on_live_status=None,on_error=None,
-                 audio_playback_wait=True,fetch_public=None):
+                 audio_playback_wait=True,fetch_public=None,on_browser_tts=None):
         self.api=api or GroqClient()
         self.on_transcription=on_transcription
         self.on_browser_audio=on_browser_audio
+        self.on_browser_tts=on_browser_tts
+        self._speech_future=None
+        self.greet_on_ready=False
         self.on_web_sources=on_web_sources
         self.on_live_status=on_live_status
         self.on_error=on_error
@@ -353,6 +356,45 @@ class GroqVoiceLoop:
             finally:
                 self._busy=False
 
+    def browser_speech_done(self,error=False):
+        """Ack only from session-owner Socket.IO handler in server.py."""
+        future=self._speech_future
+        if future is not None and not future.done():
+            future.set_result(not bool(error))
+
+    async def _speak_browser(self,text):
+        if not self.on_browser_tts:
+            return
+        self._speaking=True
+        future=asyncio.get_running_loop().create_future()
+        self._speech_future=future
+        try:
+            # Do not send text to cloud TTS; Web Speech uses the existing
+            # Windows voice and temporarily gates the Chromium microphone.
+            self.on_browser_tts({"text":str(text)[:1600]})
+            played=await asyncio.wait_for(future,timeout=30)
+            if not played and self.on_error:
+                self.on_error("Windows speech synthesis could not play. Check the installed voice and default speaker.")
+        except asyncio.TimeoutError:
+            if self.on_error:
+                self.on_error("Windows speech playback timed out. Check speaker output.")
+        finally:
+            self._speech_future=None
+            self._drop_stale_pcm()
+            self._speaking=False
+            self._reset_vad()
+
+    async def start_greeting(self):
+        """Once per Groq/AEC session, no chat, transcription or TTS quota."""
+        if self.greet_on_ready or not self.on_browser_tts:
+            return
+        self.greet_on_ready=True
+        async with self._lock:
+            if not self.stop_event.is_set():
+                await self._speak_browser(
+                    "Good day, sir. SPARK is online and listening. How may I assist you?"
+                )
+
     async def _answer(self,prompt):
         # Fixed public API query paths avoid spending inference tokens.
         data=await public_api_answer(prompt,self.fetch_public)
@@ -367,6 +409,9 @@ class GroqVoiceLoop:
             self._history=self._history[-6:]
         if self.on_transcription:
             self.on_transcription({"sender":"ADA","text":answer})
+        if self.on_browser_tts:
+            await self._speak_browser(answer)
+            return
         if not self.on_browser_audio:
             return
         # Groq Orpheus accepts up to 200 input characters, so only speak a

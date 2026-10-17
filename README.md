@@ -2,6 +2,31 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Groq spoken replies and automatic opening greeting
+
+When using `-AIProvider groq`, SPARK now uses a **Windows/Chromium
+English speech voice** for audible replies. This avoids the Groq Orpheus
+speech endpoint, which returned `Groq speech HTTP 400` on some
+accounts even while Whisper transcription and chat worked. It does not
+change your Groq chat model or Google Gemini Live/Charon profile.
+
+As soon as Chromium reports its acoustic echo-cancelled audio graph
+ready, the Groq session greets you exactly once: "Good day, sir. SPARK
+is online and listening. How may I assist you?" This is generated
+locally and consumes **no cloud speech, transcription or chat quota**.
+For each Groq answer, the browser selects an installed English voice,
+preferring British-English male voices when available. Because system
+speech does not run through the WebAudio playback reference, SPARK
+automatically gates microphone transmission during the utterance and
+rearms afterward, respecting your manual mute status. If the OS voice
+is missing or blocked, it reports a speaker/voice warning without
+silently disabling the original Gemini voice profile.
+
+No Ollama, local language model or paid subscription is added. Speech
+quality depends on English voices installed in Windows. The
+on-device Windows speaker and automatic greeting require real
+hardware acceptance and cannot be validated by Linux CI alone.
+
 ## Systems Center: diagnostics, export and keyboard mute
 
 SPARK's top bar now includes a clearly labelled **SYSTEMS** control. It
@@ -33,16 +58,18 @@ Device acceptance is still checked on the user's own Windows PC.
 SPARK can now run a separate, explicitly selected cloud voice pipeline when
 Gemini Live has reached its quota. **No Ollama, local LLM download, WSL,
 Google key or paid subscription is required.** The Groq free plan has its
-own limits, including limits for Whisper, text LLM and Orpheus speech; a
-quota error is reported safely with no retries or switch to billed models.
+own limits for Whisper and text reasoning; speaking replies now uses
+Windows' installed voice without any Orpheus requests. Quota errors
+are reported safely with no retries or switch to billed models.
 
 - Speech in: Chromium AEC capture at 16 kHz, bounded automatic VAD,
   Groq Whisper `whisper-large-v3-turbo`.
 - Reasoning: Groq-hosted `openai/gpt-oss-20b`, short bounded exchanges.
   Groq retired `llama-3.1-8b-instant` on 16 August 2026 for free and developer-tier customers; the launcher rejects that obsolete model.
-- Speech out: Groq Orpheus `canopylabs/orpheus-v1-english`, male `daniel`
-  voice, played as resampled 24-kHz PCM through the existing browser AEC
-  speaker graph. It is **not** Google's Charon voice or a film-actor clone.
+- Speech out: local Windows/Chromium English voice (`en-GB` preferred),
+  gated against the existing Chromium mic to prevent self-feedback.
+  The original Google Charon voice remains in Gemini mode. There is no
+  extra TTS cloud quota in the normal Groq-mode path.
 - Keyless read-only API routes: `wiki Bicycle` uses Wikimedia summary;
   `convert 12 USD to INR` uses Frankfurter's latest published FX rate.
   Returned source links appear in SPARK's citation panel.
@@ -70,8 +97,9 @@ with `SPARK, summarize the result`. Then say `wiki Bicycle` or type
 required; speaking turns are detected by a simple energy-based VAD. A quiet
 room and a working microphone will improve accuracy. Unlike Gemini Live,
 Groq does **not** provide a single continuous native speech WebSocket in this
-implementation: each detected utterance sends one STT, chat and TTS request.
-This can be slower and has more free-tier rate limits.
+implementation: each detected utterance sends one cloud STT and chat
+request followed by local speech output. It is not as low-latency as
+Gemini Live, and Groq's transcription and chat quotas still apply.
 
 For status:
 
@@ -90,8 +118,8 @@ limits are verified only on the first remote request.
 The default launcher remains `-AIProvider gemini`. To return to the
 previously qualified Charon voice, simply restart with
 `-AIProvider gemini -LiveProfile cinematic_tools`. No provider fallback
-is automatic. Groq model / STT / Orpheus audio are separately quota-limited,
-and this integration never activates paid billing. Only use a Groq
+is automatic. Groq's model and Whisper transcription are quota-limited;
+the default Windows voice does not call Orpheus. SPARK never activates paid billing. Only use a Groq
 project without paid billing if you require strictly zero cost.
 
 ## Stage 7 — Live Google Search grounding (explicit opt-in)
