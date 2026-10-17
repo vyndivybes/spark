@@ -6,7 +6,7 @@ param(
     [switch]$UseArkusGeminiKey,
     [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
     [string]$LiveModel = 'gemini-3.8-live',
-    [ValidateSet('full', 'voice', 'cinematic')]
+    [ValidateSet('full', 'voice', 'cinematic', 'cinematic_tools')]
     [string]$LiveProfile = 'cinematic',
     [ValidateSet('browser_aec', 'native')]
     [string]$AudioTransport = 'browser_aec'
