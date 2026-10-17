@@ -8,7 +8,7 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 test('SPARK uses supported Gemini Live model and true real-time audio send',()=>{
   const ada=read('backend/ada.py');
   assert.match(ada,/MODEL\s*=\s*live_model\(\)/);
-  assert.match(ada,/send_realtime_input\(audio=/);
+  assert.match(ada,/send_realtime_input\(\s*audio=/);
   assert.match(ada,/audio\/pcm;rate=16000/);
   assert.doesNotMatch(ada,/MODEL\s*=\s*["']models\/gemini-2\.5/);
 });
