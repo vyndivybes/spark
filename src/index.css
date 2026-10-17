@@ -83,3 +83,15 @@ button.spark-experience-card:hover:not(:disabled),button.spark-experience-card:f
 .spark-exp-status {margin-top:16px;font-size:12px;color:#dce7ed;overflow-wrap:anywhere}
 @media(max-width:900px){.spark-experience-panel{right:10px;width:calc(100% - 20px);padding:18px}.spark-experience-cards{grid-template-columns:1fr}.spark-experience-card{min-height:150px}.spark-experience-card small{min-height:0}.spark-panel-heading h2{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.spark-experience-card,.spark-launch-button{transition:none}}
+
+/* Persistent, human-readable AI readiness: a live socket is not AI readiness. */
+.spark-core-warning {
+  position:absolute; z-index:72; top:72px; left:18px; right:18px;
+  display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center;
+  padding:12px 18px; background:rgba(73,41,43,.96);
+  border:1px solid #dbab8d; border-radius:12px;
+  box-shadow:0 14px 35px rgba(0,0,0,.26);
+  color:#fff4e7; font:500 13px/1.5 Inter,'Segoe UI',sans-serif;
+}
+.spark-core-warning strong { font-size:11px;letter-spacing:.12em;color:#ffd89e }
+.spark-core-warning span {overflow-wrap:anywhere}
