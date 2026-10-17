@@ -37,6 +37,9 @@ app = FastAPI()
 app_socketio = socketio.ASGIApp(sio, app)
 
 import signal
+import time
+from spark_diagnostics import safe_diagnostics
+_BACKEND_BOOT_AT = time.monotonic()
 
 # --- SHUTDOWN HANDLER ---
 def signal_handler(sig, frame):
@@ -146,6 +149,15 @@ async def status():
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
                 "live_error_code":None} if cloud_provider()=="groq"
                 else live_status_report(live_state, live_message))}
+
+@sio.event
+async def get_diagnostics(sid):
+    # Existing status values are filtered before reaching the cockpit.
+    # No API keys, prompts, saved settings, paths or full exception bodies.
+    health = safe_diagnostics(await status(),
+        uptime_seconds=time.monotonic() - _BACKEND_BOOT_AT)
+    await sio.emit('spark_diagnostics', health, room=sid)
+
 
 @sio.event
 async def connect(sid, environ):
