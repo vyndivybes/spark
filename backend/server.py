@@ -519,12 +519,21 @@ from pathlib import Path
 
 @sio.event
 async def video_frame(sid, data):
-    # data should contain 'image' which is binary (blob) or base64 encoded
-    image_data = data.get('image')
-    if image_data and audio_loop:
-        # We don't await this because we don't want to block the socket handler
-        # But send_frame is async, so we create a task
-        asyncio.create_task(audio_loop.send_frame(image_data))
+    # Camera requires an explicitly started Live session and an authenticated
+    # user when facial authentication has been enabled.
+    if not audio_loop or not audio_loop.session:
+        return
+    if SETTINGS.get("face_auth_enabled", False) and (
+        not authenticator or not authenticator.authenticated
+    ):
+        return
+    from spark_camera_frames import validate_camera_frame
+    try:
+        frame = validate_camera_frame(data.get("image") if isinstance(data, dict) else None)
+    except ValueError:
+        await sio.emit('error', {'msg': 'Rejected invalid or oversized camera frame.'}, room=sid)
+        return
+    await audio_loop.send_frame(frame)
 
 @sio.event
 async def save_memory(sid, data):
