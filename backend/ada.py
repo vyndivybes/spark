@@ -28,6 +28,7 @@ if sys.version_info < (3, 11, 0):
 
 from tools import tools_list
 from spark_desktop import launch_allowed_app
+from spark_cinematic_tools import allowed_live_tool, tool_confirmation_required, get_system_status
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -777,11 +778,25 @@ class AudioLoop:
                         print("The tool was called")
                         function_responses = []
                         for fc in response.tool_call.function_calls:
+                            # Enforce the configured provider tool boundary on
+                            # execution; never trust a model-provided name.
+                            if not allowed_live_tool(live_profile(), fc.name):
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name,
+                                    response={"result": "Tool unavailable in the current SPARK voice profile."}
+                                ))
+                                continue
+                            if fc.name == "get_system_status":
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name,
+                                    response={"result": get_system_status()}
+                                ))
+                                continue
                             if fc.name in ["generate_cad", "run_web_agent", "write_file", "read_directory", "read_file", "create_project", "switch_project", "list_projects", "list_smart_devices", "control_light", "discover_printers", "print_stl", "get_print_status", "iterate_cad", "launch_desktop_app"]:
                                 prompt = fc.args.get("prompt", "") # Prompt is not present for all tools
                                 
                                 # Check Permissions (Default to True if not set)
-                                confirmation_required = (fc.name == "launch_desktop_app" or self.permissions.get(fc.name, True))
+                                confirmation_required = tool_confirmation_required(fc.name, self.permissions)
                                 
                                 if not confirmation_required:
                                     print(f"[ADA DEBUG] [TOOL] Permission check: '{fc.name}' -> AUTO-ALLOW")
@@ -810,9 +825,12 @@ class AudioLoop:
                                     })
                                     
                                     try:
-                                        # Wait for user response
-                                        confirmed = await future
-
+                                        # A missing/abandoned confirmation can
+                                        # never stall hands-free conversation indefinitely.
+                                        confirmed = bool(await asyncio.wait_for(future, timeout=45))
+                                    except asyncio.TimeoutError:
+                                        confirmed = False
+                                        print("[SPARK] Tool approval timed out; action denied.")
                                     finally:
                                         self._pending_confirmations.pop(request_id, None)
 
