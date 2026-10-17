@@ -1193,20 +1193,38 @@ function App() {
 
     const togglePower = () => {
         if (isConnected) {
+            audioBridgeRef.current?.stop();
+            audioBridgeRef.current = null;
             socket.emit('stop_audio');
             setIsConnected(false);
-            setIsMuted(false); // Reset mute state
+            setIsMuted(true);
         } else {
             const index = micDevices.findIndex(d => d.deviceId === selectedMicId);
-            socket.emit('start_audio', { device_index: index >= 0 ? index : null });
+            socket.emit('start_audio', {
+                transport: audioTransportRef.current,
+                device_index: index >= 0 ? index : null,
+                muted: audioTransportRef.current === 'browser_aec'
+            });
             setIsConnected(true);
-            setIsMuted(false); // Start unmuted
+            setIsMuted(true); // Wait for the real browser AEC readiness event.
         }
     };
 
     const toggleMute = () => {
-        if (!isConnected) return; // Can't mute if not connected
-
+        if (!isConnected) return;
+        if (audioTransportRef.current === 'browser_aec') {
+            const bridge = audioBridgeRef.current;
+            if (!bridge?.ready) {
+                addMessage('System', 'Chromium echo cancellation is not ready.');
+                return;
+            }
+            const newMuted = !isMuted;
+            userMutedRef.current = newMuted;
+            bridge.setMuted(newMuted);
+            socket.emit(newMuted ? 'pause_audio' : 'resume_audio');
+            setIsMuted(newMuted);
+            return;
+        }
         if (isMuted) {
             socket.emit('resume_audio');
             setIsMuted(false);
@@ -1477,13 +1495,16 @@ function App() {
         // Do not claim the microphone is live until the provider handshake succeeds.
         // ai_status.connected resumes microphone only after an explicit activation request.
         if (liveState.state === 'connected') {
-            socket.emit('resume_audio');
+            if (audioTransportRef.current !== 'browser_aec') {
+                socket.emit('resume_audio');
+            }
             setStatus('Gemini Live Connected');
         } else {
             const mic = micDevices.find(d => d.deviceId === selectedMicId);
             socket.emit('start_audio', {
                 device_name: mic?.label || null,
-                muted: false
+                muted: audioTransportRef.current === 'browser_aec',
+                transport: audioTransportRef.current
             });
             setStatus('Connecting to Gemini Live');
         }
