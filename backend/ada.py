@@ -7,6 +7,7 @@ import traceback
 from dotenv import load_dotenv
 from pathlib import Path
 from spark_live_config import live_model, live_error_message
+from spark_live_profile import live_profile, select_live_config
 import cv2
 import pyaudio
 import PIL.Image
@@ -204,6 +205,10 @@ config = types.LiveConnectConfig(
         )
     )
 )
+
+# Voice mode reproduces the known-good minimal Gemini handshake, leaving
+# all original tools and transcription available in explicitly selected full mode.
+config = select_live_config(live_profile(), config)
 
 pya = pyaudio.PyAudio()
 
@@ -1231,7 +1236,7 @@ class AudioLoop:
             try:
                 if self.on_live_status:
                     self.on_live_status({"state": "connecting", "model": MODEL, "message": "Connecting to Gemini Live..."})
-                print(f"[SPARK] Connecting to Gemini Live model {MODEL}...")
+                print(f"[SPARK] Connecting to Gemini Live model {MODEL}; profile={live_profile()}...")
                 async with (
                     client.aio.live.connect(model=MODEL, config=config) as session,
                     asyncio.TaskGroup() as tg,
