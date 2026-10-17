@@ -5,7 +5,9 @@ param(
     [switch]$SkipBackendSetup,
     [switch]$UseArkusGeminiKey,
     [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
-    [string]$LiveModel = 'gemini-3.8-live'
+    [string]$LiveModel = 'gemini-3.8-live',
+    [ValidateSet('full', 'voice')]
+    [string]$LiveProfile = 'full'
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -61,6 +63,8 @@ if ($UseArkusGeminiKey -and [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) {
     Write-Host 'SPARK Gemini credential: imported from local ARKUS configuration (process only).' -ForegroundColor Green
 }
 $env:SPARK_LIVE_MODEL = $LiveModel
+$env:SPARK_LIVE_PROFILE = $LiveProfile
+Write-Host "SPARK Live profile: $LiveProfile (model $LiveModel)" -ForegroundColor Cyan
 
 $env:SPARK_PYTHON = $venvPython
 if (-not $SkipBackendSetup) {
