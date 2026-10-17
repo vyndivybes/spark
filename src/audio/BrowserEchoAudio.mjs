@@ -40,6 +40,11 @@ export class BrowserEchoAudio {
       this.stream = await navigator.mediaDevices.getUserMedia({audio, video: false});
       if (this.closed) throw new Error('SPARK audio cancelled.');
       const track = this.stream.getAudioTracks()[0];
+      // Digital output-monitor devices bypass normal acoustic AEC and can
+      // create an endless model-to-model audio loop. Never use them as mic.
+      if (/stereo mix|what u hear|loopback/i.test(track?.label || '')) {
+        throw new Error('Select a real microphone; Stereo Mix and loopback inputs are unsafe for hands-free voice.');
+      }
       const echoMode = track?.getSettings()?.echoCancellation;
       // Chromium may return boolean true or the stronger string "all".
       // "remote-only" cannot be trusted to cancel local Web Audio playback.
