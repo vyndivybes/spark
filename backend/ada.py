@@ -219,7 +219,7 @@ from kasa_agent import KasaAgent
 from printer_agent import PrinterAgent
 
 class AudioLoop:
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -233,6 +233,7 @@ class AudioLoop:
         self.on_device_update = on_device_update
         self.on_error = on_error
         self.on_live_status = on_live_status
+        self.on_mic_safety = on_mic_safety
         self.input_device_index = input_device_index
         self.input_device_name = input_device_name
         self.output_device_index = output_device_index
@@ -242,7 +243,7 @@ class AudioLoop:
         self.paused = False
         # Silence microphone transport while the assistant speaks to prevent
         # acoustic self-feedback from loudspeakers (half-duplex by design).
-        self.echo_gate = EchoGate()
+        self.echo_gate = EchoGate(require_rearm=live_profile() == "cinematic")
 
         self.chat_buffer = {"sender": None, "text": ""} # For aggregating chunks
         
@@ -689,7 +690,16 @@ class AudioLoop:
                     if data := response.data:
                         # Gate before queuing audio: model output can arrive
                         # before the local speaker begins writing samples.
-                        self.echo_gate.on_output_received()
+                        first_output = self.echo_gate.on_output_received()
+                        # Cinematic mode accepts exactly one user utterance per
+                        # activation. Tell the UI to display the mic as muted
+                        # immediately when assistant speech starts.
+                        if first_output and self.echo_gate.require_rearm and self.on_mic_safety:
+                            self.on_mic_safety({
+                                "muted": True,
+                                "reason": "await_user_rearm",
+                                "message": "SPARK is speaking. Tap the microphone after the reply to ask another question."
+                            })
                         self.audio_in_queue.put_nowait(data)
                         # NOTE: 'continue' removed here to allow processing transcription/tools in same packet
 
