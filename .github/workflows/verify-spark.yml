@@ -1,0 +1,19 @@
+name: Verify SPARK
+on:
+  push:
+    branches: [main, feat/spark-experiences-and-cockpit]
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node --test tests/experience-manager.test.cjs
+      - run: npm ci --no-fund
+      - run: npm run build
