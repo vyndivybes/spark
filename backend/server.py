@@ -25,6 +25,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import ada
 from spark_live_config import live_status, live_status_report
 from spark_live_profile import live_profile
+from spark_audio_meter import AudioMeter
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -221,11 +222,13 @@ async def start_audio(sid, data=None):
              return
 
 
-    # Callback to send audio data to frontend
+    # Emit a compact visualization level at most ten times a second.
+    # Never serialize the full PCM chunk into thousands of JSON integers.
+    audio_meter = AudioMeter()
     def on_audio_data(data_bytes):
-        # We need to schedule this on the event loop
-        # This is high frequency, so we might want to downsample or batch if it's too much
-        asyncio.create_task(sio.emit('audio_data', {'data': list(data_bytes)}))
+        level = audio_meter.sample(data_bytes)
+        if level is not None:
+            asyncio.create_task(sio.emit('audio_level', {'value': level}))
 
     # Callback to send CAL data to frontend
     def on_cad_data(data):
