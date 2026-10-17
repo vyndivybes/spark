@@ -57,7 +57,7 @@ test('launcher accepts a selected allowlisted free-tier Gemini Live model',()=>{
 test('explicit voice profile selects proven minimal Live config without discarding full mode',()=>{
  const launcher=read('start-spark.ps1');
  const ada=read('backend/ada.py');
- assert.match(launcher,/\[ValidateSet\('full',\s*'voice',\s*'cinematic'\)\]/);
+ assert.match(launcher,/\[ValidateSet\('full',\s*'voice',\s*'cinematic',\s*'cinematic_tools'\)\]/);
  assert.match(launcher,/\[string\]\$LiveProfile\s*=\s*'cinematic'/);
  assert.match(launcher,/\$env:SPARK_LIVE_PROFILE\s*=\s*\$LiveProfile/);
  assert.match(ada,/select_live_config\(live_profile\(\),\s*config\)/);
