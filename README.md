@@ -2,6 +2,45 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Stage 6 — cinematic voice with narrowly permitted desktop tools (opt-in)
+
+The verified default `-LiveProfile cinematic` stays unchanged and tool-free.
+To trial voice-initiated actions **without sacrificing Chromium AEC**, use
+the separate `cinematic_tools` profile:
+
+```powershell
+cd "$HOME\\spark"
+git pull --ff-only origin main
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -LiveProfile cinematic_tools -AudioTransport browser_aec -LiveModel gemini-3.8-live
+```
+
+The new Live session declares only two synchronous tools:
+
+- **get_system_status:** returns SPARK service name, operating-system family,
+  and local time; no external execution or account access.
+- **launch_desktop_app:** opens only Calculator, Notepad or Paint using
+  the existing shell-free Windows allowlist, **only after approval in the
+  initiating SPARK window**. Denied or unanswered approvals (45 seconds)
+  produce no action. A second client cannot approve a different window's
+  request.
+
+Try `SPARK, what time is it on this computer?` and then `SPARK, open
+Calculator.` Approve the application in the popup before expecting it to
+launch. Check `/status`: `live_profile` should be `cinematic_tools`,
+`audio_transport` should be `browser_aec`, and only the local Windows
+acceptance test can establish that the selected Gemini Live model accepts
+these function declarations.
+
+**If the experimental tool session fails to connect or returns 1008, do
+not repeatedly retry**: restart with `-LiveProfile cinematic` to preserve
+your previously qualified hands-free voice. Do not select the legacy `full`
+profile merely to enable desktop actions. It advertises many unqualified
+tools and may fail independently. This opt-in profile does **not yet**
+provide live web search, camera understanding or general computer control;
+these will be isolated in subsequent stages. No paid model or account
+changes are required.
+
 ## True hands-free Gemini Live voice — Chromium acoustic echo cancellation
 
 The default Windows launcher now uses `-AudioTransport browser_aec`. This is
