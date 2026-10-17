@@ -15,12 +15,15 @@ class EchoGate:
         self.require_rearm = require_rearm
         self.reset()
 
-    def reset(self):
+    def reset(self, hold_for_rearm=False, now=None):
         self._output_active = False
         self._writing = False
         self._turn_finished = False
-        self._release_at = 0.0
-        self._needs_rearm = False
+        # Provider reconnects must never silently unlock cinematic mic.
+        # A short speaker tail protects against buffered Windows playback.
+        self._release_at = ((time.monotonic() if now is None else now)
+                            + self.tail_seconds) if hold_for_rearm else 0.0
+        self._needs_rearm = bool(hold_for_rearm and self.require_rearm)
 
     def on_output_received(self):
         first_packet = not self._output_active
