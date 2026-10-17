@@ -56,7 +56,7 @@ function experiencePythonEnvironment(base=process.env){
   return {...base,PYTHONIOENCODING:'utf-8',PYTHONUTF8:'1'};
 }
 function formatBuildFailure(stderr){
-  const lines=String(stderr||'').split(/\\r?\\n/).map(line=>line.trim()).filter(Boolean);
+  const lines=String(stderr||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
   const exception=lines.slice(-5).join(' | ');
   return (exception||'No Python traceback was returned.').slice(-600);
 }
