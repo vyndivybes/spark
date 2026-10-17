@@ -10,7 +10,11 @@ param(
     [string]$LiveProfile = 'cinematic',
     [switch]$EnableGoogleSearch,
     [ValidateSet('browser_aec', 'native')]
-    [string]$AudioTransport = 'browser_aec'
+    [string]$AudioTransport = 'browser_aec',
+    [ValidateSet('gemini', 'groq')]
+    [string]$AIProvider = 'gemini',
+    [ValidateSet('llama-3.1-8b-instant', 'openai/gpt-oss-20b')]
+    [string]$GroqModel = 'llama-3.1-8b-instant'
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -64,6 +68,15 @@ if ($UseArkusGeminiKey -and [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) {
     }
     $env:GEMINI_API_KEY = [string]$arkusSettings.api_key
     Write-Host 'SPARK Gemini credential: imported from local ARKUS configuration (process only).' -ForegroundColor Green
+}
+if ($AIProvider -eq 'groq' -and $AudioTransport -ne 'browser_aec') {
+    throw 'Groq voice requires the existing Chromium browser_aec microphone and speaker path.'
+}
+$env:SPARK_AI_PROVIDER = $AIProvider
+$env:SPARK_GROQ_MODEL = $GroqModel
+if ($AIProvider -eq 'groq') {
+    Write-Host "SPARK AI: Groq cloud (no Ollama, no Gemini Live)" -ForegroundColor Cyan
+    Write-Warning 'Groq free-plan quotas apply. Use a Groq project without paid billing. Never place its API key in Git.'
 }
 $env:SPARK_LIVE_MODEL = $LiveModel
 if ($LiveProfile -eq 'cinematic_search' -and -not $EnableGoogleSearch) {
