@@ -10,11 +10,7 @@ import platform
 CINEMATIC_FUNCTIONS = [
     {
         "name": "get_system_status",
-        "description": "Report SPARK's local operating system and time. Read-only.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {}
-        }
+        "description": "Report SPARK's local operating system and time. Read-only."
     },
     {
         "name": "launch_desktop_app",
