@@ -9,6 +9,9 @@ const {createExperienceManager}=require('./experience-manager.cjs');
 app.commandLine.appendSwitch('use-angle', 'd3d11');
 app.commandLine.appendSwitch('enable-features', 'Vulkan');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
+ // SPARK is a user-controlled local desktop cockpit. Its automatic audible
+ // greeting is intentionally allowed before the user clicks the window.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let mainWindow;
 let pythonProcess;
@@ -21,6 +24,7 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false, // For simple IPC/Socket.IO usage
+            autoplayPolicy: 'no-user-gesture-required',
         },
         backgroundColor: '#0b1220',
         frame: false, // Frameless SPARK cockpit with custom chrome
