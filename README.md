@@ -2,6 +2,72 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Alternative provider: Groq cloud hands-free voice — no Ollama
+
+SPARK can now run a separate, explicitly selected cloud voice pipeline when
+Gemini Live has reached its quota. **No Ollama, local LLM download, WSL,
+Google key or paid subscription is required.** The Groq free plan has its
+own limits, including limits for Whisper, text LLM and Orpheus speech; a
+quota error is reported safely with no retries or switch to billed models.
+
+- Speech in: Chromium AEC capture at 16 kHz, bounded automatic VAD,
+  Groq Whisper `whisper-large-v3-turbo`.
+- Reasoning: Groq-hosted `llama-3.1-8b-instant` (or optionally
+  `openai/gpt-oss-20b` hosted **by Groq**), short bounded exchanges.
+- Speech out: Groq Orpheus `canopylabs/orpheus-v1-english`, male `daniel`
+  voice, played as resampled 24-kHz PCM through the existing browser AEC
+  speaker graph. It is **not** Google's Charon voice or a film-actor clone.
+- Keyless read-only API routes: `wiki Bicycle` uses Wikimedia summary;
+  `convert 12 USD to INR` uses Frankfurter's latest published FX rate.
+  Returned source links appear in SPARK's citation panel.
+- Other prompts use Groq chat without tools. This cloud mode does **not**
+  execute arbitrary Windows commands, Google Search, smart-home actions
+  or camera analysis. These require separately approved tool integrations.
+
+Create a **Groq free-plan** API key using <https://console.groq.com/keys>
+and put it only in your machine's `C:\\Users\\ASUS\\spark\\backend\\.env`
+as `GROQ_API_KEY=<private key>`. Keep existing Gemini settings unchanged.
+**Never commit, paste, or display the value of the key.**
+
+After closing the old SPARK window, launch:
+
+```powershell
+cd "$HOME\\spark"
+git pull --ff-only origin main
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -AIProvider groq -GroqModel llama-3.1-8b-instant -AudioTransport browser_aec
+```
+
+Try `SPARK, say hello in a short sentence`; without clicking, follow up
+with `SPARK, summarize the result`. Then say `wiki Bicycle` or type
+`convert 12 USD to INR`. Initial Chromium microphone permission may be
+required; speaking turns are detected by a simple energy-based VAD. A quiet
+room and a working microphone will improve accuracy. Unlike Gemini Live,
+Groq does **not** provide a single continuous native speech WebSocket in this
+implementation: each detected utterance sends one STT, chat and TTS request.
+This can be slower and has more free-tier rate limits.
+
+For status:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/status" |
+    Select-Object ai_provider,groq_configured,live_model,audio_transport,hands_free_ready,live_state |
+    Format-List
+```
+
+Expected `ai_provider: groq`, `groq_configured: True`,
+`audio_transport: browser_aec`, `hands_free_ready: True`,
+`live_state: connected`. Here `connected` means the local Groq voice
+engine is ready to accept utterances; provider credentials and usage
+limits are verified only on the first remote request.
+
+The default launcher remains `-AIProvider gemini`. To return to the
+previously qualified Charon voice, simply restart with
+`-AIProvider gemini -LiveProfile cinematic_tools`. No provider fallback
+is automatic. Groq model / STT / Orpheus audio are separately quota-limited,
+and this integration never activates paid billing. Only use a Groq
+project without paid billing if you require strictly zero cost.
+
 ## Stage 7 — Live Google Search grounding (explicit opt-in)
 
 The Windows-tested `cinematic_tools` profile remains unchanged. Stage 7
