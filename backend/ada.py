@@ -34,7 +34,7 @@ MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
 DEFAULT_MODE = "camera"
 
 load_dotenv()
-client = genai.Client(http_options={"api_version": "v1beta"}, api_key=os.getenv("GEMINI_API_KEY"))
+client = genai.Client(http_options={"api_version": "v1beta"}, api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
 
 # Function definitions
 generate_cad = {
@@ -253,8 +253,8 @@ class AudioLoop:
             if self.on_cad_status:
                 self.on_cad_status(status_info)
         
-        self.cad_agent = CadAgent(on_thought=handle_cad_thought, on_status=handle_cad_status)
-        self.web_agent = WebAgent()
+        self.cad_agent = CadAgent(on_thought=handle_cad_thought, on_status=handle_cad_status) if client else None
+        self.web_agent = WebAgent() if client else None
         self.kasa_agent = kasa_agent if kasa_agent else KasaAgent()
         self.printer_agent = PrinterAgent()
 
@@ -1171,6 +1171,8 @@ class AudioLoop:
          pass
 
     async def run(self, start_message=None):
+        if client is None:
+            raise RuntimeError("Gemini Live is not configured. Set GEMINI_API_KEY privately in backend/.env.")
         retry_delay = 1
         is_reconnect = False
         
