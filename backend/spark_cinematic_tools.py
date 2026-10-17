@@ -36,7 +36,7 @@ _ALLOWED = frozenset(x["name"] for x in CINEMATIC_FUNCTIONS)
 
 
 def allowed_live_tool(profile, name):
-    if profile == "cinematic_tools":
+    if profile in ("cinematic_tools", "cinematic_search"):
         return name in _ALLOWED
     if profile == "full":
         return True  # Legacy full profile's own permission gates remain.

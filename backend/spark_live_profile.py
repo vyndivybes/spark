@@ -29,6 +29,10 @@ CINEMATIC_SYSTEM_INSTRUCTION = (
 def live_profile():
     choice = os.environ.get("SPARK_LIVE_PROFILE", "cinematic").strip().lower()
     # The known-good one-line profile is the fail-closed fallback.
+    if choice == "cinematic_search":
+        # Grounding can incur charges on a paid-tier Google AI project.
+        # Never enable it without the launcher's explicit second opt-in.
+        return "cinematic_search" if os.environ.get("SPARK_ENABLE_GOOGLE_SEARCH") == "1" else "cinematic_tools"
     return choice if choice in ("full", "voice", "cinematic", "cinematic_tools") else "voice"
 
 
@@ -57,6 +61,21 @@ def select_live_config(profile, full_config):
             "or times out, explain this briefly and continue listening."
         )
         output["tools"] = [{"function_declarations": CINEMATIC_FUNCTIONS}]
+        return output
+    if profile == "cinematic_search":
+        if os.environ.get("SPARK_ENABLE_GOOGLE_SEARCH") != "1":
+            raise ValueError("Google grounding requires explicit SPARK_ENABLE_GOOGLE_SEARCH opt-in")
+        # Gemini Live docs support native Grounding with Google Search
+        # alongside synchronous function calling. Preserve Stage-6 actions.
+        output = select_live_config("cinematic_tools", full_config)
+        output["tools"] = [{"google_search": {}}] + output["tools"]
+        output["system_instruction"] += (
+            " Use Google Search for recent or uncertain external facts. "
+            "Ground factual claims in retrieved sources; when grounding is "
+            "unavailable, say you could not verify the information. "
+            "Use approved local tools only for the exact actions requested. "
+            "Do not invent source titles, links or search results."
+        )
         return output
     if profile == "full":
         return full_config

@@ -6,8 +6,9 @@ param(
     [switch]$UseArkusGeminiKey,
     [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
     [string]$LiveModel = 'gemini-3.8-live',
-    [ValidateSet('full', 'voice', 'cinematic', 'cinematic_tools')]
+    [ValidateSet('full', 'voice', 'cinematic', 'cinematic_tools', 'cinematic_search')]
     [string]$LiveProfile = 'cinematic',
+    [switch]$EnableGoogleSearch,
     [ValidateSet('browser_aec', 'native')]
     [string]$AudioTransport = 'browser_aec'
 )
@@ -65,6 +66,13 @@ if ($UseArkusGeminiKey -and [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) {
     Write-Host 'SPARK Gemini credential: imported from local ARKUS configuration (process only).' -ForegroundColor Green
 }
 $env:SPARK_LIVE_MODEL = $LiveModel
+if ($LiveProfile -eq 'cinematic_search' -and -not $EnableGoogleSearch) {
+    throw 'Google Search is opt-in. Add -EnableGoogleSearch only if your Google AI project is on the free tier or you accept its potential grounding charges.'
+}
+$env:SPARK_ENABLE_GOOGLE_SEARCH = if ($EnableGoogleSearch -and $LiveProfile -eq 'cinematic_search') { '1' } else { '0' }
+if ($env:SPARK_ENABLE_GOOGLE_SEARCH -eq '1') {
+    Write-Warning 'Google Search grounding is enabled for this SPARK session. On paid-tier Google AI projects, Google may bill per Search query after free monthly allowances. SPARK does not activate billing or guarantee zero cost.'
+}
 $env:SPARK_LIVE_PROFILE = $LiveProfile
 $env:SPARK_AUDIO_TRANSPORT = $AudioTransport
 Write-Host "SPARK audio: $AudioTransport" -ForegroundColor Cyan
