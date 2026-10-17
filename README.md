@@ -18,7 +18,20 @@ This command reads `%APPDATA%\\arkus\\config.json` locally and passes `api_key` 
 
 The SPARK assistant auto-establishes a Gemini Live session after local backend and user authorization; the microphone starts **muted** and responds only after you press the microphone button. Audio responses require a working Windows speaker. Your first test should be to unmute and say, "SPARK, can you hear me?"; typed questions should now use the SDK's `send_client_content` method and receive a clear error when there is no session.
 
-Developer notes: Live model names are restricted to documented compatible options; `SPARK_LIVE_MODEL=gemini-3.1-flash-live-preview` is an optional override, and unknown/retired model names fall back to `gemini-3.8-live`. Real provider, hardware and account acceptance remains separate from CI tests.
+**Dedicated SPARK project and explicit model selection (free-tier only):**
+Save SPARK's API key privately in `backend/.env` as `GEMINI_API_KEY=...`.
+Do not add `-UseArkusGeminiKey` when using a separate project.
+The launcher defaults to `gemini-3.8-live`. If that model has no available Live-session capacity in the selected Google AI Studio project, inspect that project's **own rate-limit row** before optionally trying the supported `gemini-3.1-flash-live-preview` model:
+
+```powershell
+cd "$HOME\\spark"
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -LiveModel gemini-3.1-flash-live-preview
+```
+
+Model selection is **explicit**, not automatic; it does not bypass project quotas, provision a new key, or enable billing. The listed model may still return HTTP 429 if your project has no available allowance for it. Google model-listing success is not proof of Live-session quota.
+
+Developer notes: Live model names are restricted to documented compatible options, and unknown/retired model names fall back to `gemini-3.8-live` inside the Python runtime. Real provider, hardware and account acceptance remains separate from CI tests.
 
 ## Windows backend startup repair (October 2026)
 
