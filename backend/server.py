@@ -347,7 +347,7 @@ async def start_audio(sid, data=None):
         )
         print("AudioLoop initialized successfully.")
 
-        audio_loop.owner_sid = sid if AUDIO_TRANSPORT == "browser_aec" else None
+        audio_loop.owner_sid = sid  # Approval ownership even in native fallback.
         audio_loop.browser_ready = False
 
         # Apply current permissions
