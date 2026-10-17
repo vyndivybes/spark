@@ -4,10 +4,10 @@
   "description": "SPARK — immersive AI workstation and experience hub",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && npx electron .\"",
+    "dev": "concurrently -k --success first \"vite\" \"wait-on tcp:5173 && npx electron .\"",
     "build": "vite build",
     "start": "npx electron .",
-    "test": "node --test tests/experience-manager.test.cjs",
+    "test": "node --test tests/*.test.cjs",
     "setup:experiences": "git submodule update --init --recursive"
   },
   "keywords": [],
