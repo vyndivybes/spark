@@ -14,13 +14,9 @@ class ProjectManager:
         if not self.projects_dir.exists():
             self.projects_dir.mkdir(parents=True)
             
-        # Clear temp project on startup if it exists
-        temp_path = self.projects_dir / "temp"
-        if temp_path.exists():
-            print("[ProjectManager] Clearing temp project...")
-            shutil.rmtree(temp_path)
-            
-        # Ensure temp project receives fresh creation
+        # Keep the default project's chat across process restarts. Previously
+        # this deleted the entire temp directory, including chat_history.jsonl.
+        # Persistent conversation history must not depend on naming a project.
         self.create_project("temp")
 
     def create_project(self, name: str):
@@ -148,18 +144,23 @@ class ProjectManager:
             return []
             
         try:
+            if not isinstance(limit, int) or limit <= 0:
+                return []
+            # Avoid loading unbounded logs into memory; stream just the tail.
+            from collections import deque
             with open(log_file, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                
-            # Parse last N lines
+                lines = deque(f, maxlen=min(limit * 2, 200))
             history = []
-            for line in lines[-limit:]:
+            for line in reversed(lines):
+                if len(history) >= min(limit, 100):
+                    break
                 try:
                     entry = json.loads(line)
-                    history.append(entry)
                 except json.JSONDecodeError:
                     continue
-            return history
+                if isinstance(entry, dict) and isinstance(entry.get("text"), str) and isinstance(entry.get("sender"), str):
+                    history.append(entry)
+            return list(reversed(history))
         except Exception as e:
             print(f"[ProjectManager] [ERR] Failed to read chat history: {e}")
             return []
