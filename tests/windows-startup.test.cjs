@@ -47,8 +47,8 @@ test('SPARK opens its full cockpit without docking developer tools automatically
 
 test('launcher accepts a selected allowlisted free-tier Gemini Live model',()=>{
  const script=read('start-spark.ps1');
- assert.match(script,/\[ValidateSet\('gemini-3\\.8-live',\s*'gemini-3\\.1-flash-live-preview'\)\]/);
- assert.match(script,/\[string\]\$LiveModel\s*=\s*'gemini-3\\.8-live'/);
+ assert.match(script,/\[ValidateSet\('gemini-3\.8-live',\s*'gemini-3\.1-flash-live-preview'\)\]/);
+ assert.match(script,/\[string\]\$LiveModel\s*=\s*'gemini-3\.8-live'/);
  assert.match(script,/\$env:SPARK_LIVE_MODEL\s*=\s*\$LiveModel/);
- assert.doesNotMatch(script,/\$env:SPARK_LIVE_MODEL\s*=\s*'gemini-3\\.8-live'/);
+ assert.doesNotMatch(script,/\$env:SPARK_LIVE_MODEL\s*=\s*'gemini-3\.8-live'/);
 });
