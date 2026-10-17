@@ -1139,14 +1139,20 @@ class AudioLoop:
             raise e
 
     async def play_audio(self):
-        stream = await asyncio.to_thread(
-            pya.open,
-            format=FORMAT,
-            channels=CHANNELS,
-            rate=RECEIVE_SAMPLE_RATE,
-            output=True,
-            output_device_index=self.output_device_index,
-        )
+        try:
+            stream = await asyncio.to_thread(
+                pya.open,
+                format=FORMAT,
+                channels=CHANNELS,
+                rate=RECEIVE_SAMPLE_RATE,
+                output=True,
+                output_device_index=self.output_device_index,
+            )
+        except (OSError, IOError):
+            if self.on_live_status:
+                self.on_live_status({"state": "audio_error", "model": MODEL,
+                    "message": "Speaker unavailable. Select a working output device in Windows."})
+            return
         while True:
             bytestream = await self.audio_in_queue.get()
             if self.on_audio_data:
