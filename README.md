@@ -2,6 +2,32 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Live voice isolation profile (after a successful minimal handshake)
+
+If `scripts/spark_live_handshake.py --attempt-once` reports `connected`,
+but the full desktop session fails with HTTP 429, test the same known-good
+minimal configuration using SPARK's **real microphone/speaker stream**.
+This is a deliberate diagnostic: voice mode temporarily omits Google Search,
+tool declarations, custom voice, and transcription. The original full
+configuration remains available and is still the default.
+
+```powershell
+# First close every prior SPARK/Electron process and confirm port 8000 is free.
+cd "$HOME\\spark"
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -LiveModel gemini-3.8-live -LiveProfile voice
+```
+
+In another shell, inspect `http://127.0.0.1:8000/status`, including
+`live_profile`, `live_state`, `live_message` and `live_error_code`.
+Once connected, enable the microphone and confirm bidirectional speech.
+Voice-only mode cannot use SPARK's model-initiated desktop controls,
+search or other tools. After the cause has been narrowed down, restart
+with `-LiveProfile full` (default) to restore all features; **full mode
+remains unqualified until its own live acceptance passes**.
+A single successful minimal handshake does not guarantee audio streaming
+and does not rule out temporary provider rate limits.
+
 ## Diagnose Live error 429 without SPARK tools (one explicit request)
 
 A key that lists a Live model does not prove that the project has a Live-session

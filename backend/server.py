@@ -24,6 +24,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import ada
 from spark_live_config import live_status, live_status_report
+from spark_live_profile import live_profile
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -131,7 +132,8 @@ async def startup_event():
 async def status():
     return {"status": "running", "service": "SPARK Core",
             "gemini_configured": ada.client is not None,
-            "live_model": ada.MODEL, **live_status_report(live_state, live_message)}
+            "live_model": ada.MODEL, "live_profile": live_profile(),
+            **live_status_report(live_state, live_message)}
 
 @sio.event
 async def connect(sid, environ):
