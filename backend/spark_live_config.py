@@ -27,6 +27,8 @@ def live_status(configured, model=None):
 def live_error_message(error):
     """Classify errors without showing provider stack traces, key or query."""
     value = str(error).lower()
+    if "1008" in value or "policy violation" in value or "requested entity was not found" in value:
+        return "Gemini Live session closed (1008 policy violation). Check selected model and profile; do not retry automatically."
     if "429" in value or "quota" in value or "resource_exhausted" in value:
         return "Gemini Live rate limit or quota reached (429). Check AI Studio usage; do not retry repeatedly."
     if "401" in value or "403" in value or "permission" in value or "unauthorized" in value:
