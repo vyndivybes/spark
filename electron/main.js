@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const {createExperienceManager}=require('./experience-manager.cjs');
 
 // Use ANGLE D3D11 backend - more stable on Windows while keeping WebGL working
 // This fixes "GPU state invalid after WaitForGetOffsetInRange" error
@@ -10,6 +11,7 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist');
 
 let mainWindow;
 let pythonProcess;
+let experienceManager;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -19,8 +21,8 @@ function createWindow() {
             nodeIntegration: true,
             contextIsolation: false, // For simple IPC/Socket.IO usage
         },
-        backgroundColor: '#000000',
-        frame: false, // Frameless for custom UI
+        backgroundColor: '#0b1220',
+        frame: false, // Frameless SPARK cockpit with custom chrome
         titleBarStyle: 'hidden',
         show: false, // Don't show until ready
     });
@@ -82,6 +84,18 @@ function startPythonBackend() {
 }
 
 app.whenReady().then(() => {
+    experienceManager=createExperienceManager({
+        root:path.resolve(__dirname,'..'),
+        userData:app.getPath('userData'),
+        python:process.env.SPARK_PYTHON||'python',
+        notesDir:process.env.SPARK_NOTES_DIR||undefined,
+        BrowserWindow,
+    });
+    ipcMain.handle('spark:open-experience',async(event,name)=>{
+        if(!mainWindow||event.sender.id!==mainWindow.webContents.id)
+            throw new Error('Experience launch is only available from the SPARK cockpit.');
+        return experienceManager.open(name);
+    });
     ipcMain.on('window-minimize', () => {
         if (mainWindow) mainWindow.minimize();
     });
@@ -171,6 +185,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    experienceManager?.stopAll();
     console.log('App closing... Killing Python backend.');
     if (pythonProcess) {
         if (process.platform === 'win32') {
