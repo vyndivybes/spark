@@ -1,7 +1,12 @@
 # SPARK Windows launcher: isolated Python runtime, no global pip changes or paid services.
 # First run installs only the documented runtime packages. Large CAD/Playwright browser
 # binaries and machine-control permissions remain separate explicit choices.
-param([switch]$SkipBackendSetup, [switch]$UseArkusGeminiKey)
+param(
+    [switch]$SkipBackendSetup,
+    [switch]$UseArkusGeminiKey,
+    [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
+    [string]$LiveModel = 'gemini-3.8-live'
+)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
@@ -55,7 +60,7 @@ if ($UseArkusGeminiKey -and [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) {
     $env:GEMINI_API_KEY = [string]$arkusSettings.api_key
     Write-Host 'SPARK Gemini credential: imported from local ARKUS configuration (process only).' -ForegroundColor Green
 }
-$env:SPARK_LIVE_MODEL = 'gemini-3.8-live'
+$env:SPARK_LIVE_MODEL = $LiveModel
 
 $env:SPARK_PYTHON = $venvPython
 if (-not $SkipBackendSetup) {
