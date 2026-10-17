@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import ada
-from spark_live_config import live_status
+from spark_live_config import live_status, live_status_report
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -55,6 +55,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 audio_loop = None
 loop_task = None
 live_state = "idle"
+live_message = ""
 authenticator = None
 kasa_agent = KasaAgent()
 SETTINGS_FILE = "settings.json"
@@ -130,7 +131,7 @@ async def startup_event():
 async def status():
     return {"status": "running", "service": "SPARK Core",
             "gemini_configured": ada.client is not None,
-            "live_model": ada.MODEL, "live_state": live_state}
+            "live_model": ada.MODEL, **live_status_report(live_state, live_message)}
 
 @sio.event
 async def connect(sid, environ):
@@ -179,7 +180,7 @@ async def disconnect(sid):
 
 @sio.event
 async def start_audio(sid, data=None):
-    global audio_loop, loop_task, live_state
+    global audio_loop, loop_task, live_state, live_message
     
     # Optional: Block if not authenticated
     # Only block if auth is ENABLED and not authenticated
@@ -191,6 +192,7 @@ async def start_audio(sid, data=None):
 
     if ada.client is None:
         live_state = "setup_required"
+        live_message = "Configure the SPARK Gemini key."
         await sio.emit('ai_status', live_status(False, ada.MODEL), room=sid)
         return
 
@@ -280,8 +282,9 @@ async def start_audio(sid, data=None):
 
     # Initialize SPARK Live. A running socket is not proof of provider connection.
     def on_live_status(payload):
-        global live_state
+        global live_state, live_message
         live_state = payload.get("state", "error")
+        live_message = payload.get("message", "")
         asyncio.create_task(sio.emit('ai_status', payload))
 
     try:
@@ -314,6 +317,8 @@ async def start_audio(sid, data=None):
             print("Starting with Audio Paused")
             audio_loop.set_paused(True)
 
+        live_state = "connecting"
+        live_message = "Connecting to Gemini Live..."
         await sio.emit('ai_status', {
             'state': 'connecting', 'model': ada.MODEL,
             'message': 'Opening SPARK Gemini Live session...'})
@@ -322,7 +327,7 @@ async def start_audio(sid, data=None):
         
         # Add a done callback to catch silent failures in the loop
         def handle_loop_exit(task):
-            global live_state, audio_loop, loop_task
+            global live_state, live_message, audio_loop, loop_task
             try:
                 task.result()
             except asyncio.CancelledError:
@@ -330,6 +335,7 @@ async def start_audio(sid, data=None):
             except Exception as e:
                 print("SPARK Live session terminated; see backend log for details.")
                 live_state = "error"
+                live_message = "Gemini Live connection or audio session failed."
                 asyncio.create_task(sio.emit('ai_status', {
                     'state': 'error', 'model': ada.MODEL,
                     'message': 'SPARK Live audio loop stopped unexpectedly.'}))
@@ -361,6 +367,7 @@ async def start_audio(sid, data=None):
         import traceback
         traceback.print_exc()
         live_state = "error"
+        live_message = "Gemini Live connection or audio session failed."
         await sio.emit('ai_status', {
             'state': 'error', 'model': ada.MODEL,
             'message': 'SPARK Core could not start its audio engine. Check the backend terminal.'})
