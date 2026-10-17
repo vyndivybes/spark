@@ -23,4 +23,5 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_spark_desktop.py
       - run: python3 -m unittest discover -s tests -p test_web_agent_safety.py
       - run: python3 -m unittest discover -s tests -p test_persistent_conversation.py
+      - run: python3 -m unittest discover -s tests -p test_spark_task_engine.py
       - run: npm run build
