@@ -18,7 +18,10 @@ from spark_public_apis import public_api_answer
 CHAT_URL="https://api.groq.com/openai/v1/chat/completions"
 STT_URL="https://api.groq.com/openai/v1/audio/transcriptions"
 TTS_URL="https://api.groq.com/openai/v1/audio/speech"
-_ALLOWED_MODELS=frozenset(("llama-3.1-8b-instant","openai/gpt-oss-20b"))
+# Groq retired llama-3.1-8b-instant on 2026-08-16 for free/developer plans.
+# Free-first default intentionally uses their documented successor.
+DEFAULT_GROQ_MODEL="openai/gpt-oss-20b"
+_ALLOWED_MODELS=frozenset((DEFAULT_GROQ_MODEL,))
 SYSTEM_PROMPT=(
     "You are SPARK, a concise, cinematic but original aerospace-style AI assistant. "
     "Speak with composed, refined British-style diction in your wording and subtle wit. "
@@ -34,8 +37,33 @@ def cloud_provider():
     return "groq" if os.environ.get("SPARK_AI_PROVIDER","gemini").strip().lower()=="groq" else "gemini"
 
 def groq_model():
-    model=os.environ.get("SPARK_GROQ_MODEL","llama-3.1-8b-instant").strip()
-    return model if model in _ALLOWED_MODELS else "llama-3.1-8b-instant"
+    model=os.environ.get("SPARK_GROQ_MODEL",DEFAULT_GROQ_MODEL).strip()
+    if model=="llama-3.1-8b-instant":
+        raise ValueError("Groq llama-3.1-8b-instant retired 2026-08-16 for free/developer plans. Select openai/gpt-oss-20b.")
+    return model if model in _ALLOWED_MODELS else DEFAULT_GROQ_MODEL
+
+
+def classify_groq_http_error(stage,status):
+    """Error stage+HTTP code only. Never include remote response or credentials."""
+    if stage not in ("chat","transcription","speech"):
+        stage="request"
+    if type(status) is not int or status<100 or status>599:
+        status=0
+    prefix=f"Groq {stage} HTTP {status}: "
+    if status==429:
+        return GroqUnavailable(prefix+"free-tier rate limit reached; no automatic retry or paid fallback.")
+    if status==401:
+        return GroqUnavailable(prefix+"API key not accepted. Check GROQ_API_KEY privately.")
+    if status==403:
+        return GroqUnavailable(prefix+"request forbidden. Verify provider permission and free-plan access.")
+    if status==404:
+        return GroqUnavailable(prefix+("model not available. Select openai/gpt-oss-20b."
+                                      if stage=="chat" else "provider model or endpoint not found."))
+    if status in (400,422):
+        return GroqUnavailable(prefix+"provider rejected the request format or model parameters.")
+    if status in (502,503,504,500):
+        return GroqUnavailable(prefix+"temporary cloud service failure. No automatic retry.")
+    return GroqUnavailable(prefix+"request failed. Check Groq's model/status dashboard.")
 
 def tts_text(reply):
     text=re.sub(r"\s+"," ",str(reply)).strip()
@@ -96,6 +124,7 @@ class GroqClient:
     async def _http(self,url,*,body=None,form=None,want_binary=False):
         import aiohttp
         assert url in (CHAT_URL, STT_URL,TTS_URL), "Only approved Groq endpoints"
+        stage={CHAT_URL:"chat",STT_URL:"transcription",TTS_URL:"speech"}[url]
         headers={"Authorization":"Bearer "+self.key}
         if body is not None:
             headers["Content-Type"]="application/json"
@@ -103,12 +132,10 @@ class GroqClient:
             timeout=aiohttp.ClientTimeout(total=30,connect=7)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(url,json=body,data=form,headers=headers,allow_redirects=False) as response:
-                    if response.status==429:
-                        raise GroqUnavailable("Groq free-tier rate limit reached (429). No automatic retry or paid fallback.")
-                    if response.status in (401,403):
-                        raise GroqUnavailable("Groq API key rejected (401/403); check GROQ_API_KEY privately.")
                     if response.status>=300:
-                        raise GroqUnavailable("Groq cloud request failed; check model availability and connection.")
+                        # Do not expose provider response bodies: they can echo
+                        # user content or upstream request metadata.
+                        raise classify_groq_http_error(stage,response.status)
                     if response.content_length and response.content_length>2_000_000:
                         raise GroqUnavailable("Groq response exceeds configured size limit.")
                     raw=await response.content.read(2_000_001)
@@ -118,8 +145,8 @@ class GroqClient:
                         return raw
                     import json
                     return json.loads(raw)
-        except (asyncio.TimeoutError,OSError) as exc:
-            raise GroqUnavailable("Groq request timed out or network unavailable.") from None
+        except (asyncio.TimeoutError,OSError):
+            raise GroqUnavailable(f"Groq {stage}: request timed out or network unavailable.") from None
 
     async def transcribe(self,wav):
         if len(wav)>450100:
@@ -139,7 +166,8 @@ class GroqClient:
         messages+=history[-6:]
         messages.append({"role":"user","content":prompt[:1200]})
         body={"model":groq_model(),"messages":messages,"stream":False,
-              "temperature":0.5,"max_completion_tokens":160}
+              "temperature":0.5,"max_completion_tokens":384,
+              "reasoning_effort":"low"}
         result=await self._http(CHAT_URL,body=body)
         try:
             value=result["choices"][0]["message"]["content"]
