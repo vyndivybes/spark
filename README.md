@@ -38,8 +38,8 @@ quota error is reported safely with no retries or switch to billed models.
 
 - Speech in: Chromium AEC capture at 16 kHz, bounded automatic VAD,
   Groq Whisper `whisper-large-v3-turbo`.
-- Reasoning: Groq-hosted `llama-3.1-8b-instant` (or optionally
-  `openai/gpt-oss-20b` hosted **by Groq**), short bounded exchanges.
+- Reasoning: Groq-hosted `openai/gpt-oss-20b`, short bounded exchanges.
+  Groq retired `llama-3.1-8b-instant` on 16 August 2026 for free and developer-tier customers; the launcher rejects that obsolete model.
 - Speech out: Groq Orpheus `canopylabs/orpheus-v1-english`, male `daniel`
   voice, played as resampled 24-kHz PCM through the existing browser AEC
   speaker graph. It is **not** Google's Charon voice or a film-actor clone.
@@ -61,7 +61,7 @@ After closing the old SPARK window, launch:
 cd "$HOME\\spark"
 git pull --ff-only origin main
 Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -AIProvider groq -GroqModel llama-3.1-8b-instant -AudioTransport browser_aec
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -AIProvider groq -GroqModel openai/gpt-oss-20b -AudioTransport browser_aec
 ```
 
 Try `SPARK, say hello in a short sentence`; without clicking, follow up
