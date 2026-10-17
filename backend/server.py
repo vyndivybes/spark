@@ -274,7 +274,8 @@ async def start_audio(sid, data=None):
     def on_tool_confirmation(data):
         # data = {"id": "uuid", "tool": "tool_name", "args": {...}}
         print(f"Requesting confirmation for tool: {data.get('tool')}")
-        asyncio.create_task(sio.emit('tool_confirmation_request', data))
+        # Only the initiating SPARK window may approve a desktop launch.
+        asyncio.create_task(sio.emit('tool_confirmation_request', data, room=sid))
 
     # Callback to send CAD status to frontend
     def on_cad_status(status):
@@ -547,9 +548,15 @@ async def resume_audio(sid):
 
 @sio.event
 async def confirm_tool(sid, data):
-    # data: { "id": "...", "confirmed": True/False }
-    request_id = data.get('id')
-    confirmed = data.get('confirmed', False)
+    # Fail closed: tool approvals belong solely to the initiating cockpit,
+    # never any other Socket.IO client on the local port.
+    if (not audio_loop or getattr(audio_loop, "owner_sid", None) != sid
+            or not isinstance(data, dict)
+            or not isinstance(data.get('id'), str)
+            or type(data.get('confirmed')) is not bool):
+        return
+    request_id = data['id']
+    confirmed = data['confirmed']
     
     print(f"[SERVER DEBUG] Received confirmation response for {request_id}: {confirmed}")
     
