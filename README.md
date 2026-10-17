@@ -2,6 +2,28 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Cinematic microphone safety — one activation, one answer
+
+**October 2026 feedback-loop containment:** the cinematic profile uses an
+additional microphone latch. As soon as the first Gemini audio packet arrives,
+SPARK blocks upstream microphone PCM and notifies the Electron interface that
+the microphone is muted. It **does not automatically reopen** after the
+750-ms speaker tail. Wait until the reply finishes, then click the existing
+microphone button to ask the next question. Clicking while SPARK is speaking
+is rejected; the interface stays muted.
+
+This is a deliberate temporary safety tradeoff, not full acoustic echo
+cancellation. Natural hands-free turn taking and voice interruption are not
+yet certified; they require a proper capture echo-cancellation path (AEC)
+and a separate local acceptance test. Keep headset volume low when testing.
+If repeated model speech continues even with the mic latched, stop the session
+and investigate model output or duplicate session generation; do not assume
+that only hardware echo is involved.
+
+The earlier `1008 Requested entity was not found` WebSocket failure seen in
+one prior launch is separate from the reported acoustic self-conversation and
+must not be misclassified as a 429 quota failure.
+
 ## Cinematic SPARK voice — default launch
 
 SPARK now has an **original cinematic AI command-center voice**, styled for
@@ -48,7 +70,7 @@ now enforces **half-duplex** transmission by default, in both full and
 voice-only profiles: it stops forwarding microphone PCM as soon as model
 audio arrives, keeps listening locally but discards captured microphone
 samples during speaker playback, and resumes upstream microphone audio
-after the playback queue is drained and a 750-ms tail. It also discards
+after the playback queue is drained and a 750-ms tail in basic voice mode. Cinematic mode requires manual reactivation before further microphone PCM is transmitted. It also discards
 microphone chunks that were queued immediately before assistant audio.
 This does not modify the key, model, or quota.
 
