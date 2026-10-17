@@ -23,7 +23,7 @@ test('Groq voice uses the existing AEC microphone / speaker paths, not native Py
  const ui=read('src/App.jsx');
  assert.match(backend,/if AUDIO_TRANSPORT != "browser_aec":/);
  assert.match(backend,/audio_loop\.out_queue\.put_nowait/);
- assert.match(groq,/self\.on_browser_audio\(pcm\)/);
+ assert.match(groq,/self\.on_browser_audio\(pcm\[start:start\+48000\]\)/);
  assert.match(groq,/async def process_pcm/);
  assert.match(ui,/Groq Hands-Free Cloud Ready/);
  assert.match(ui,/BrowserEchoAudio/);
