@@ -22,7 +22,7 @@ def read_key(project_root, allow_arkus=False):
     if env_file.is_file():
         for line in env_file.read_text(encoding="utf-8-sig").splitlines():
             if line.strip().startswith("GEMINI_API_KEY="):
-                key = line.split("=", 1)[1].strip().strip("'\\"")
+                key = line.split("=", 1)[1].strip().strip(chr(34)).strip(chr(39))
                 if key:
                     return key, "backend/.env"
     if allow_arkus:
