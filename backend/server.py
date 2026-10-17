@@ -136,6 +136,7 @@ async def status():
     return {"status": "running", "service": "SPARK Core",
             "gemini_configured": ada.client is not None,
             "live_model": ada.MODEL, "live_profile": live_profile(), "audio_transport": AUDIO_TRANSPORT,
+            "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **live_status_report(live_state, live_message)}
 
 @sio.event
@@ -346,6 +347,7 @@ async def start_audio(sid, data=None):
         print("AudioLoop initialized successfully.")
 
         audio_loop.owner_sid = sid if AUDIO_TRANSPORT == "browser_aec" else None
+        audio_loop.browser_ready = False
 
         # Apply current permissions
         audio_loop.update_permissions(SETTINGS["tool_permissions"])
@@ -450,9 +452,11 @@ async def monitor_printers_loop():
 
 @sio.event
 async def stop_audio(sid):
-    global audio_loop, live_state
+    global audio_loop, loop_task, live_state
     if audio_loop:
-        audio_loop.stop() 
+        audio_loop.stop()
+        if loop_task and not loop_task.done():
+            loop_task.cancel()  # Cancel old Live socket and all native/browser audio tasks.
         print("Stopping Audio Loop")
         audio_loop = None
         live_state = 'idle'
@@ -467,6 +471,7 @@ async def browser_audio_ready(sid, data=None):
             or not audio_loop.browser_audio or audio_loop.owner_sid != sid
             or not audio_loop.session):
         return
+    audio_loop.browser_ready = True
     audio_loop.set_paused(bool(data.get("muted", False)) if isinstance(data, dict) else True)
     await sio.emit('audio_transport_status',
         {'ready': True, 'mode': 'browser_aec', 'muted': audio_loop.paused}, room=sid)
@@ -476,6 +481,7 @@ async def browser_audio_ready(sid, data=None):
 async def browser_audio_error(sid, data=None):
     if audio_loop and audio_loop.browser_audio and audio_loop.owner_sid == sid:
         audio_loop.set_paused(True)
+        audio_loop.browser_ready = False
         await sio.emit('audio_transport_status',
             {'ready': False, 'mode': 'browser_aec',
              'message': 'Windows microphone AEC or Chromium speaker is unavailable.'}, room=sid)
@@ -486,7 +492,7 @@ async def browser_mic_pcm(sid, payload):
     if (AUDIO_TRANSPORT != "browser_aec" or not audio_loop or
             not audio_loop.browser_audio or audio_loop.owner_sid != sid
             or not audio_loop.session or audio_loop.paused or
-            audio_loop.out_queue is None):
+            not audio_loop.browser_ready or audio_loop.out_queue is None):
         return
     try:
         pcm = validate_pcm(payload)
