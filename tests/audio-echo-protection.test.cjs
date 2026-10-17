@@ -15,3 +15,14 @@ test('echo guard resets on provider reconnection and output still reaches speake
   assert.match(ada, /self\.session = session\s+self\.echo_gate\.reset\(\)/);
   assert.match(ada, /await asyncio\.to_thread\(stream\.write, bytestream\)/);
 });
+
+test('cinematic voice is single-turn: backend and frontend require explicit mic rearm',()=>{
+  const server = fs.readFileSync(path.resolve(__dirname,'../backend/server.py'),'utf8');
+  const frontend = fs.readFileSync(path.resolve(__dirname,'../src/App.jsx'),'utf8');
+  assert.match(ada,/EchoGate\(require_rearm=live_profile\(\) ===? "?cinematic"?/);
+  assert.match(ada,/self\.echo_gate\.on_output_received\(\)/);
+  assert.match(server,/audio_loop\.echo_gate\.rearm\(\)/);
+  assert.match(server,/sio\.emit\('mic_safety'/);
+  assert.match(frontend,/socket\.on\('mic_safety'/);
+  assert.match(frontend,/setIsMuted\(Boolean\(data\.muted\)\)/);
+});
