@@ -45,5 +45,47 @@ class GeminiPreflightTests(unittest.TestCase):
             self.assertNotIn("secret-test", result)
 
 
+    def test_probe_searches_every_model_page_before_declaring_absent(self):
+        class Response:
+            def __init__(self, payload):
+                self.payload = payload
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, *args):
+                return json.dumps(self.payload).encode("utf-8")
+
+        replies = [
+            Response({"models": [{"name": "models/gemini-3.8-flash"}], "nextPageToken": "page-two"}),
+            Response({"models": [{"name": "models/gemini-3.8-live"}]}),
+        ]
+        requests = []
+        def fake_open(request, timeout):
+            requests.append(request)
+            return replies.pop(0)
+        with patch.object(module.urllib.request, "urlopen", side_effect=fake_open):
+            result = module.probe("secret-test")
+        self.assertEqual(result["state"], "model_visible")
+        self.assertEqual(result["listed_models"], 2)
+        self.assertEqual(len(requests), 2)
+        self.assertIn("pageToken=page-two", requests[1].full_url)
+        self.assertEqual(requests[0].get_header("X-goog-api-key"), "secret-test")
+        self.assertNotIn("secret-test", str(result))
+
+    def test_probe_reports_absent_only_after_final_page(self):
+        class Response:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, *args):
+                return b'{"models":[{"name":"models/gemini-3.8-flash"}]}'
+        with patch.object(module.urllib.request, "urlopen", return_value=Response()):
+            result = module.probe("secret-test")
+        self.assertEqual(result["state"], "model_not_listed")
+        self.assertIn("gemini-3.8-flash", result["available_models"])
+
+
 if __name__ == "__main__":
     unittest.main()
