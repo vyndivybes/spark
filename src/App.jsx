@@ -572,6 +572,18 @@ function App() {
         });
 
         // Handle tool confirmation requests
+        socket.on('web_sources', (payload) => {
+            // Only provider grounding metadata from the owner-bound backend is
+            // shown as sources. Generated voice text is never treated as a URL.
+            const sources = Array.isArray(payload?.sources) ? payload.sources.slice(0, 5) : [];
+            if (!sources.length) return;
+            setMessages(prev => [...prev, {
+                sender: 'Search Sources',
+                text: 'Google Search sources for this response:',
+                sources,
+                time: new Date().toLocaleTimeString()
+            }]);
+        });
         socket.on('tool_confirmation_request', (data) => {
             console.log("Received Confirmation Request:", data);
             setConfirmationRequest(data);
@@ -738,6 +750,7 @@ function App() {
             socket.off('cad_status');
             socket.off('browser_frame');
             socket.off('transcription');
+            socket.off('web_sources');
             socket.off('tool_confirmation_request');
             socket.off('kasa_devices');
             socket.off('printer_list');
@@ -1847,6 +1860,8 @@ function App() {
 
                 {/* Chat Module */}
                 <ChatModule
+                    onOpenSource={(url) => ipcRenderer.invoke('spark:open-grounding-source', url)
+                        .catch(() => addMessage('System', 'Unable to open source in default browser.'))}
                     messages={messages}
                     inputValue={inputValue}
                     setInputValue={setInputValue}
