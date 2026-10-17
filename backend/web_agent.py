@@ -47,13 +47,14 @@ class WebAgent:
             print(f"[ACTION] Action: {fn_name} {args}")
 
             # --- SAFETY CHECK ---
-            requires_acknowledgement = False
-            if "safety_decision" in args:
-                 decision = args["safety_decision"]
-                 if decision.get("decision") == "require_confirmation":
-                     print(f"   [SAFETY] Safety Alert: {decision.get('explanation')}")
-                     print("   -> Auto-acknowledging to proceed.")
-                     requires_acknowledgement = True
+            # Until SPARK implements an explicit browser-action approval UI,
+            # stop on model-marked sensitive actions. Never forge user consent.
+            decision = args.get("safety_decision", {}) if isinstance(args, dict) else {}
+            if isinstance(decision, dict) and decision.get("decision") == "require_confirmation":
+                results.append((call_id, fn_name, {
+                    "error": "Action requires human approval; SPARK cannot auto-approve browser actions."
+                }))
+                continue
 
             result_data = {}
             
@@ -146,10 +147,6 @@ class WebAgent:
             except Exception as e:
                 print(f"[ERR] Error executing {fn_name}: {e}")
                 result_data = {"error": str(e)}
-
-            # Add the acknowledgement flag if needed
-            if requires_acknowledgement:
-                result_data["safety_acknowledgement"] = True
 
             results.append((call_id, fn_name, result_data))
         
