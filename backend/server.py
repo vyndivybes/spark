@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import ada
+from spark_live_config import live_status
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -53,6 +54,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 # Global state
 audio_loop = None
 loop_task = None
+live_state = "idle"
 authenticator = None
 kasa_agent = KasaAgent()
 SETTINGS_FILE = "settings.json"
@@ -126,12 +128,15 @@ async def startup_event():
 
 @app.get("/status")
 async def status():
-    return {"status": "running", "service": "A.D.A Backend"}
+    return {"status": "running", "service": "SPARK Core",
+            "gemini_configured": ada.client is not None,
+            "live_model": ada.MODEL, "live_state": live_state}
 
 @sio.event
 async def connect(sid, environ):
     print(f"Client connected: {sid}")
-    await sio.emit('status', {'msg': 'Connected to A.D.A Backend'}, room=sid)
+    await sio.emit('status', {'msg': 'Connected to SPARK Core backend'}, room=sid)
+    await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL), room=sid)
 
     global authenticator
     
@@ -174,7 +179,7 @@ async def disconnect(sid):
 
 @sio.event
 async def start_audio(sid, data=None):
-    global audio_loop, loop_task
+    global audio_loop, loop_task, live_state
     
     # Optional: Block if not authenticated
     # Only block if auth is ENABLED and not authenticated
@@ -184,7 +189,12 @@ async def start_audio(sid, data=None):
             await sio.emit('error', {'msg': 'Authentication Required'})
             return
 
-    print("Starting Audio Loop...")
+    if ada.client is None:
+        live_state = "setup_required"
+        await sio.emit('ai_status', live_status(False, ada.MODEL), room=sid)
+        return
+
+    print("Starting SPARK Live Audio Loop...")
     
     device_index = None
     device_name = None
@@ -268,7 +278,12 @@ async def start_audio(sid, data=None):
         print(f"Sending Error to frontend: {msg}")
         asyncio.create_task(sio.emit('error', {'msg': msg}))
 
-    # Initialize ADA
+    # Initialize SPARK Live. A running socket is not proof of provider connection.
+    def on_live_status(payload):
+        global live_state
+        live_state = payload.get("state", "error")
+        asyncio.create_task(sio.emit('ai_status', payload))
+
     try:
         print(f"Initializing AudioLoop with device_index={device_index}")
         audio_loop = ada.AudioLoop(
@@ -283,6 +298,7 @@ async def start_audio(sid, data=None):
             on_project_update=on_project_update,
             on_device_update=on_device_update,
             on_error=on_error,
+            on_live_status=on_live_status,
 
             input_device_index=device_index,
             input_device_name=device_name,
@@ -298,24 +314,32 @@ async def start_audio(sid, data=None):
             print("Starting with Audio Paused")
             audio_loop.set_paused(True)
 
+        await sio.emit('ai_status', {
+            'state': 'connecting', 'model': ada.MODEL,
+            'message': 'Opening SPARK Gemini Live session...'})
         print("Creating asyncio task for AudioLoop.run()")
         loop_task = asyncio.create_task(audio_loop.run())
         
         # Add a done callback to catch silent failures in the loop
         def handle_loop_exit(task):
+            global live_state, audio_loop, loop_task
             try:
                 task.result()
             except asyncio.CancelledError:
                 print("Audio Loop Cancelled")
             except Exception as e:
-                print(f"Audio Loop Crashed: {e}")
-                # You could emit 'error' here if you have context
+                print("SPARK Live session terminated; see backend log for details.")
+                live_state = "error"
+                asyncio.create_task(sio.emit('ai_status', {
+                    'state': 'error', 'model': ada.MODEL,
+                    'message': 'SPARK Live audio loop stopped unexpectedly.'}))
+            finally:
+                if loop_task is task:
+                    loop_task = None
+                    audio_loop = None
         
         loop_task.add_done_callback(handle_loop_exit)
         
-        print("Emitting 'A.D.A Started'")
-        await sio.emit('status', {'msg': 'A.D.A Started'})
-
         # Load saved printers
         saved_printers = SETTINGS.get("printers", [])
         if saved_printers and audio_loop.printer_agent:
@@ -336,7 +360,10 @@ async def start_audio(sid, data=None):
         print(f"CRITICAL ERROR STARTING ADA: {e}")
         import traceback
         traceback.print_exc()
-        await sio.emit('error', {'msg': f"Failed to start: {str(e)}"})
+        live_state = "error"
+        await sio.emit('ai_status', {
+            'state': 'error', 'model': ada.MODEL,
+            'message': 'SPARK Core could not start its audio engine. Check the backend terminal.'})
         audio_loop = None # Ensure we can try again
 
 
@@ -374,11 +401,13 @@ async def monitor_printers_loop():
 
 @sio.event
 async def stop_audio(sid):
-    global audio_loop
+    global audio_loop, live_state
     if audio_loop:
         audio_loop.stop() 
         print("Stopping Audio Loop")
         audio_loop = None
+        live_state = 'idle'
+        await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL))
         await sio.emit('status', {'msg': 'A.D.A Stopped'})
 
 @sio.event
@@ -392,10 +421,15 @@ async def pause_audio(sid):
 @sio.event
 async def resume_audio(sid):
     global audio_loop
-    if audio_loop:
+    if audio_loop and audio_loop.session:
         audio_loop.set_paused(False)
         print("Resuming Audio")
-        await sio.emit('status', {'msg': 'Audio Resumed'})
+        await sio.emit('status', {'msg': 'SPARK microphone resumed'})
+    else:
+        await sio.emit('ai_status', {
+            'state': live_state if live_state in ('error', 'setup_required') else 'disconnected',
+            'model': ada.MODEL,
+            'message': 'SPARK Live is not connected. Check Gemini key, model and microphone.'}, room=sid)
 
 @sio.event
 async def confirm_tool(sid, data):
@@ -444,35 +478,38 @@ async def shutdown(sid, data=None):
 @sio.event
 async def user_input(sid, data):
     text = data.get('text')
-    print(f"[SERVER DEBUG] User input received: '{text}'")
+    print(f"[SPARK] Received typed input ({len(text or '')} characters)")
     
     if not audio_loop:
-        print("[SERVER DEBUG] [Error] Audio loop is None. Cannot send text.")
+        await sio.emit('error', {'msg': 'SPARK Core unavailable. Configure Gemini and reconnect.'}, room=sid)
         return
 
     if not audio_loop.session:
-        print("[SERVER DEBUG] [Error] Session is None. Cannot send text.")
+        await sio.emit('error', {'msg': 'Gemini Live is not connected yet. See SPARK Core status.'}, room=sid)
         return
 
     if text:
-        print(f"[SERVER DEBUG] Sending message to model: '{text}'")
+        print("[SPARK] Sending typed turn to Gemini Live")
         
         # Log User Input to Project History
         if audio_loop and audio_loop.project_manager:
             audio_loop.project_manager.log_chat("User", text)
             
-        # Use the same 'send' method that worked for audio, as 'send_realtime_input' and 'send_client_content' seem unstable in this env
-        # INJECT VIDEO FRAME IF AVAILABLE (VAD-style logic for Text Input)
-        if audio_loop and audio_loop._latest_image_payload:
-            print(f"[SERVER DEBUG] Piggybacking video frame with text input.")
-            try:
-                # Send frame first
-                await audio_loop.session.send(input=audio_loop._latest_image_payload, end_of_turn=False)
-            except Exception as e:
-                print(f"[SERVER DEBUG] Failed to send piggyback frame: {e}")
-                
-        await audio_loop.session.send(input=text, end_of_turn=True)
-        print(f"[SERVER DEBUG] Message sent to model successfully.")
+        # Use the currently documented Live SDK client-content interface for
+        # finished typed turns; realtime media is a separate input stream.
+        try:
+            if audio_loop._latest_image_payload:
+                frame = audio_loop._latest_image_payload["data"]
+                if isinstance(frame, str):
+                    import base64
+                    frame = base64.b64decode(frame)
+                await audio_loop.session.send_realtime_input(
+                    video=ada.types.Blob(data=frame, mime_type="image/jpeg"))
+            await audio_loop.session.send_client_content(
+                turns={"role": "user", "parts": [{"text": text}]}, turn_complete=True)
+        except Exception:
+            await sio.emit('error', {
+                'msg': 'Could not send text to Gemini Live. The session may have closed.'}, room=sid)
 
 import json
 from datetime import datetime

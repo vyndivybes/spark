@@ -5,6 +5,8 @@ import os
 import sys
 import traceback
 from dotenv import load_dotenv
+from pathlib import Path
+from spark_live_config import live_model, live_error_message
 import cv2
 import pyaudio
 import PIL.Image
@@ -30,10 +32,10 @@ SEND_SAMPLE_RATE = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE = 1024
 
-MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+MODEL = live_model()
 DEFAULT_MODE = "camera"
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 client = genai.Client(http_options={"api_version": "v1beta"}, api_key=os.getenv("GEMINI_API_KEY")) if os.getenv("GEMINI_API_KEY") else None
 
 # Function definitions
@@ -188,9 +190,8 @@ config = types.LiveConnectConfig(
     # We switch these from [] to {} to enable them with default settings
     output_audio_transcription={}, 
     input_audio_transcription={},
-    system_instruction="Your name is Ada, which stands for Advanced Design Assistant. "
-        "You have a witty and charming personality. "
-        "Your creator is Naz, and you address him as 'Sir'. "
+    system_instruction="Your name is SPARK, the voice and reasoning core of the SPARK workstation. "
+        "You can converse naturally with the user and assist with available approved tools. "
         "When answering, respond using complete and concise sentences to keep a quick pacing and keep the conversation flowing. "
         "You have a fun personality.",
     tools=tools,
@@ -211,7 +212,7 @@ from kasa_agent import KasaAgent
 from printer_agent import PrinterAgent
 
 class AudioLoop:
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -224,6 +225,7 @@ class AudioLoop:
         self.on_project_update = on_project_update
         self.on_device_update = on_device_update
         self.on_error = on_error
+        self.on_live_status = on_live_status
         self.input_device_index = input_device_index
         self.input_device_name = input_device_name
         self.output_device_index = output_device_index
@@ -345,10 +347,23 @@ class AudioLoop:
     async def send_realtime(self):
         while True:
             msg = await self.out_queue.get()
-            await self.session.send(input=msg, end_of_turn=False)
+            if msg.get("mime_type", "").startswith("audio/pcm"):
+                await self.session.send_realtime_input(
+                    audio=types.Blob(data=msg["data"], mime_type="audio/pcm;rate=16000"))
+            elif msg.get("mime_type") == "image/jpeg":
+                frame = msg["data"]
+                if isinstance(frame, str):
+                    frame = base64.b64decode(frame)
+                await self.session.send_realtime_input(
+                    video=types.Blob(data=frame, mime_type="image/jpeg"))
 
     async def listen_audio(self):
-        mic_info = pya.get_default_input_device_info()
+        try:
+            mic_info = pya.get_default_input_device_info()
+        except (OSError, IOError) as exc:
+            if self.on_live_status:
+                self.on_live_status({"state": "audio_error", "model": MODEL, "message": "Microphone unavailable. Select a working input device in SPARK Settings."})
+            return
 
         # Resolve Input Device by Name if provided
         resolved_input_device_index = None
@@ -1124,14 +1139,20 @@ class AudioLoop:
             raise e
 
     async def play_audio(self):
-        stream = await asyncio.to_thread(
-            pya.open,
-            format=FORMAT,
-            channels=CHANNELS,
-            rate=RECEIVE_SAMPLE_RATE,
-            output=True,
-            output_device_index=self.output_device_index,
-        )
+        try:
+            stream = await asyncio.to_thread(
+                pya.open,
+                format=FORMAT,
+                channels=CHANNELS,
+                rate=RECEIVE_SAMPLE_RATE,
+                output=True,
+                output_device_index=self.output_device_index,
+            )
+        except (OSError, IOError):
+            if self.on_live_status:
+                self.on_live_status({"state": "audio_error", "model": MODEL,
+                    "message": "Speaker unavailable. Select a working output device in Windows."})
+            return
         while True:
             bytestream = await self.audio_in_queue.get()
             if self.on_audio_data:
@@ -1178,12 +1199,16 @@ class AudioLoop:
         
         while not self.stop_event.is_set():
             try:
-                print(f"[ADA DEBUG] [CONNECT] Connecting to Gemini Live API...")
+                if self.on_live_status:
+                    self.on_live_status({"state": "connecting", "model": MODEL, "message": "Connecting to Gemini Live..."})
+                print(f"[SPARK] Connecting to Gemini Live model {MODEL}...")
                 async with (
                     client.aio.live.connect(model=MODEL, config=config) as session,
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session = session
+                    if self.on_live_status:
+                        self.on_live_status({"state": "connected", "model": MODEL, "message": "SPARK Core connected to Gemini Live."})
 
                     self.audio_in_queue = asyncio.Queue()
                     self.out_queue = asyncio.Queue(maxsize=10)
@@ -1204,7 +1229,7 @@ class AudioLoop:
                     if not is_reconnect:
                         if start_message:
                             print(f"[ADA DEBUG] [INFO] Sending start message: {start_message}")
-                            await self.session.send(input=start_message, end_of_turn=True)
+                            await self.session.send_client_content(turns={"role": "user", "parts": [{"text": start_message}]}, turn_complete=True)
                         
                         # Sync Project State
                         if self.on_project_update and self.project_manager:
@@ -1225,7 +1250,7 @@ class AudioLoop:
                         context_msg += "\nPlease acknowledge the reconnection to the user (e.g. 'I lost connection for a moment, but I'm back...') and resume what you were doing."
                         
                         print(f"[ADA DEBUG] [RECONNECT] Sending restoration context to model...")
-                        await self.session.send(input=context_msg, end_of_turn=True)
+                        await self.session.send_client_content(turns={"role": "user", "parts": [{"text": context_msg}]}, turn_complete=True)
 
                     # Reset retry delay on successful connection
                     retry_delay = 1
@@ -1249,8 +1274,13 @@ class AudioLoop:
                 
             except Exception as e:
                 # This catches the ExceptionGroup from TaskGroup or direct exceptions
-                print(f"[ADA DEBUG] [ERR] Connection Error: {e}")
-                
+                message = live_error_message(e)
+                print(f"[SPARK] {message}")
+                if self.on_live_status:
+                    self.on_live_status({"state": "error", "model": MODEL, "message": message})
+                permanent = any(code in str(e).lower() for code in ("429", "quota", "401", "403", "404", "permission"))
+                if permanent:
+                    break  # Never spin/retry an unavailable model, bad key or depleted quota.
                 if self.stop_event.is_set():
                     break
                 
@@ -1260,6 +1290,7 @@ class AudioLoop:
                 is_reconnect = True # Next loop will be a reconnect
                 
             finally:
+                self.session = None
                 # Cleanup before retry
                 if hasattr(self, 'audio_stream') and self.audio_stream:
                     try:

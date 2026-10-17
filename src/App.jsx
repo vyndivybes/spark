@@ -23,6 +23,7 @@ const { ipcRenderer } = window.require('electron');
 
 function App() {
     const [status, setStatus] = useState('Disconnected');
+    const [liveState, setLiveState] = useState({state:'disconnected',message:'Waiting for SPARK Core...'});
     const [socketConnected, setSocketConnected] = useState(socket.connected); // Track socket connection reactively
     // Auth State
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -290,11 +291,12 @@ function App() {
 
     // Ref to track if model has been auto-connected (prevents duplicate connections)
     const hasAutoConnectedRef = useRef(false);
+    const lastLiveNoticeRef = useRef('');
 
     // Auto-Connect Model on Start (Only after Auth and devices loaded)
     useEffect(() => {
         // Only auto-connect once: when socket connected, authenticated, and devices loaded
-        if (isConnected && isAuthenticated && socketConnected && micDevices.length > 0 && !hasAutoConnectedRef.current) {
+        if (isConnected && isAuthenticated && socketConnected && !hasAutoConnectedRef.current) {
             hasAutoConnectedRef.current = true;
 
             // Trigger Kasa and Printer Discovery
@@ -321,7 +323,7 @@ function App() {
     useEffect(() => {
         // Socket IO Setup
         socket.on('connect', () => {
-            setStatus('Connected');
+            setStatus('Backend Online');
             setSocketConnected(true);
             socket.emit('get_settings');
         });
@@ -332,10 +334,21 @@ function App() {
         socket.on('status', (data) => {
             addMessage('System', data.msg);
             // Update status bar based on backend messages
-            if (data.msg === 'A.D.A Started') {
-                setStatus('Model Connected');
-            } else if (data.msg === 'A.D.A Stopped') {
+            if (data.msg === 'A.D.A Stopped') {
                 setStatus('Connected');
+            }
+        });
+        socket.on('ai_status', (info) => {
+            if (!info || !info.state) return;
+            setLiveState(info);
+            if (info.state === 'connected') setStatus('Gemini Live Connected');
+            else if (info.state === 'connecting') setStatus('Connecting to Gemini Live');
+            else if (info.state === 'setup_required') setStatus('Gemini Setup Required');
+            else if (info.state === 'error') setStatus('Gemini Live Error');
+            else if (info.state === 'audio_error') setStatus('Microphone Error');
+            if (['setup_required','error','audio_error'].includes(info.state) && info.message !== lastLiveNoticeRef.current) {
+                lastLiveNoticeRef.current = info.message;
+                addMessage('System', info.message);
             }
         });
         socket.on('audio_data', (data) => {
@@ -624,6 +637,7 @@ function App() {
             socket.off('connect');
             socket.off('disconnect');
             socket.off('status');
+            socket.off('ai_status');
             socket.off('audio_data');
             socket.off('cad_data');
             socket.off('cad_thought');
@@ -1498,6 +1512,14 @@ function App() {
                     </div>
                     <p role="status" className="spark-exp-status">{experienceMessage}</p>
                 </section>
+            )}
+
+            {/* SPARK Live readiness is distinct from Socket.IO/backend health. */}
+            {['setup_required','error','audio_error'].includes(liveState.state) && (
+                <div role="alert" className="spark-core-warning" style={{WebkitAppRegion:'no-drag'}}>
+                    <strong>SPARK CORE — {liveState.state === 'setup_required' ? 'GEMINI KEY REQUIRED' : 'AUDIO CONNECTION ISSUE'}</strong>
+                    <span>{liveState.message}</span>
+                </div>
             )}
 
             {/* Main Content */}
