@@ -34,3 +34,37 @@ def live_error_message(error):
     if "404" in value or "not_found" in value:
         return "Gemini Live model or endpoint unavailable (404). Check model availability in AI Studio."
     return "Gemini Live connection or audio session failed. Check the SPARK terminal and audio devices."
+
+
+def live_status_report(state, message=""):
+    """Safe /status snapshot: categorical error, never arbitrary provider text."""
+    if state == "connected":
+        return {"live_state": "connected",
+                "live_message": "SPARK Core connected to Gemini Live.",
+                "live_error_code": None}
+    if state == "error":
+        # The backend supplies classified messages, not raw exception bodies.
+        # Only recognize known, constant prefixes; never include untrusted text.
+        if isinstance(message, str) and message.startswith("Gemini Live rate limit or quota reached (429)."):
+            return {"live_state": "error",
+                    "live_message": "Gemini Live rate limit or quota reached (429). Check AI Studio usage.",
+                    "live_error_code": 429}
+        if isinstance(message, str) and message.startswith("Gemini Live permission or API key error (401/403)."):
+            return {"live_state": "error",
+                    "live_message": "Gemini Live authentication/permission rejected (401/403).",
+                    "live_error_code": 401}
+        if isinstance(message, str) and message.startswith("Gemini Live model or endpoint unavailable (404)."):
+            return {"live_state": "error",
+                    "live_message": "Gemini Live model or endpoint unavailable (404).",
+                    "live_error_code": 404}
+        return {"live_state": "error",
+                "live_message": "Gemini Live session failed; inspect the SPARK launch terminal.",
+                "live_error_code": None}
+    states = {"idle": "SPARK Core idle.", "connecting": "Connecting to Gemini Live...",
+              "disconnected": "Gemini Live disconnected.",
+              "setup_required": "Configure the SPARK Gemini key.",
+              "audio_error": "Audio device failed; inspect microphone selection."}
+    safe_state = state if state in states else "error"
+    return {"live_state": safe_state,
+            "live_message": states.get(safe_state, "Gemini Live session status unknown."),
+            "live_error_code": None}
