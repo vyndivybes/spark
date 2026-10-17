@@ -1309,21 +1309,10 @@ class AudioLoop:
                             self.on_project_update(self.project_manager.current_project)
                     
                     else:
-                        print(f"[ADA DEBUG] [RECONNECT] Connection restored.")
-                        # Restore Context
-                        print(f"[ADA DEBUG] [RECONNECT] Fetching recent chat history to restore context...")
-                        history = self.project_manager.get_recent_chat_history(limit=10)
-                        
-                        context_msg = "System Notification: Connection was lost and just re-established. Here is the recent chat history to help you resume seamlessly:\n\n"
-                        for entry in history:
-                            sender = entry.get('sender', 'Unknown')
-                            text = entry.get('text', '')
-                            context_msg += f"[{sender}]: {text}\n"
-                        
-                        context_msg += "\nPlease acknowledge the reconnection to the user (e.g. 'I lost connection for a moment, but I'm back...') and resume what you were doing."
-                        
-                        print(f"[ADA DEBUG] [RECONNECT] Sending restoration context to model...")
-                        await self.session.send_client_content(turns={"role": "user", "parts": [{"text": context_msg}]}, turn_complete=True)
+                        # A transport reconnect must NEVER initiate a new
+                        # unsolicited spoken turn. Earlier code injected a
+                        # "please acknowledge" history prompt on every retry.
+                        print("[SPARK] Live reconnect is silent; awaiting user input.")
 
                     # Reset retry delay on successful connection
                     retry_delay = 1
@@ -1351,7 +1340,7 @@ class AudioLoop:
                 print(f"[SPARK] {message}")
                 if self.on_live_status:
                     self.on_live_status({"state": "error", "model": MODEL, "message": message})
-                permanent = any(code in str(e).lower() for code in ("429", "quota", "401", "403", "404", "permission"))
+                permanent = any(code in str(e).lower() for code in ("429", "quota", "401", "403", "404", "permission", "1008", "policy violation", "requested entity was not found"))
                 if permanent:
                     break  # Never spin/retry an unavailable model, bad key or depleted quota.
                 if self.stop_event.is_set():
