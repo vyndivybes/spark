@@ -8,6 +8,7 @@ import BrowserWindow from './components/BrowserWindow';
 import ChatModule from './components/ChatModule';
 import ToolsModule from './components/ToolsModule';
 import {BrowserEchoAudio} from './audio/BrowserEchoAudio.mjs';
+import {WindowsSpeech} from './audio/WindowsSpeech.mjs';
 import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock, Activity } from 'lucide-react';
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 // MemoryPrompt removed - memory is now actively saved to project
@@ -304,6 +305,7 @@ function App() {
     const audioTransportRef = useRef('pending');
     const aiProviderRef = useRef('gemini');
     const audioBridgeRef = useRef(null);
+    const windowsSpeechRef = useRef(null);
     const userMutedRef = useRef(false);
 
     // Auto-Connect Model on Start (Only after Auth and devices loaded)
@@ -352,6 +354,8 @@ function App() {
             setAudioTransport(mode);
         });
         socket.on('disconnect', () => {
+            windowsSpeechRef.current?.stop();
+            windowsSpeechRef.current = null;
             setStatus('Disconnected');
             setSocketConnected(false);
             hasAutoConnectedRef.current = false;
@@ -430,6 +434,24 @@ function App() {
                 lastLiveNoticeRef.current = info.message;
                 addMessage('System', info.message);
             }
+        });
+        socket.on('browser_tts', (payload) => {
+            if (aiProviderRef.current !== 'groq' || typeof payload?.text !== 'string') return;
+            const bridge = audioBridgeRef.current;
+            // Browser's Windows voice is independent from Groq speech quota.
+            // Keep the microphone gated during synthesis: Web Speech does not
+            // use the WebAudio speaker reference used for Chromium AEC.
+            const synth = window.speechSynthesis;
+            const Utterance = window.SpeechSynthesisUtterance;
+            windowsSpeechRef.current?.stop();
+            const speaker = new WindowsSpeech({
+                synth, Utterance, bridge,
+                isUserMuted: () => userMutedRef.current,
+                onComplete: failed => socket.emit('browser_speech_done', {error: failed}),
+                onError: message => addMessage('System', message)
+            });
+            windowsSpeechRef.current = speaker;
+            speaker.speak(payload.text);
         });
         socket.on('audio_transport_status', data => {
             if (!data?.ready) {
@@ -754,6 +776,7 @@ function App() {
             socket.off('audio_transport_config');
             socket.off('spark_diagnostics');
             socket.off('audio_transport_status');
+            socket.off('browser_tts');
             socket.off('mic_safety');
             socket.off('audio_level');
             socket.off('cad_data');
@@ -769,6 +792,8 @@ function App() {
             socket.off('print_status_update');
             socket.off('error');
 
+            windowsSpeechRef.current?.stop();
+            windowsSpeechRef.current = null;
             audioBridgeRef.current?.stop();
             audioBridgeRef.current = null;
             stopMicVisualizer();
@@ -1235,6 +1260,8 @@ function App() {
 
     const togglePower = () => {
         if (isConnected) {
+            windowsSpeechRef.current?.stop();
+            windowsSpeechRef.current = null;
             audioBridgeRef.current?.stop();
             audioBridgeRef.current = null;
             socket.emit('stop_audio');
