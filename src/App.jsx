@@ -363,6 +363,18 @@ function App() {
             }
         });
         // Only a bounded amplitude value is sent from the backend, never PCM.
+        // The backend owns actual microphone safety. The UI never guesses
+        // when the acoustic gate is ready after SPARK speaks.
+        socket.on('mic_safety', (data) => {
+            if (!data || typeof data.muted !== 'boolean') return;
+            setIsMuted(Boolean(data.muted));
+            if (data.reason === 'await_user_rearm') {
+                addMessage('System', data.message || 'Tap the microphone after SPARK finishes speaking.');
+            }
+            if (data.reason === 'wait_for_speaker') {
+                addMessage('System', data.message || 'SPARK is still speaking.');
+            }
+        });
         socket.on('audio_level', (data) => {
             const level = Math.max(0, Math.min(255, Number(data?.value) || 0));
             setAiAudioData(new Array(64).fill(level));
@@ -651,6 +663,7 @@ function App() {
             socket.off('disconnect');
             socket.off('status');
             socket.off('ai_status');
+            socket.off('mic_safety');
             socket.off('audio_level');
             socket.off('cad_data');
             socket.off('cad_thought');

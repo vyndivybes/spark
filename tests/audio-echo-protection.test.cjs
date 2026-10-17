@@ -12,6 +12,23 @@ test('SPARK suppresses mic capture and queued outbound PCM during assistant play
   assert.match(ada, /self\.echo_gate\.on_playback_finished\(/);
 });
 test('echo guard resets on provider reconnection and output still reaches speaker', () => {
-  assert.match(ada, /self\.session = session\s+self\.echo_gate\.reset\(\)/);
+  assert.match(ada, /self\.echo_gate\.reset\(\s*hold_for_rearm=is_reconnect/);
   assert.match(ada, /await asyncio\.to_thread\(stream\.write, bytestream\)/);
+});
+
+test('cinematic voice is single-turn: backend and frontend require explicit mic rearm',()=>{
+  const server = fs.readFileSync(path.resolve(__dirname,'../backend/server.py'),'utf8');
+  const frontend = fs.readFileSync(path.resolve(__dirname,'../src/App.jsx'),'utf8');
+  assert.match(ada,/EchoGate\(require_rearm=live_profile\(\) ===? "?cinematic"?/);
+  assert.match(ada,/self\.echo_gate\.on_output_received\(\)/);
+  assert.match(server,/audio_loop\.echo_gate\.rearm\(\)/);
+  assert.match(server,/sio\.emit\('mic_safety'/);
+  assert.match(frontend,/socket\.on\('mic_safety'/);
+  assert.match(frontend,/setIsMuted\(Boolean\(data\.muted\)\)/);
+});
+
+test('reconnect is silent and 1008 policy violation does not retry',()=>{
+  assert.doesNotMatch(ada,/Please acknowledge the reconnection/);
+  assert.match(ada,/Live reconnect is silent/);
+  assert.match(ada,/"1008"/);
 });

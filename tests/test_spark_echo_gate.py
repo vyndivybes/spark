@@ -54,5 +54,41 @@ class EchoGateTests(unittest.TestCase):
         self.assertFalse(gate.mic_blocked(now=30.8))
 
 
+    def test_cinematic_requires_explicit_mic_rearm_even_after_cooldown(self):
+        gate = EchoGate(tail_seconds=0.75, require_rearm=True)
+        self.assertFalse(gate.mic_blocked(now=1))
+        self.assertTrue(gate.on_output_received())
+        self.assertFalse(gate.on_output_received())  # one status notice per response
+        gate.on_playback_started()
+        gate.on_turn_finished(queue_empty=False, now=2)
+        self.assertFalse(gate.rearm(now=2.2))  # still playing
+        gate.on_playback_finished(queue_empty=True, now=3)
+        self.assertTrue(gate.mic_blocked(now=500))
+        self.assertFalse(gate.rearm(now=3.5))  # acoustic tail still active
+        self.assertTrue(gate.rearm(now=3.8))
+        self.assertFalse(gate.mic_blocked(now=3.8))
+
+    def test_cinematic_reconnect_stays_muted_until_new_user_action(self):
+        gate = EchoGate(tail_seconds=0.75, require_rearm=True)
+        gate.on_output_received()
+        gate.reset(hold_for_rearm=True, now=10)
+        self.assertTrue(gate.mic_blocked(now=100))
+        self.assertFalse(gate.rearm(now=10.25))
+        self.assertTrue(gate.rearm(now=10.8))
+
+    def test_cinematic_reset_rearms_only_on_fresh_session(self):
+        gate = EchoGate(require_rearm=True)
+        gate.on_output_received()
+        gate.on_turn_finished(queue_empty=True, now=3)
+        self.assertTrue(gate.mic_blocked(now=100))
+        gate.reset()
+        self.assertFalse(gate.mic_blocked(now=100))
+
+    def test_voice_profile_preserves_automatic_mic_return(self):
+        gate = EchoGate(tail_seconds=0.75)
+        gate.on_output_received()
+        gate.on_turn_finished(queue_empty=True, now=2)
+        self.assertFalse(gate.mic_blocked(now=2.8))
+
 if __name__ == "__main__":
     unittest.main()

@@ -29,6 +29,13 @@ class LiveConfigTests(unittest.TestCase):
         self.assertEqual(missing["state"], "setup_required")
         self.assertNotIn("secret-example", str(missing))
 
+    def test_websocket_1008_policy_violation_is_distinct_from_quota(self):
+        result = live_error_message(Exception(
+            "received 1008 (policy violation) Requested entity was not found."
+        ))
+        self.assertIn("policy", result.lower())
+        self.assertNotIn("429", result)
+
     def test_live_error_categories_never_include_private_provider_body(self):
         for raw, expected in [
             ("Error HTTP 429: secret-example quota exceeded", "rate limit"),

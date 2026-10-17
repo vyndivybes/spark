@@ -219,7 +219,7 @@ from kasa_agent import KasaAgent
 from printer_agent import PrinterAgent
 
 class AudioLoop:
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -233,6 +233,7 @@ class AudioLoop:
         self.on_device_update = on_device_update
         self.on_error = on_error
         self.on_live_status = on_live_status
+        self.on_mic_safety = on_mic_safety
         self.input_device_index = input_device_index
         self.input_device_name = input_device_name
         self.output_device_index = output_device_index
@@ -242,7 +243,7 @@ class AudioLoop:
         self.paused = False
         # Silence microphone transport while the assistant speaks to prevent
         # acoustic self-feedback from loudspeakers (half-duplex by design).
-        self.echo_gate = EchoGate()
+        self.echo_gate = EchoGate(require_rearm=live_profile() == "cinematic")
 
         self.chat_buffer = {"sender": None, "text": ""} # For aggregating chunks
         
@@ -689,7 +690,16 @@ class AudioLoop:
                     if data := response.data:
                         # Gate before queuing audio: model output can arrive
                         # before the local speaker begins writing samples.
-                        self.echo_gate.on_output_received()
+                        first_output = self.echo_gate.on_output_received()
+                        # Cinematic mode accepts exactly one user utterance per
+                        # activation. Tell the UI to display the mic as muted
+                        # immediately when assistant speech starts.
+                        if first_output and self.echo_gate.require_rearm and self.on_mic_safety:
+                            self.on_mic_safety({
+                                "muted": True,
+                                "reason": "await_user_rearm",
+                                "message": "SPARK is speaking. Tap the microphone after the reply to ask another question."
+                            })
                         self.audio_in_queue.put_nowait(data)
                         # NOTE: 'continue' removed here to allow processing transcription/tools in same packet
 
@@ -1269,7 +1279,15 @@ class AudioLoop:
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session = session
-                    self.echo_gate.reset()
+                    # Reconnection must not reopen a microphone which the
+                    # cinematic reply had latched closed.
+                    self.echo_gate.reset(
+                        hold_for_rearm=is_reconnect and self.echo_gate.require_rearm)
+                    if is_reconnect and self.echo_gate.require_rearm and self.on_mic_safety:
+                        self.on_mic_safety({
+                            "muted": True, "reason": "await_user_rearm",
+                            "message": "SPARK reconnected. Activate the microphone to resume."
+                        })
                     if self.on_live_status:
                         self.on_live_status({"state": "connected", "model": MODEL, "message": "SPARK Core connected to Gemini Live."})
 
@@ -1299,21 +1317,10 @@ class AudioLoop:
                             self.on_project_update(self.project_manager.current_project)
                     
                     else:
-                        print(f"[ADA DEBUG] [RECONNECT] Connection restored.")
-                        # Restore Context
-                        print(f"[ADA DEBUG] [RECONNECT] Fetching recent chat history to restore context...")
-                        history = self.project_manager.get_recent_chat_history(limit=10)
-                        
-                        context_msg = "System Notification: Connection was lost and just re-established. Here is the recent chat history to help you resume seamlessly:\n\n"
-                        for entry in history:
-                            sender = entry.get('sender', 'Unknown')
-                            text = entry.get('text', '')
-                            context_msg += f"[{sender}]: {text}\n"
-                        
-                        context_msg += "\nPlease acknowledge the reconnection to the user (e.g. 'I lost connection for a moment, but I'm back...') and resume what you were doing."
-                        
-                        print(f"[ADA DEBUG] [RECONNECT] Sending restoration context to model...")
-                        await self.session.send_client_content(turns={"role": "user", "parts": [{"text": context_msg}]}, turn_complete=True)
+                        # A transport reconnect must NEVER initiate a new
+                        # unsolicited spoken turn. Earlier code injected a
+                        # "please acknowledge" history prompt on every retry.
+                        print("[SPARK] Live reconnect is silent; awaiting user input.")
 
                     # Reset retry delay on successful connection
                     retry_delay = 1
@@ -1341,7 +1348,7 @@ class AudioLoop:
                 print(f"[SPARK] {message}")
                 if self.on_live_status:
                     self.on_live_status({"state": "error", "model": MODEL, "message": message})
-                permanent = any(code in str(e).lower() for code in ("429", "quota", "401", "403", "404", "permission"))
+                permanent = any(code in str(e).lower() for code in ("429", "quota", "401", "403", "404", "permission", "1008", "policy violation", "requested entity was not found"))
                 if permanent:
                     break  # Never spin/retry an unavailable model, bad key or depleted quota.
                 if self.stop_event.is_set():
