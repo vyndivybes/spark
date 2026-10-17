@@ -6,6 +6,7 @@
 own independent Windows provider/device acceptance.
 """
 import os
+from spark_cinematic_tools import CINEMATIC_FUNCTIONS
 
 
 CINEMATIC_SYSTEM_INSTRUCTION = (
@@ -28,7 +29,7 @@ CINEMATIC_SYSTEM_INSTRUCTION = (
 def live_profile():
     choice = os.environ.get("SPARK_LIVE_PROFILE", "cinematic").strip().lower()
     # The known-good one-line profile is the fail-closed fallback.
-    return choice if choice in ("full", "voice", "cinematic") else "voice"
+    return choice if choice in ("full", "voice", "cinematic", "cinematic_tools") else "voice"
 
 
 def select_live_config(profile, full_config):
@@ -44,6 +45,19 @@ def select_live_config(profile, full_config):
             },
             "system_instruction": CINEMATIC_SYSTEM_INSTRUCTION,
         }
+    if profile == "cinematic_tools":
+        # Opt-in Stage-6 profile: same known-good Charon voice and audio path,
+        # only two small synchronous functions. Never copy legacy tool config.
+        output = select_live_config("cinematic", full_config)
+        output["system_instruction"] = output["system_instruction"].replace(
+            "No tools are provided in cinematic voice mode.",
+            "You may call only the declared read-only system-status tool and "
+            "approval-gated application launcher. Never claim an action "
+            "succeeded until the tool returns success. If approval is denied "
+            "or times out, explain this briefly and continue listening."
+        )
+        output["tools"] = [{"function_declarations": CINEMATIC_FUNCTIONS}]
+        return output
     if profile == "full":
         return full_config
     raise ValueError("Unsupported SPARK Live profile")
