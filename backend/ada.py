@@ -1162,11 +1162,10 @@ class AudioLoop:
                         if function_responses:
                             await self.session.send_tool_response(function_responses=function_responses)
                 
-                # Turn/Response Loop Finished
+                # Preserve already-received PCM after a turn finishes: the speaker
+                # consumer may still be playing its queued chunks. Only the explicit
+                # interruption path (clear_audio_queue) may discard playback audio.
                 self.flush_chat()
-
-                while not self.audio_in_queue.empty():
-                    self.audio_in_queue.get_nowait()
         except Exception as e:
             print(f"Error in receive_audio: {e}")
             traceback.print_exc()
