@@ -142,7 +142,10 @@ async def status():
             "live_profile": "groq_voice" if cloud_provider() == "groq" else live_profile(),
             "audio_transport": AUDIO_TRANSPORT,
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
-            **live_status_report(live_state, live_message)}
+            **({"live_state":live_state,
+                "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
+                "live_error_code":None} if cloud_provider()=="groq"
+                else live_status_report(live_state, live_message))}
 
 @sio.event
 async def connect(sid, environ):
@@ -576,6 +579,7 @@ async def browser_mic_pcm(sid, payload):
     if (AUDIO_TRANSPORT != "browser_aec" or not audio_loop or
             not audio_loop.browser_audio or audio_loop.owner_sid != sid
             or not audio_loop.session or audio_loop.paused or
+            not getattr(audio_loop, "accepting_mic", True) or
             not audio_loop.browser_ready or audio_loop.out_queue is None):
         return
     try:
