@@ -75,7 +75,9 @@ function createExperienceManager({root,userData,python='python',notesDir,Browser
       if(step.once){fs.mkdirSync(path.dirname(step.args[step.args.indexOf('--out')+1]),{recursive:true});await completedProcess(step);continue;}
       const child=spawn(step.command,step.args,{cwd:step.cwd,shell:false,windowsHide:true,stdio:'ignore'});
       children.set(name,child);
-      try{await waitForServer(plan.port,child);}catch(e){killOwnedProcess(child);children.delete(name);throw e;}
+      const failedToStart=new Promise((_,reject)=>child.once('error',()=>reject(new Error('Python is unavailable. Configure SPARK_PYTHON or install Python.'))));
+      try{await Promise.race([waitForServer(plan.port,child),failedToStart]);}
+      catch(e){killOwnedProcess(child);children.delete(name);throw e;}
     }
     const win=new BrowserWindow({width:1450,height:910,backgroundColor:'#070b13',title:name==='holo'?'SPARK · HOLO DECK':'SPARK · NEURAL ATLAS',
       webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
