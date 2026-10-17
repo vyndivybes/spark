@@ -2,6 +2,24 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## SPARK CORE — Gemini Live voice (October 2026)
+
+The desktop UI, Socket.IO, and microphone unmute indicator **do not** prove a Gemini session is live. SPARK Core now uses Google's supported `gemini-3.8-live` model, sends 16-kHz PCM through `send_realtime_input`, and shows distinct **connecting**, **connected**, **microphone error**, **setup required**, or **Gemini error** states. On startup, the backend reads a private key from `backend/.env` or the `GEMINI_API_KEY` environment variable. It will not print or expose the key through the UI.
+
+**Existing ARKUS Google key — explicit one-launch opt-in (recommended):**
+
+```powershell
+cd "$HOME\\spark"
+git pull --ff-only
+powershell -ExecutionPolicy Bypass -File .\\start-spark.ps1 -UseArkusGeminiKey
+```
+
+This command reads `%APPDATA%\\arkus\\config.json` locally and passes `api_key` only to SPARK's Python process environment. It does not copy the key to Git, save a new credential file, or change Google AI Studio billing. Alternately, set `GEMINI_API_KEY` in your shell or supply your own private `backend/.env`. ARKUS's **Flash** model and any old **Flash grounding 429 error** are independent of SPARK's Gemini **Live** model. Gemini Live still has rate limits and requires actual Windows microphone/speaker permissions.
+
+The SPARK assistant auto-establishes a Gemini Live session after local backend and user authorization; the microphone starts **muted** and responds only after you press the microphone button. Audio responses require a working Windows speaker. Your first test should be to unmute and say, "SPARK, can you hear me?"; typed questions should now use the SDK's `send_client_content` method and receive a clear error when there is no session.
+
+Developer notes: Live model names are restricted to documented compatible options; `SPARK_LIVE_MODEL=gemini-3.1-flash-live-preview` is an optional override, and unknown/retired model names fall back to `gemini-3.8-live`. Real provider, hardware and account acceptance remains separate from CI tests.
+
 ## Windows backend startup repair (October 2026)
 
 Use `start-spark.ps1` to create an isolated `.venv` with a compatible Python interpreter, test its essential module imports, and install the narrower `requirements-runtime.txt` set if needed. **Python 3.12 is recommended** for Windows audio and MediaPipe wheels. Python 3.14 is not yet qualified for this ADA-derived backend. When only Python 3.14 is installed, the launcher prints an explicit Python 3.12 requirement rather than repeatedly failing on `ModuleNotFoundError: socketio`. Do not uninstall or change the Python 3.14 interpreter used by ARKUS.
