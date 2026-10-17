@@ -2,6 +2,22 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Windows backend startup repair (October 2026)
+
+Use `start-spark.ps1` to create an isolated `.venv` with a compatible Python interpreter, test its essential module imports, and install the narrower `requirements-runtime.txt` set if needed. **Python 3.12 is recommended** for Windows audio and MediaPipe wheels. Python 3.14 is not yet qualified for this ADA-derived backend. When only Python 3.14 is installed, the launcher prints an explicit Python 3.12 requirement rather than repeatedly failing on `ModuleNotFoundError: socketio`. Do not uninstall or change the Python 3.14 interpreter used by ARKUS.
+
+```powershell
+cd "$HOME\\spark"
+git pull
+powershell -ExecutionPolicy Bypass -File .\\start-spark.ps1
+```
+
+If Python 3.12 is missing, install it alongside 3.14 and rerun the same command. The new venv remains isolated inside `spark/.venv` (ignored by Git). On shutdown, Electron terminating normally now reports success rather than `vite exited with code 1`; dead Python process IDs are not sent to `taskkill`.
+
+**Scope:** this runtime set supports core ADA imports and voice/camera/smart-home packages but does not install the optional `build123d` CAD kernel or download Playwright browsers or 3D printer slicers. Those integrations require separate installation and physical acceptance. Gemini requires `GEMINI_API_KEY` set privately in `backend/.env` before Live activation; absence of a key no longer blocks GUI startup. A successful offline preflight does not demonstrate a functioning real Gemini call, microphone, printer or camera.
+
+NPM security audit warnings remain separate from this startup fix; do not run `npm audit fix --force` indiscriminately on ADA's older Electron/Vite dependency graph.
+
 ## SPARK setup — Windows 11
 
 **One-command launch from an existing checkout:**
