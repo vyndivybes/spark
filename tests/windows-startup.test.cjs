@@ -38,3 +38,9 @@ test('dead Python processes are not killed a second time and OS commands do not 
  assert.match(main,/spawnSync\('taskkill'/);
  assert.doesNotMatch(main,/execSync\(\x60taskkill/);
 });
+
+test('SPARK opens its full cockpit without docking developer tools automatically',()=>{
+ const main=read('electron/main.js');
+ assert.match(main,/process\.env\.SPARK_DEVTOOLS\s*===\s*'1'/);
+ assert.doesNotMatch(main,/if\s*\(isDev\)\s*\{\s*mainWindow\.webContents\.openDevTools\(\)/);
+});

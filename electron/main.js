@@ -41,7 +41,9 @@ function createWindow() {
                 console.log('Frontend loaded successfully!');
                 windowWasShown = true;
                 mainWindow.show();
-                if (isDev) {
+                // Developer tools intentionally remain opt-in. Auto-docking them
+                // covered half the SPARK cockpit and triggered cramped card layout.
+                if (isDev && process.env.SPARK_DEVTOOLS === '1') {
                     mainWindow.webContents.openDevTools();
                 }
             })
