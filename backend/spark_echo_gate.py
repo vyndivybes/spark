@@ -1,18 +1,18 @@
-"""Prevent SPARK Live from feeding its own loudspeaker output to the mic.
+"""Half-duplex protection for SPARK's microphone-to-Gemini audio stream.
 
-Half-duplex is a deliberate safe default until a tested acoustic echo
-canceller is available. Gate starts on the *first received model PCM packet*,
-not only when playback begins. It releases after the final queued speaker
-chunk is played and a short acoustic tail has elapsed.
+In cinematic mode, the mic stays blocked after each assistant reply until
+a new explicit user gesture rearms it, preventing recurring self-conversation.
+The legacy voice profile still has its previous automatic cooldown behavior.
 """
 import time
 
 
 class EchoGate:
-    def __init__(self, tail_seconds=0.75):
+    def __init__(self, tail_seconds=0.75, require_rearm=False):
         if tail_seconds < 0:
             raise ValueError("tail_seconds must be nonnegative")
         self.tail_seconds = tail_seconds
+        self.require_rearm = require_rearm
         self.reset()
 
     def reset(self):
@@ -20,10 +20,15 @@ class EchoGate:
         self._writing = False
         self._turn_finished = False
         self._release_at = 0.0
+        self._needs_rearm = False
 
     def on_output_received(self):
+        first_packet = not self._output_active
         self._output_active = True
         self._turn_finished = False
+        if self.require_rearm:
+            self._needs_rearm = True
+        return first_packet
 
     def on_playback_started(self):
         self._writing = True
@@ -45,4 +50,13 @@ class EchoGate:
 
     def mic_blocked(self, now=None):
         current = time.monotonic() if now is None else now
-        return self._output_active or current < self._release_at
+        return (self._output_active or current < self._release_at
+                or (self.require_rearm and self._needs_rearm))
+
+    def rearm(self, now=None):
+        """Allow one new user turn, but never while speaker or tail is active."""
+        current = time.monotonic() if now is None else now
+        if self._output_active or current < self._release_at:
+            return False
+        self._needs_rearm = False
+        return True
