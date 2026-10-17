@@ -292,6 +292,7 @@ function App() {
     // Ref to track if model has been auto-connected (prevents duplicate connections)
     const hasAutoConnectedRef = useRef(false);
     const lastLiveNoticeRef = useRef('');
+    const activationPendingRef = useRef(false);
 
     // Auto-Connect Model on Start (Only after Auth and devices loaded)
     useEffect(() => {
@@ -341,11 +342,20 @@ function App() {
         socket.on('ai_status', (info) => {
             if (!info || !info.state) return;
             setLiveState(info);
-            if (info.state === 'connected') setStatus('Gemini Live Connected');
+            if (info.state === 'connected') {
+                setStatus('Gemini Live Connected');
+                if (activationPendingRef.current) {
+                    activationPendingRef.current = false;
+                    socket.emit('resume_audio');
+                    setIsMuted(false);
+                }
+            }
             else if (info.state === 'connecting') setStatus('Connecting to Gemini Live');
             else if (info.state === 'setup_required') setStatus('Gemini Setup Required');
             else if (info.state === 'error') setStatus('Gemini Live Error');
+            else if (info.state === 'idle' || info.state === 'disconnected') setStatus('SPARK Core Idle');
             else if (info.state === 'audio_error') setStatus('Microphone Error');
+            if (['setup_required','error','audio_error'].includes(info.state)) activationPendingRef.current = false;
             if (['setup_required','error','audio_error'].includes(info.state) && info.message !== lastLiveNoticeRef.current) {
                 lastLiveNoticeRef.current = info.message;
                 addMessage('System', info.message);
@@ -1359,6 +1369,32 @@ function App() {
 
 
 
+    const activateSparkCore = () => {
+        setShowExperiences(false);
+        if (!socketConnected) {
+            addMessage('System', 'SPARK Core backend is offline. Restart SPARK before activating voice.');
+            return;
+        }
+        if (liveState.state === 'setup_required') {
+            addMessage('System', liveState.message);
+            return;
+        }
+        activationPendingRef.current = liveState.state !== 'connected';
+        setIsConnected(true);
+        setIsMuted(false);
+        if (liveState.state === 'connected') {
+            socket.emit('resume_audio');
+            setStatus('Gemini Live Connected');
+        } else {
+            const mic = micDevices.find(d => d.deviceId === selectedMicId);
+            socket.emit('start_audio', {
+                device_name: mic?.label || null,
+                muted: false
+            });
+            setStatus('Connecting to Gemini Live');
+        }
+    };
+
     const openExperience = async (experience) => {
         if(experienceBusy)return;
         setExperienceBusy(experience);
@@ -1504,11 +1540,12 @@ function App() {
                             <strong>NEURAL ATLAS</strong><small>Wiki links · live graph physics · focus · replay</small>
                             <em>{experienceBusy==='brain'?'LAUNCHING':'OPEN EXPERIENCE →'}</em>
                         </button>
-                        <div className="spark-experience-card spark-core">
+                        <button type="button" className="spark-experience-card spark-core" onClick={activateSparkCore}
+                            title="Activate SPARK voice core and return to the cockpit">
                             <span className="spark-exp-symbol">✦</span><span className="spark-exp-subtitle">ASSISTANT CONTROL CENTER</span>
                             <strong>SPARK CORE</strong><small>ADA V2 voice · CAD · browser · Kasa · printers · face lock</small>
-                            <em>CURRENT COCKPIT</em>
-                        </div>
+                            <em>ACTIVATE CORE →</em>
+                        </button>
                     </div>
                     <p role="status" className="spark-exp-status">{experienceMessage}</p>
                 </section>
