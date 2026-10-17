@@ -73,6 +73,20 @@ class CloudModeTests(unittest.IsolatedAsyncioTestCase):
             await loop.process_pcm(chunk(0))
         self.assertEqual(calls.count("stt"),1)
 
+    async def test_long_tts_is_chunked_for_browser_speaker_limits(self):
+        sounds=[]
+        class LongVoice:
+            async def chat(self,text,history):
+                return "A longer but concise answer."
+            async def speak(self,text):
+                return pcm_to_wav(chunk(1200)*90)
+        loop=GroqVoiceLoop(api=LongVoice(),
+                           on_browser_audio=sounds.append,audio_playback_wait=False)
+        await loop.handle_text("Hello")
+        self.assertGreater(len(sounds),2)
+        self.assertTrue(all(len(packet)<=48000 for packet in sounds))
+        self.assertEqual(sum(len(packet) for packet in sounds),432000)
+
     async def test_vad_ignores_noise_and_mute(self):
         class Never:
             async def transcribe(self,wav):
