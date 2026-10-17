@@ -68,6 +68,14 @@ class EchoGateTests(unittest.TestCase):
         self.assertTrue(gate.rearm(now=3.8))
         self.assertFalse(gate.mic_blocked(now=3.8))
 
+    def test_cinematic_reconnect_stays_muted_until_new_user_action(self):
+        gate = EchoGate(tail_seconds=0.75, require_rearm=True)
+        gate.on_output_received()
+        gate.reset(hold_for_rearm=True, now=10)
+        self.assertTrue(gate.mic_blocked(now=100))
+        self.assertFalse(gate.rearm(now=10.25))
+        self.assertTrue(gate.rearm(now=10.8))
+
     def test_cinematic_reset_rearms_only_on_fresh_session(self):
         gate = EchoGate(require_rearm=True)
         gate.on_output_received()
