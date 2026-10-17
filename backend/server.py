@@ -516,7 +516,13 @@ async def resume_audio(sid):
     global audio_loop
     if audio_loop and audio_loop.session:
         if audio_loop.browser_audio:
-            # Chromium AEC continuously handles speech/assistant overlap.
+            # A button may NEVER turn on raw PCM before Chrome verifies AEC.
+            if not getattr(audio_loop, "browser_ready", False):
+                await sio.emit('audio_transport_status',
+                    {'ready': False, 'mode': 'browser_aec',
+                     'message': 'Echo cancellation is not ready; microphone remains blocked.'},
+                    room=sid)
+                return
             audio_loop.set_paused(False)
             await sio.emit('mic_safety', {'muted': False, 'reason': 'aec_enabled'}, room=sid)
             return
