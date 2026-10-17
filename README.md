@@ -4,6 +4,14 @@ SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **o
 
 ## SPARK setup — Windows 11
 
+**One-command launch from an existing checkout:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\\start-spark.ps1
+```
+
+For manual setup or troubleshooting:
+
 ```powershell
 # In your existing SPARK repository checkout:
 git pull
@@ -12,7 +20,7 @@ npm run setup:experiences
 npm run dev
 ```
 
-Requires Git, Node.js 22+, and a Python interpreter on PATH. To launch both original experiences, click **EXPERIENCE DECK** in the SPARK top toolbar, then **HOLO DECK** or **NEURAL ATLAS**. The applications launch on `127.0.0.1:4890` and `127.0.0.1:4710` respectively in separate, sandboxed Electron windows. HOLO uses its self-hosted MediaPipe model, Three.js and original GLB scans; Brain Map uses its original Markdown `[[wikilinks]]`, physics layout, search, and replay. Both launch **only when the user clicks**; no camera or microphone activates automatically.
+Requires Git, Node.js 22+, and a Python interpreter on PATH (or use `SPARK_PYTHON`). The original ADA V2 backend separately requires the open-source packages in `requirements.txt` and its own local configuration. If those Python packages are missing, the SPARK UI will still open and its HOLO/Brain experiences can be launched; core AI/CAD/printing functions will remain disconnected until their dependencies are installed and configured. Installing all upstream Python dependencies can require considerable disk space and compatible Python wheels; the launch script does **not** silently install them. To launch both original experiences, click **EXPERIENCE DECK** in the SPARK top toolbar, then **HOLO DECK** or **NEURAL ATLAS**. The applications launch on `127.0.0.1:4890` and `127.0.0.1:4710` respectively in separate, sandboxed Electron windows. HOLO uses its self-hosted MediaPipe model, Three.js and original GLB scans; Brain Map uses its original Markdown `[[wikilinks]]`, physics layout, search, and replay. Both launch **only when the user clicks**; no camera or microphone activates automatically.
 
 By default the original example notes bundled with HOLO are used, ensuring both experiences have visible content. For Brain Map, set `SPARK_NOTES_DIR` to an **existing local Markdown folder** before launching SPARK; for HOLO, edit the upstream `vendor/holo-gestures/holo.json` `folder` field on your own PC. These two independent apps do not yet synchronize ADA's project memory.
 
