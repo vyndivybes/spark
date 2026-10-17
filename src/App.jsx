@@ -637,6 +637,7 @@ function App() {
             socket.off('connect');
             socket.off('disconnect');
             socket.off('status');
+            socket.off('ai_status');
             socket.off('audio_data');
             socket.off('cad_data');
             socket.off('cad_thought');
