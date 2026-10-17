@@ -340,9 +340,15 @@ class AudioLoop:
         else:
             b64_data = frame_data 
 
-        # Store as the designated "next frame to send"
+        # Keep the latest image for speech-triggered refreshes, but do not
+        # require voice activity to deliver the first scene to Gemini.
         self._latest_image_payload = {"mime_type": "image/jpeg", "data": b64_data}
-        # No event signal needed - listen_audio pulls it
+        if self.out_queue is not None and self.session is not None:
+            try:
+                self.out_queue.put_nowait(self._latest_image_payload)
+            except asyncio.QueueFull:
+                # Camera must never stall or displace real-time speech.
+                pass
 
     async def send_realtime(self):
         while True:

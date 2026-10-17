@@ -147,6 +147,7 @@ function App() {
     const videoIntervalRef = useRef(null);
     const lastFrameTimeRef = useRef(0);
     const frameCountRef = useRef(0);
+    const lastSentCameraFrameRef = useRef(0);
     const lastVideoTimeRef = useRef(-1);
 
     // Ref to track video state for the loop (avoids closure staleness)
@@ -802,11 +803,12 @@ function App() {
 
         ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
 
-        // 2. Send Frame to Backend (Throttled & Resized)
-        // Only send if connected
-        if (isConnected) {
-            // Simple throttle: every 5th frame roughly
-            if (frameCountRef.current % 5 === 0) {
+        // 2. Camera images are opt-in and rate-limited to one JPEG per second.
+        // Video preview alone does not authorize streaming to the AI.
+        if (isConnected && socketConnected && isVideoOnRef.current && liveState.state === 'connected') {
+            const frameNow = performance.now();
+            if (frameNow - lastSentCameraFrameRef.current >= 1000) {
+                lastSentCameraFrameRef.current = frameNow;
 
                 // Use dedicated transmission canvas for resizing
                 const transCanvas = transmissionCanvasRef.current;
@@ -816,9 +818,15 @@ function App() {
                     transCtx.drawImage(videoRef.current, 0, 0, transCanvas.width, transCanvas.height);
 
                     // Convert resized image to blob
-                    transCanvas.toBlob((blob) => {
-                        if (blob) {
-                            socket.emit('video_frame', { image: blob });
+                    transCanvas.toBlob(async (blob) => {
+                        if (!blob || !isVideoOnRef.current || !socket.connected) return;
+                        try {
+                            const image = await blob.arrayBuffer();
+                            if (isVideoOnRef.current && socket.connected) {
+                                socket.emit('video_frame', { image });
+                            }
+                        } catch {
+                            addMessage('System', 'Unable to transmit webcam frame.');
                         }
                     }, 'image/jpeg', 0.6); // Slightly higher compression for speed
                 }
