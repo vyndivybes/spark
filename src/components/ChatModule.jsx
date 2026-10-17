@@ -5,6 +5,7 @@ const ChatModule = ({
     inputValue,
     setInputValue,
     handleSend,
+    onOpenSource,
     isModularMode,
     activeDragElement,
     position,
@@ -48,6 +49,21 @@ const ChatModule = ({
                     <div key={i} className="text-sm border-l-2 border-cyan-800/50 pl-3 py-1">
                         <span className="text-cyan-600 font-mono text-xs opacity-70">[{msg.time}]</span> <span className="font-bold text-cyan-300 drop-shadow-sm">{msg.sender}</span>
                         <div className="text-gray-300 mt-1 leading-relaxed">{msg.text}</div>
+                        {Array.isArray(msg.sources) && msg.sources.length > 0 && (
+                            <div className="mt-2 flex flex-col gap-1">
+                                {msg.sources.slice(0, 5).map((source, index) => (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        onClick={() => onOpenSource(source.url)}
+                                        className="text-left text-xs text-sky-300 hover:text-white underline underline-offset-2 break-words"
+                                        title={source.url}
+                                    >
+                                        {source.title || 'Grounded source'}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))}
                 <div ref={messagesEndRef} />
