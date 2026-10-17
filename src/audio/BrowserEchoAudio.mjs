@@ -40,7 +40,10 @@ export class BrowserEchoAudio {
       this.stream = await navigator.mediaDevices.getUserMedia({audio, video: false});
       if (this.closed) throw new Error('SPARK audio cancelled.');
       const track = this.stream.getAudioTracks()[0];
-      if (!track || track.getSettings().echoCancellation !== true) {
+      const echoMode = track?.getSettings()?.echoCancellation;
+      // Chromium may return boolean true or the stronger string "all".
+      // "remote-only" cannot be trusted to cancel local Web Audio playback.
+      if (echoMode !== true && echoMode !== 'all') {
         throw new Error('Microphone echo cancellation is not active. Choose a compatible input device.');
       }
       const Context = window.AudioContext || window.webkitAudioContext;
