@@ -206,6 +206,12 @@ class GroqVoiceLoop:
         self._lock=asyncio.Lock()
 
     @property
+    def accepting_mic(self):
+        # Full-duplex Chromium AEC remains on, but stale samples captured
+        # while cloud STT/TTS is running must never re-trigger another turn.
+        return not (self.paused or self._busy or self._speaking or self.stop_event.is_set())
+
+    @property
     def recorded_chunks(self):
         return len(self._samples)
 
@@ -218,6 +224,13 @@ class GroqVoiceLoop:
         self._samples=[]
         self._speech_chunks=0
         self._silence_chunks=0
+
+    def _drop_stale_pcm(self):
+        while not self.out_queue.empty():
+            try:
+                self.out_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
 
     def stop(self):
         self.stop_event.set()
@@ -292,6 +305,7 @@ class GroqVoiceLoop:
                 if self.on_error:
                     self.on_error("Groq voice request failed; verify the connection and free-tier limits.")
             finally:
+                self._drop_stale_pcm()
                 self._busy=False
                 self._reset_vad()
 
@@ -337,5 +351,6 @@ class GroqVoiceLoop:
             if self.audio_playback_wait:
                 await asyncio.sleep(min(12,len(pcm)/48000+0.7))
         finally:
+            self._drop_stale_pcm()
             self._speaking=False
             self._reset_vad()
