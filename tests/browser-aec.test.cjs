@@ -16,7 +16,7 @@ test('worklet batches 16k mono PCM without routing mic into speaker',()=>{
 test('renderer uses actual Chromium echoCancellation and speaker playback for AEC reference',()=>{
   const src=read('src/audio/BrowserEchoAudio.mjs');
   assert.match(src,/echoCancellation:\s*true/);
-  assert.match(src,/getSettings\(\)\.echoCancellation/);
+  assert.match(src,/getSettings\(\)\?\.echoCancellation/);
   assert.match(src,/createMediaStreamSource/);
   assert.match(src,/createBufferSource/);
   assert.match(src,/audioContext\.destination/);
