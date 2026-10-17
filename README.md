@@ -2,6 +2,51 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## True hands-free Gemini Live voice — Chromium acoustic echo cancellation
+
+The default Windows launcher now uses `-AudioTransport browser_aec`. This is
+a distinct, single audio engine for both **microphone capture and Gemini
+speech playback**. Chromium's `getUserMedia` microphone stream requests
+`echoCancellation: true`, noise suppression and automatic gain control,
+and SPARK checks the actual active mic track setting before forwarding **any**
+microphone PCM. A lightweight AudioWorklet produces 16-kHz mono PCM in
+100-ms binary chunks over the local Socket.IO connection. Gemini's 24-kHz
+PCM is rendered by the **same Chromium AudioContext**, providing a browser
+speaker reference to the echo canceller.
+
+Unlike the previous one-turn workaround, browser AEC mode **does not latch
+the microphone between replies**: continuous follow-up questions and normal
+server-side Live VAD work without clicking a mic button each time. SPARK
+still preserves its existing cinematic Charon voice and explicit microphone
+mute/power controls. A one-time Windows/Electron microphone permission grant
+may be needed on first launch. Browser audio begins only after Live connects
+and Chromium confirms a working AEC-enabled microphone and output context.
+
+To activate on Windows:
+
+```powershell
+cd "$HOME\\spark"
+git pull --ff-only origin main
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 -LiveProfile cinematic -LiveModel gemini-3.8-live -AudioTransport browser_aec
+```
+
+The safe local `/status` endpoint reports `audio_transport: browser_aec`,
+`hands_free_ready: true`, `live_state: connected` after both
+provider and Chromium audio paths are prepared. Keep Windows Sound input
+set to your physical microphone, not a recording loopback such as Stereo Mix;
+if an unsupported sound device reports AEC unavailable, SPARK **fails closed**
+rather than silently switching to raw PyAudio capture. Try another Windows
+microphone or the default output device. If needed, the older one-turn mode
+is explicitly recoverable with `-AudioTransport native`; it is not
+automatically activated.
+
+Echo cancellation effectiveness depends on the Windows microphone, speakers,
+audio driver and room acoustics and must be tested on the actual PC. Start
+with a low volume and a short back-and-forth conversation. Shut down SPARK
+if it echoes, and inspect the `hands_free_ready` field and audio devices.
+No new AI service, key or paid subscription is required.
+
 ## Cinematic microphone safety — one activation, one answer
 
 **October 2026 feedback-loop containment:** the cinematic profile uses an
