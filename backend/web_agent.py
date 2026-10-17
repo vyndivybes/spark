@@ -11,8 +11,8 @@ from google.genai import types
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not API_KEY:
-    raise ValueError("Please set GEMINI_API_KEY in your .env file")
+# A missing private key must not prevent the local GUI/backend from starting.
+# Validate when a user actually invokes computer-use instead.
 
 # 2. Configuration
 SCREEN_WIDTH = 1440
@@ -22,6 +22,8 @@ MODEL_ID = "gemini-2.5-computer-use-preview-10-2025"
 
 class WebAgent:
     def __init__(self):
+        if not API_KEY:
+            raise RuntimeError("Gemini computer-use requires GEMINI_API_KEY in private backend/.env.")
         self.client = genai.Client(api_key=API_KEY)
         self.browser = None
         self.context = None
