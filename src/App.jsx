@@ -362,8 +362,10 @@ function App() {
                 addMessage('System', info.message);
             }
         });
-        socket.on('audio_data', (data) => {
-            setAiAudioData(data.data);
+        // Only a bounded amplitude value is sent from the backend, never PCM.
+        socket.on('audio_level', (data) => {
+            const level = Math.max(0, Math.min(255, Number(data?.value) || 0));
+            setAiAudioData(new Array(64).fill(level));
         });
         socket.on('auth_status', (data) => {
             console.log("Auth Status:", data);
@@ -649,7 +651,7 @@ function App() {
             socket.off('disconnect');
             socket.off('status');
             socket.off('ai_status');
-            socket.off('audio_data');
+            socket.off('audio_level');
             socket.off('cad_data');
             socket.off('cad_thought');
             socket.off('cad_status');
@@ -718,11 +720,17 @@ function App() {
             sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
             sourceRef.current.connect(analyserRef.current);
 
+            // Keep the animation loop cheap, but limit React App rerenders to 10Hz.
+            let lastMeterUpdate = 0;
             const updateMicData = () => {
                 if (!analyserRef.current) return;
-                const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-                analyserRef.current.getByteFrequencyData(dataArray);
-                setMicAudioData(Array.from(dataArray));
+                const now = performance.now();
+                if (now - lastMeterUpdate >= 100) {
+                    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+                    analyserRef.current.getByteFrequencyData(dataArray);
+                    setMicAudioData(Array.from(dataArray));
+                    lastMeterUpdate = now;
+                }
                 animationFrameRef.current = requestAnimationFrame(updateMicData);
             };
 
