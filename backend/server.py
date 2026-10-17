@@ -254,6 +254,11 @@ async def start_audio(sid, data=None):
         # Socket.IO emits raw binary; never JSON-serialize speaker PCM.
         asyncio.create_task(sio.emit('browser_audio', data_bytes, room=sid))
 
+    # Google Search attribution is source metadata, never generated HTML.
+    # Only the session owner receives these clickable citations.
+    def on_web_sources(payload):
+        asyncio.create_task(sio.emit('web_sources', payload, room=sid))
+
     # Callback to send CAL data to frontend
     def on_cad_data(data):
         info = f"{len(data.get('vertices', []))} vertices" if 'vertices' in data else f"{len(data.get('data', ''))} bytes (STL)"
@@ -328,6 +333,7 @@ async def start_audio(sid, data=None):
             video_mode="none", 
             on_audio_data=on_audio_data,
             on_browser_audio=on_browser_audio if AUDIO_TRANSPORT == "browser_aec" else None,
+            on_web_sources=on_web_sources,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,
