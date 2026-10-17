@@ -181,6 +181,11 @@ async def connect(sid, environ):
             await sio.emit('auth_status', {'authenticated': True})
 
 @sio.event
+async def get_audio_transport(sid):
+    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT}, room=sid)
+
+
+@sio.event
 async def disconnect(sid):
     print(f"Client disconnected: {sid}")
     # AEC playback reference disappears when the Electron owner disconnects.
