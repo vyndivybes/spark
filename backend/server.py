@@ -491,18 +491,21 @@ async def user_input(sid, data):
         if audio_loop and audio_loop.project_manager:
             audio_loop.project_manager.log_chat("User", text)
             
-        # Use the same 'send' method that worked for audio, as 'send_realtime_input' and 'send_client_content' seem unstable in this env
-        # INJECT VIDEO FRAME IF AVAILABLE (VAD-style logic for Text Input)
-        if audio_loop and audio_loop._latest_image_payload:
-            print(f"[SERVER DEBUG] Piggybacking video frame with text input.")
-            try:
-                # Send frame first
-                await audio_loop.session.send(input=audio_loop._latest_image_payload, end_of_turn=False)
-            except Exception as e:
-                print(f"[SERVER DEBUG] Failed to send piggyback frame: {e}")
-                
-        await audio_loop.session.send(input=text, end_of_turn=True)
-        print(f"[SERVER DEBUG] Message sent to model successfully.")
+        # Use the currently documented Live SDK client-content interface for
+        # finished typed turns; realtime media is a separate input stream.
+        try:
+            if audio_loop._latest_image_payload:
+                frame = audio_loop._latest_image_payload["data"]
+                if isinstance(frame, str):
+                    import base64
+                    frame = base64.b64decode(frame)
+                await audio_loop.session.send_realtime_input(
+                    video=ada.types.Blob(data=frame, mime_type="image/jpeg"))
+            await audio_loop.session.send_client_content(
+                turns={"role": "user", "parts": [{"text": text}]}, turn_complete=True)
+        except Exception:
+            await sio.emit('error', {
+                'msg': 'Could not send text to Gemini Live. The session may have closed.'}, room=sid)
 
 import json
 from datetime import datetime
