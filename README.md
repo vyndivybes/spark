@@ -2,6 +2,32 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Systems Center: diagnostics, export and keyboard mute
+
+SPARK's top bar now includes a clearly labelled **SYSTEMS** control. It
+opens a large, readable status panel displaying the locally selected
+provider, model, Live state, acoustic echo cancellation readiness, microphone
+state, and backend uptime. Its Refresh action requests a bounded, read-only
+snapshot from the **existing local Socket.IO backend**, not any external AI
+service. Provider quota balances are not available through the panel; an
+actual quota error cannot be cleared by a refresh. The safe report omits
+credentials, local file paths, full exception messages and conversations.
+
+Use **Copy report** to copy only the approved health fields for technical
+support. **Save transcript (.md)** opens an explicit Windows save dialog;
+nothing is written until you choose a destination. The export contains up to
+200 recent messages and safe source URLs. **Review before sharing:** your
+conversation itself may include personal or sensitive information. Neither
+report nor transcript is uploaded to GitHub.
+
+**Ctrl+Shift+M** toggles the existing mute action. It does not start another
+recording process, use a wake word, activate a paid model or change voice
+selection.
+
+These features are separate from the paused API & Agent Manager and do not
+modify Gemini, Groq, source routing, or the working Chromium AEC signal path.
+Device acceptance is still checked on the user's own Windows PC.
+
 ## Alternative provider: Groq cloud hands-free voice — no Ollama
 
 SPARK can now run a separate, explicitly selected cloud voice pipeline when
