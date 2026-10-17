@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const {createExperienceManager}=require('./experience-manager.cjs');
 
 // Use ANGLE D3D11 backend - more stable on Windows while keeping WebGL working
 // This fixes "GPU state invalid after WaitForGetOffsetInRange" error
@@ -10,6 +11,7 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist');
 
 let mainWindow;
 let pythonProcess;
+let experienceManager;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -19,8 +21,8 @@ function createWindow() {
             nodeIntegration: true,
             contextIsolation: false, // For simple IPC/Socket.IO usage
         },
-        backgroundColor: '#000000',
-        frame: false, // Frameless for custom UI
+        backgroundColor: '#0b1220',
+        frame: false, // Frameless SPARK cockpit with custom chrome
         titleBarStyle: 'hidden',
         show: false, // Don't show until ready
     });
@@ -68,10 +70,13 @@ function startPythonBackend() {
     console.log(`Starting Python backend: ${scriptPath}`);
 
     // Assuming 'python' is in PATH. In prod, this would be the executable.
-    pythonProcess = spawn('python', [scriptPath], {
+    pythonProcess = spawn(process.env.SPARK_PYTHON || 'python', [scriptPath], {
         cwd: path.join(__dirname, '../backend'),
     });
 
+    pythonProcess.on('error', (error) => {
+        console.error('SPARK core backend could not launch. Experience Deck remains available:', error.message);
+    });
     pythonProcess.stdout.on('data', (data) => {
         console.log(`[Python]: ${data}`);
     });
@@ -82,6 +87,18 @@ function startPythonBackend() {
 }
 
 app.whenReady().then(() => {
+    experienceManager=createExperienceManager({
+        root:path.resolve(__dirname,'..'),
+        userData:app.getPath('userData'),
+        python:process.env.SPARK_PYTHON||'python',
+        notesDir:process.env.SPARK_NOTES_DIR||undefined,
+        BrowserWindow,
+    });
+    ipcMain.handle('spark:open-experience',async(event,name)=>{
+        if(!mainWindow||event.sender.id!==mainWindow.webContents.id)
+            throw new Error('Experience launch is only available from the SPARK cockpit.');
+        return experienceManager.open(name);
+    });
     ipcMain.on('window-minimize', () => {
         if (mainWindow) mainWindow.minimize();
     });
@@ -139,20 +156,27 @@ function checkBackendPort(port) {
 
 function waitForBackend() {
     return new Promise((resolve) => {
-        const check = () => {
-            const http = require('http');
-            http.get('http://127.0.0.1:8000/status', (res) => {
-                if (res.statusCode === 200) {
-                    console.log('Backend is ready!');
-                    resolve();
-                } else {
-                    console.log('Backend not ready, retrying...');
-                    setTimeout(check, 1000);
-                }
-            }).on('error', (err) => {
-                console.log('Waiting for backend...');
-                setTimeout(check, 1000);
+        const deadline=Date.now()+20000;
+        let completed=false;
+        const ready=(available)=>{if(!completed){completed=true;resolve(available);}};
+        const retry=()=>{
+            if(completed)return;
+            if(Date.now()>=deadline){
+                console.warn('SPARK core backend offline. Launching UI anyway; check Python dependencies.');
+                ready(false);
+                return;
+            }
+            setTimeout(check,1000);
+        };
+        const check=()=>{
+            if(completed)return;
+            const request=require('http').get('http://127.0.0.1:8000/status',res=>{
+                res.resume();
+                if(res.statusCode===200)ready(true);
+                else retry();
             });
+            request.setTimeout(1500,()=>request.destroy());
+            request.on('error',retry);
         };
         check();
     });
@@ -171,6 +195,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    experienceManager?.stopAll();
     console.log('App closing... Killing Python backend.');
     if (pythonProcess) {
         if (process.platform === 'win32') {

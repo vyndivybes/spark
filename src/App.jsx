@@ -83,6 +83,9 @@ function App() {
     const [selectedSpeakerId, setSelectedSpeakerId] = useState(() => localStorage.getItem('selectedSpeakerId') || '');
     const [selectedWebcamId, setSelectedWebcamId] = useState(() => localStorage.getItem('selectedWebcamId') || '');
     const [showSettings, setShowSettings] = useState(false);
+    const [showExperiences, setShowExperiences] = useState(false);
+    const [experienceBusy, setExperienceBusy] = useState('');
+    const [experienceMessage, setExperienceMessage] = useState('Choose an experience. Camera and microphone remain off until you activate them.');
     const [currentProject, setCurrentProject] = useState('default');
 
     // Modular Mode State
@@ -1342,8 +1345,20 @@ function App() {
 
 
 
+    const openExperience = async (experience) => {
+        if(experienceBusy)return;
+        setExperienceBusy(experience);
+        setExperienceMessage('Starting the locally installed '+(experience==='holo'?'HOLO Deck':'Brain Map')+'…');
+        try {
+            const result=await ipcRenderer.invoke('spark:open-experience',experience);
+            setExperienceMessage(result.reused?'Existing experience focused.':'Experience opened. Its original controls are now available.');
+        } catch (error) {
+            setExperienceMessage(String(error?.message||'Experience launch failed. Run npm run setup:experiences and check Python installation.'));
+        } finally {setExperienceBusy('');}
+    };
+
     return (
-        <div className="h-screen w-screen bg-black text-cyan-100 font-mono overflow-hidden flex flex-col relative selection:bg-cyan-900 selection:text-white">
+        <div className="spark-cockpit h-screen w-screen text-cyan-100 overflow-hidden flex flex-col relative selection:bg-amber-700 selection:text-white">
 
             {/* --- PREMIUM UI LAYER --- */}
 
@@ -1397,10 +1412,10 @@ function App() {
             <div className="z-50 flex items-center justify-between p-2 border-b border-cyan-500/20 bg-black/40 backdrop-blur-md select-none sticky top-0" style={{ WebkitAppRegion: 'drag' }}>
                 <div className="flex items-center gap-4 pl-2">
                     <h1 className="text-xl font-bold tracking-[0.2em] text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
-                        A.D.A
+                        SPARK
                     </h1>
                     <div className="text-[10px] text-cyan-700 border border-cyan-900 px-1 rounded">
-                        V2.0.0
+                        FUSION · ADA CORE
                     </div>
                     {/* FPS Counter */}
                     {isVideoOn && (
@@ -1430,6 +1445,16 @@ function App() {
                 </div>
 
                 <div className="flex items-center gap-2 pr-2" style={{ WebkitAppRegion: 'no-drag' }}>
+                    <button
+                        type="button"
+                        onClick={()=>setShowExperiences(open=>!open)}
+                        aria-expanded={showExperiences}
+                        aria-controls="spark-experience-panel"
+                        className="spark-launch-button"
+                        title="Open original HOLO and Brain Map experiences"
+                    >
+                        <Hand size={15} /> EXPERIENCE DECK
+                    </button>
                     {/* Live Clock */}
                     <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/70 font-mono px-2">
                         <Clock size={12} className="text-cyan-500/50" />
@@ -1446,6 +1471,34 @@ function App() {
                     </button>
                 </div>
             </div>
+
+            {showExperiences && (
+                <section id="spark-experience-panel" className="spark-experience-panel" role="region" aria-label="SPARK experiences" style={{WebkitAppRegion:'no-drag'}}>
+                    <div className="spark-panel-heading">
+                        <div><span className="spark-eyebrow">SPARK / EXPERIENCE LIBRARY</span><h2>One intelligence. Multiple dimensions.</h2>
+                            <p>Original open-source interaction engines, launched locally from pinned source checkouts.</p></div>
+                        <button type="button" aria-label="Close experience deck" className="spark-close" onClick={()=>setShowExperiences(false)}><X size={18}/></button>
+                    </div>
+                    <div className="spark-experience-cards">
+                        <button type="button" className="spark-experience-card spark-holo" disabled={!!experienceBusy} onClick={()=>openExperience('holo')}>
+                            <span className="spark-exp-symbol"><Hand size={29}/></span><span className="spark-exp-subtitle">IMMERSIVE HAND CONTROL</span>
+                            <strong>HOLO DECK</strong><small>Pinch · throw · stretch · 3D artifacts · voice</small>
+                            <em>{experienceBusy==='holo'?'LAUNCHING':'OPEN EXPERIENCE →'}</em>
+                        </button>
+                        <button type="button" className="spark-experience-card spark-brain" disabled={!!experienceBusy} onClick={()=>openExperience('brain')}>
+                            <span className="spark-exp-symbol">◈</span><span className="spark-exp-subtitle">LINKED KNOWLEDGE SPACE</span>
+                            <strong>NEURAL ATLAS</strong><small>Wiki links · live graph physics · focus · replay</small>
+                            <em>{experienceBusy==='brain'?'LAUNCHING':'OPEN EXPERIENCE →'}</em>
+                        </button>
+                        <div className="spark-experience-card spark-core">
+                            <span className="spark-exp-symbol">✦</span><span className="spark-exp-subtitle">ASSISTANT CONTROL CENTER</span>
+                            <strong>SPARK CORE</strong><small>ADA V2 voice · CAD · browser · Kasa · printers · face lock</small>
+                            <em>CURRENT COCKPIT</em>
+                        </div>
+                    </div>
+                    <p role="status" className="spark-exp-status">{experienceMessage}</p>
+                </section>
+            )}
 
             {/* Main Content */}
             <div className="flex-1 relative z-10 flex flex-col items-center justify-center">

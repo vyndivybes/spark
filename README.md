@@ -1,4 +1,38 @@
-# A.D.A V2 - Advanced Design Assistant
+# SPARK — Immersive AI Workstation
+
+SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
+
+## SPARK setup — Windows 11
+
+**One-command launch from an existing checkout:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\\start-spark.ps1
+```
+
+For manual setup or troubleshooting:
+
+```powershell
+# In your existing SPARK repository checkout:
+git pull
+npm ci
+npm run setup:experiences
+npm run dev
+```
+
+Requires Git, Node.js 22+, and a Python interpreter on PATH (or use `SPARK_PYTHON`). The original ADA V2 backend separately requires the open-source packages in `requirements.txt` and its own local configuration. If those Python packages are missing, the SPARK UI will still open and its HOLO/Brain experiences can be launched; core AI/CAD/printing functions will remain disconnected until their dependencies are installed and configured. Installing all upstream Python dependencies can require considerable disk space and compatible Python wheels; the launch script does **not** silently install them. To launch both original experiences, click **EXPERIENCE DECK** in the SPARK top toolbar, then **HOLO DECK** or **NEURAL ATLAS**. The applications launch on `127.0.0.1:4890` and `127.0.0.1:4710` respectively in separate, sandboxed Electron windows. HOLO uses its self-hosted MediaPipe model, Three.js and original GLB scans; Brain Map uses its original Markdown `[[wikilinks]]`, physics layout, search, and replay. Both launch **only when the user clicks**; no camera or microphone activates automatically.
+
+By default the original example notes bundled with HOLO are used, ensuring both experiences have visible content. For Brain Map, set `SPARK_NOTES_DIR` to an **existing local Markdown folder** before launching SPARK; for HOLO, edit the upstream `vendor/holo-gestures/holo.json` `folder` field on your own PC. These two independent apps do not yet synchronize ADA's project memory.
+
+To use a separately installed Python interpreter, set `SPARK_PYTHON` before launch. Neither checkout includes a Gemini API credential; continue keeping secrets in private local configuration. Existing CAD/printer/Kasa tools remain ADA V2 functionality and require actual hardware acceptance. Run `npm test` for the local experience path tests and `npm run build` for Vite production output. An installer EXE is **not yet built** by this repository.
+
+### Third-party rights and boundaries
+
+The two experiences are Git submodules pinned to reviewed Git commit IDs, not copied snapshots with altered ownership. `npm run setup:experiences` downloads their original repos. The existing ADA V2 implementation is MIT-licensed. See [third-party notices](THIRD_PARTY_NOTICES.md). Brahma AI Evo prohibits code mirroring or redistribution (including private GitHub hosting), so it is **not copied**. O.L.L.I.E lacks a redistribution licence; its source is **not copied**. SPARK does not grant blanket remote OS, network, account or hardware access merely because an assistant requests it.
+
+---
+
+## Original ADA V2 engine documentation (retained for attribution)
 
 ![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue?logo=python)
 ![React](https://img.shields.io/badge/React-18.2-61DAFB?logo=react)
