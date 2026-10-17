@@ -2,6 +2,42 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Cinematic SPARK voice — default launch
+
+SPARK now has an **original cinematic AI command-center voice**, styled for
+calm, precise British English delivery, understated dry wit, and concise
+operational responses. The official Gemini Live prebuilt `Charon` voice
+(informative timbre) is chosen for the cinematic profile; it is **not a
+replica of any actor or film character**, and model-dependent accent and
+timbre fidelity must be evaluated by ear on the local device.
+
+The ordinary Windows launcher selects this cinematic voice by default:
+
+```powershell
+cd "$HOME\\spark"
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1
+```
+
+The three allowed Live profiles are:
+
+- `-LiveProfile cinematic` (default): `gemini-3.8-live`, `Charon` voice,
+  bespoke mission-control persona; no external tools or transcription.
+- `-LiveProfile voice`: the previously qualified bare minimum Gemini
+  handshake, **no custom voice/prompt**. Select this if the cinematic
+  configuration triggers a provider rejection.
+- `-LiveProfile full`: all existing tools/transcription and the existing
+  Kore voice; this complex profile previously returned HTTP 429 and requires
+  separate live acceptance before operational use.
+
+Cinematic and voice modes retain the microphone half-duplex echo suppression;
+do not expect hands-free barge-in while SPARK is speaking. The profile option
+changes **only how the Live session is configured**, not the Gemini API key,
+billing authorization, operating-system permissions or model quotas. Observe
+the `live_profile` and `live_state` fields from local `/status`.
+If provider setup fails, return to `-LiveProfile voice` and report the
+redacted error rather than repeatedly restarting.
+
 ## Audio feedback safety (October 2026)
 
 SPARK's native PyAudio capture does not implement hardware acoustic echo
@@ -32,7 +68,7 @@ but the full desktop session fails with HTTP 429, test the same known-good
 minimal configuration using SPARK's **real microphone/speaker stream**.
 This is a deliberate diagnostic: voice mode temporarily omits Google Search,
 tool declarations, custom voice, and transcription. The original full
-configuration remains available and is still the default.
+configuration remains available by explicit selection only.
 
 ```powershell
 # First close every prior SPARK/Electron process and confirm port 8000 is free.
@@ -46,7 +82,7 @@ In another shell, inspect `http://127.0.0.1:8000/status`, including
 Once connected, enable the microphone and confirm bidirectional speech.
 Voice-only mode cannot use SPARK's model-initiated desktop controls,
 search or other tools. After the cause has been narrowed down, restart
-with `-LiveProfile full` (default) to restore all features; **full mode
+with `-LiveProfile full` to restore all features; **full mode
 remains unqualified until its own live acceptance passes**.
 A single successful minimal handshake does not guarantee audio streaming
 and does not rule out temporary provider rate limits.
@@ -85,7 +121,7 @@ compatibility deserves investigation. No result authorizes paid billing.
 
 The desktop UI, Socket.IO, and microphone unmute indicator **do not** prove a Gemini session is live. SPARK Core now uses Google's supported `gemini-3.8-live` model, sends 16-kHz PCM through `send_realtime_input`, and shows distinct **connecting**, **connected**, **microphone error**, **setup required**, or **Gemini error** states. On startup, the backend reads a private key from `backend/.env` or the `GEMINI_API_KEY` environment variable. It will not print or expose the key through the UI.
 
-**Existing ARKUS Google key — explicit one-launch opt-in (recommended):**
+**Existing ARKUS Google key — optional only (SPARK normally has a separate key):**
 
 ```powershell
 cd "$HOME\\spark"
