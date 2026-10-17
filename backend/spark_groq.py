@@ -347,9 +347,12 @@ class GroqVoiceLoop:
         try:
             wav=await self.api.speak(answer)
             pcm=wav_to_pcm24k(wav)
-            self.on_browser_audio(pcm)
+            # BrowserEchoAudio accepts bounded PCM packets only. A complete
+            # Orpheus WAV may be much larger than a single socket frame.
+            for start in range(0,len(pcm),48000):
+                self.on_browser_audio(pcm[start:start+48000])
             if self.audio_playback_wait:
-                await asyncio.sleep(min(12,len(pcm)/48000+0.7))
+                await asyncio.sleep(min(30,len(pcm)/48000+0.7))
         finally:
             self._drop_stale_pcm()
             self._speaking=False
