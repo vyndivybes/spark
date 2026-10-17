@@ -6,8 +6,8 @@ param(
     [switch]$UseArkusGeminiKey,
     [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
     [string]$LiveModel = 'gemini-3.8-live',
-    [ValidateSet('full', 'voice')]
-    [string]$LiveProfile = 'full'
+    [ValidateSet('full', 'voice', 'cinematic')]
+    [string]$LiveProfile = 'cinematic'
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
