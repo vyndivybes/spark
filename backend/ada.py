@@ -744,7 +744,7 @@ class AudioLoop:
                                 prompt = fc.args.get("prompt", "") # Prompt is not present for all tools
                                 
                                 # Check Permissions (Default to True if not set)
-                                confirmation_required = self.permissions.get(fc.name, True)
+                                confirmation_required = (fc.name == "launch_desktop_app" or self.permissions.get(fc.name, True))
                                 
                                 if not confirmation_required:
                                     print(f"[ADA DEBUG] [TOOL] Permission check: '{fc.name}' -> AUTO-ALLOW")
@@ -752,6 +752,12 @@ class AudioLoop:
                                     pass
                                 else:
                                     # Confirmation Logic
+                                    if not self.on_tool_confirmation:
+                                        function_responses.append(types.FunctionResponse(
+                                            id=fc.id, name=fc.name,
+                                            response={"result": "Tool denied: interactive confirmation unavailable."}
+                                        ))
+                                        continue
                                     if self.on_tool_confirmation:
                                         import uuid
                                         request_id = str(uuid.uuid4())
