@@ -2,6 +2,31 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Groq spoken replies and automatic opening greeting
+
+When using `-AIProvider groq`, SPARK now uses a **Windows/Chromium
+English speech voice** for audible replies. This avoids the Groq Orpheus
+speech endpoint, which returned `Groq speech HTTP 400` on some
+accounts even while Whisper transcription and chat worked. It does not
+change your Groq chat model or Google Gemini Live/Charon profile.
+
+As soon as Chromium reports its acoustic echo-cancelled audio graph
+ready, the Groq session greets you exactly once: "Good day, sir. SPARK
+is online and listening. How may I assist you?" This is generated
+locally and consumes **no cloud speech, transcription or chat quota**.
+For each Groq answer, the browser selects an installed English voice,
+preferring British-English male voices when available. Because system
+speech does not run through the WebAudio playback reference, SPARK
+automatically gates microphone transmission during the utterance and
+rearms afterward, respecting your manual mute status. If the OS voice
+is missing or blocked, it reports a speaker/voice warning without
+silently disabling the original Gemini voice profile.
+
+No Ollama, local language model or paid subscription is added. Speech
+quality depends on English voices installed in Windows. The
+on-device Windows speaker and automatic greeting require real
+hardware acceptance and cannot be validated by Linux CI alone.
+
 ## Systems Center: diagnostics, export and keyboard mute
 
 SPARK's top bar now includes a clearly labelled **SYSTEMS** control. It
