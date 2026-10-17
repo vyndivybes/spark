@@ -5,14 +5,15 @@ const path = require('node:path');
 const ada = fs.readFileSync(path.resolve(__dirname, '../backend/ada.py'), 'utf8');
 
 test('SPARK suppresses mic capture and queued outbound PCM during assistant playback', () => {
-  assert.equal([...ada.matchAll(/if self\.echo_gate\.mic_blocked\(\):/g)].length, 2);
+  assert.match(ada, /if self\.echo_gate\.mic_blocked\(\):/);
+  assert.match(ada, /not self\.browser_audio and self\.echo_gate\.mic_blocked\(\)/);
   assert.match(ada, /self\.echo_gate\.on_output_received\(\)/);
   assert.match(ada, /self\.echo_gate\.on_turn_finished\(/);
   assert.match(ada, /self\.echo_gate\.on_playback_started\(\)/);
   assert.match(ada, /self\.echo_gate\.on_playback_finished\(/);
 });
 test('echo guard resets on provider reconnection and output still reaches speaker', () => {
-  assert.match(ada, /self\.echo_gate\.reset\(\s*hold_for_rearm=is_reconnect/);
+  assert.match(ada, /self\.echo_gate\.reset\(\s*hold_for_rearm=\(is_reconnect/);
   assert.match(ada, /await asyncio\.to_thread\(stream\.write, bytestream\)/);
 });
 
