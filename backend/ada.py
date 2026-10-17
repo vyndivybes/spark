@@ -25,6 +25,7 @@ if sys.version_info < (3, 11, 0):
     asyncio.ExceptionGroup = exceptiongroup.ExceptionGroup
 
 from tools import tools_list
+from spark_desktop import launch_allowed_app
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -182,7 +183,7 @@ iterate_cad_tool = {
     "behavior": "NON_BLOCKING"
 }
 
-tools = [{'google_search': {}}, {"function_declarations": [generate_cad, run_web_agent, create_project_tool, switch_project_tool, list_projects_tool, list_smart_devices_tool, control_light_tool, discover_printers_tool, print_stl_tool, get_print_status_tool, iterate_cad_tool] + tools_list[0]['function_declarations'][1:]}]
+tools = [{'google_search': {}}, {"function_declarations": [generate_cad, run_web_agent, create_project_tool, switch_project_tool, list_projects_tool, list_smart_devices_tool, control_light_tool, discover_printers_tool, print_stl_tool, get_print_status_tool, iterate_cad_tool, {"name": "launch_desktop_app", "description": "Open one of these approved Windows applications after user confirmation: notepad, calculator, paint.", "parameters": {"type": "OBJECT", "properties": {"app": {"type": "STRING", "description": "One of: notepad, calculator, paint"}}, "required": ["app"]}}] + tools_list[0]['function_declarations'][1:]}]
 
 # --- CONFIG UPDATE: Enabled Transcription ---
 config = types.LiveConnectConfig(
@@ -739,7 +740,7 @@ class AudioLoop:
                         print("The tool was called")
                         function_responses = []
                         for fc in response.tool_call.function_calls:
-                            if fc.name in ["generate_cad", "run_web_agent", "write_file", "read_directory", "read_file", "create_project", "switch_project", "list_projects", "list_smart_devices", "control_light", "discover_printers", "print_stl", "get_print_status", "iterate_cad"]:
+                            if fc.name in ["generate_cad", "run_web_agent", "write_file", "read_directory", "read_file", "create_project", "switch_project", "list_projects", "list_smart_devices", "control_light", "discover_printers", "print_stl", "get_print_status", "iterate_cad", "launch_desktop_app"]:
                                 prompt = fc.args.get("prompt", "") # Prompt is not present for all tools
                                 
                                 # Check Permissions (Default to True if not set)
@@ -797,6 +798,23 @@ class AudioLoop:
                                         )
                                         function_responses.append(function_response)
                                         continue
+
+                                # Launching desktop apps must never auto-allow, including when
+                                # client confirmation handler is unavailable.
+                                if fc.name == "launch_desktop_app":
+                                    if not self.on_tool_confirmation:
+                                        function_responses.append(types.FunctionResponse(
+                                            id=fc.id, name=fc.name,
+                                            response={"result": "Desktop launch unavailable without interactive user confirmation."}
+                                        ))
+                                        continue
+                                    result = await asyncio.to_thread(
+                                        launch_allowed_app, fc.args.get("app", ""))
+                                    function_responses.append(types.FunctionResponse(
+                                        id=fc.id, name=fc.name,
+                                        response={"result": result["message"]}
+                                    ))
+                                    continue
 
                                 # If confirmed (or no callback configured, or auto-allowed), proceed
                                 if fc.name == "generate_cad":
