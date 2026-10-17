@@ -191,7 +191,11 @@ export class BrowserEchoAudio {
     this.worklet?.disconnect();
     this.input?.disconnect();
     for (const track of this.stream?.getTracks() || []) track.stop();
-    this.audioContext?.close().catch(() => {});
+    // A cancelled or failed AudioContext may not expose a usable close()
+    // method on mocked / partially initialized devices.
+    try {
+      this.audioContext?.close?.()?.catch?.(() => {});
+    } catch (_) { /* already closed or device initialization failed */ }
     this.worklet = null;
     this.input = null;
     this.stream = null;
