@@ -18,6 +18,7 @@ jobs:
       - run: npm test
       - run: python3 -m py_compile scripts/runtime_preflight.py backend/ada.py backend/web_agent.py backend/server.py backend/spark_live_config.py
       - run: python3 -m unittest discover -s tests -p test_spark_live_config.py
+      - run: python3 -m unittest discover -s tests -p test_spark_live_diagnostics.py
       - run: python3 -m unittest discover -s tests -p test_spark_gemini_preflight.py
       - run: python3 -m unittest discover -s tests -p test_spark_camera_frames.py
       - run: python3 -m unittest discover -s tests -p test_spark_desktop.py
