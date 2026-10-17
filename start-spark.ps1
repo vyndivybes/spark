@@ -1,7 +1,7 @@
 # SPARK Windows launcher: isolated Python runtime, no global pip changes or paid services.
 # First run installs only the documented runtime packages. Large CAD/Playwright browser
 # binaries and machine-control permissions remain separate explicit choices.
-param([switch]$SkipBackendSetup)
+param([switch]$SkipBackendSetup, [switch]$UseArkusGeminiKey)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
@@ -36,6 +36,26 @@ if (-not (Test-Path $venvPython)) {
     & $hostPython -m venv (Join-Path $PSScriptRoot '.venv')
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $venvPython)) { throw 'Could not create SPARK Python environment.' }
 }
+
+# Explicit opt-in: reuse the user's existing local ARKUS Gemini key
+# in this process only. Do not print, write or copy credentials to source.
+if ($UseArkusGeminiKey -and [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) {
+    $arkusConfig = Join-Path $env:APPDATA 'arkus\config.json'
+    if (-not (Test-Path -LiteralPath $arkusConfig)) {
+        throw 'The local ARKUS Gemini configuration was not found. Use backend/.env instead.'
+    }
+    try {
+        $arkusSettings = Get-Content -LiteralPath $arkusConfig -Raw | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        throw 'Cannot parse ARKUS configuration. SPARK made no changes.'
+    }
+    if ([string]::IsNullOrWhiteSpace($arkusSettings.api_key)) {
+        throw 'No Gemini API key is configured in ARKUS.'
+    }
+    $env:GEMINI_API_KEY = [string]$arkusSettings.api_key
+    Write-Host 'SPARK Gemini credential: imported from local ARKUS configuration (process only).' -ForegroundColor Green
+}
+$env:SPARK_LIVE_MODEL = 'gemini-3.8-live'
 
 $env:SPARK_PYTHON = $venvPython
 if (-not $SkipBackendSetup) {
