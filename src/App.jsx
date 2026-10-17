@@ -1381,7 +1381,8 @@ function App() {
         }
         activationPendingRef.current = liveState.state !== 'connected';
         setIsConnected(true);
-        setIsMuted(false);
+        // Do not claim the microphone is live until the provider handshake succeeds.
+        // ai_status.connected resumes microphone only after an explicit activation request.
         if (liveState.state === 'connected') {
             socket.emit('resume_audio');
             setStatus('Gemini Live Connected');
