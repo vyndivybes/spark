@@ -74,6 +74,9 @@ function startPythonBackend() {
         cwd: path.join(__dirname, '../backend'),
     });
 
+    pythonProcess.on('error', (error) => {
+        console.error('SPARK core backend could not launch. Experience Deck remains available:', error.message);
+    });
     pythonProcess.stdout.on('data', (data) => {
         console.log(`[Python]: ${data}`);
     });
@@ -153,20 +156,27 @@ function checkBackendPort(port) {
 
 function waitForBackend() {
     return new Promise((resolve) => {
-        const check = () => {
-            const http = require('http');
-            http.get('http://127.0.0.1:8000/status', (res) => {
-                if (res.statusCode === 200) {
-                    console.log('Backend is ready!');
-                    resolve();
-                } else {
-                    console.log('Backend not ready, retrying...');
-                    setTimeout(check, 1000);
-                }
-            }).on('error', (err) => {
-                console.log('Waiting for backend...');
-                setTimeout(check, 1000);
+        const deadline=Date.now()+20000;
+        let completed=false;
+        const ready=(available)=>{if(!completed){completed=true;resolve(available);}};
+        const retry=()=>{
+            if(completed)return;
+            if(Date.now()>=deadline){
+                console.warn('SPARK core backend offline. Launching UI anyway; check Python dependencies.');
+                ready(false);
+                return;
+            }
+            setTimeout(check,1000);
+        };
+        const check=()=>{
+            if(completed)return;
+            const request=require('http').get('http://127.0.0.1:8000/status',res=>{
+                res.resume();
+                if(res.statusCode===200)ready(true);
+                else retry();
             });
+            request.setTimeout(1500,()=>request.destroy());
+            request.on('error',retry);
         };
         check();
     });
