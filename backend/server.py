@@ -314,6 +314,9 @@ async def start_audio(sid, data=None):
             print("Starting with Audio Paused")
             audio_loop.set_paused(True)
 
+        await sio.emit('ai_status', {
+            'state': 'connecting', 'model': ada.MODEL,
+            'message': 'Opening SPARK Gemini Live session...'})
         print("Creating asyncio task for AudioLoop.run()")
         loop_task = asyncio.create_task(audio_loop.run())
         
@@ -337,10 +340,6 @@ async def start_audio(sid, data=None):
         
         loop_task.add_done_callback(handle_loop_exit)
         
-        await sio.emit('ai_status', {
-            'state': 'connecting', 'model': ada.MODEL,
-            'message': 'Opening SPARK Gemini Live session...'})
-
         # Load saved printers
         saved_printers = SETTINGS.get("printers", [])
         if saved_printers and audio_loop.printer_agent:
@@ -361,7 +360,10 @@ async def start_audio(sid, data=None):
         print(f"CRITICAL ERROR STARTING ADA: {e}")
         import traceback
         traceback.print_exc()
-        await sio.emit('error', {'msg': f"Failed to start: {str(e)}"})
+        live_state = "error"
+        await sio.emit('ai_status', {
+            'state': 'error', 'model': ada.MODEL,
+            'message': 'SPARK Core could not start its audio engine. Check the backend terminal.'})
         audio_loop = None # Ensure we can try again
 
 
@@ -399,11 +401,13 @@ async def monitor_printers_loop():
 
 @sio.event
 async def stop_audio(sid):
-    global audio_loop
+    global audio_loop, live_state
     if audio_loop:
         audio_loop.stop() 
         print("Stopping Audio Loop")
         audio_loop = None
+        live_state = 'idle'
+        await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL))
         await sio.emit('status', {'msg': 'A.D.A Stopped'})
 
 @sio.event
@@ -474,7 +478,7 @@ async def shutdown(sid, data=None):
 @sio.event
 async def user_input(sid, data):
     text = data.get('text')
-    print(f"[SERVER DEBUG] User input received: '{text}'")
+    print(f"[SPARK] Received typed input ({len(text or '')} characters)")
     
     if not audio_loop:
         await sio.emit('error', {'msg': 'SPARK Core unavailable. Configure Gemini and reconnect.'}, room=sid)
@@ -485,7 +489,7 @@ async def user_input(sid, data):
         return
 
     if text:
-        print(f"[SERVER DEBUG] Sending message to model: '{text}'")
+        print("[SPARK] Sending typed turn to Gemini Live")
         
         # Log User Input to Project History
         if audio_loop and audio_loop.project_manager:
