@@ -1358,7 +1358,7 @@ function App() {
     };
 
     return (
-        <div className="spark-cockpit h-screen w-screen text-cyan-100 font-mono overflow-hidden flex flex-col relative selection:bg-amber-700 selection:text-white">
+        <div className="spark-cockpit h-screen w-screen text-cyan-100 overflow-hidden flex flex-col relative selection:bg-amber-700 selection:text-white">
 
             {/* --- PREMIUM UI LAYER --- */}
 
