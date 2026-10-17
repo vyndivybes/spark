@@ -36,5 +36,6 @@ test('No Ollama requirement, process launcher, hosted models require key private
  assert.doesNotMatch(groq,/localhost:11434|\bollama\.chat\b/i);
  assert.match(groq,/GROQ_API_KEY/);
  assert.match(groq,/api\.groq\.com/);
- assert.match(groq,/rate limit reached \(429\)/);
+ assert.match(groq,/free-tier rate limit reached/);
+ assert.match(groq,/classify_groq_http_error\(stage,response.status\)/);
 });

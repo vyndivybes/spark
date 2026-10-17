@@ -13,8 +13,8 @@ param(
     [string]$AudioTransport = 'browser_aec',
     [ValidateSet('gemini', 'groq')]
     [string]$AIProvider = 'gemini',
-    [ValidateSet('llama-3.1-8b-instant', 'openai/gpt-oss-20b')]
-    [string]$GroqModel = 'llama-3.1-8b-instant'
+    [ValidateSet('openai/gpt-oss-20b', 'llama-3.1-8b-instant')]
+    [string]$GroqModel = 'openai/gpt-oss-20b'
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -68,6 +68,9 @@ if ($UseArkusGeminiKey -and [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) {
     }
     $env:GEMINI_API_KEY = [string]$arkusSettings.api_key
     Write-Host 'SPARK Gemini credential: imported from local ARKUS configuration (process only).' -ForegroundColor Green
+}
+if ($AIProvider -eq 'groq' -and $GroqModel -eq 'llama-3.1-8b-instant') {
+    throw 'Groq retired llama-3.1-8b-instant on 2026-08-16 for free/developer plans. Relaunch with -GroqModel openai/gpt-oss-20b.'
 }
 if ($AIProvider -eq 'groq' -and $AudioTransport -ne 'browser_aec') {
     throw 'Groq voice requires the existing Chromium browser_aec microphone and speaker path.'
