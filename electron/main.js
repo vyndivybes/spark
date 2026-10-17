@@ -70,7 +70,7 @@ function startPythonBackend() {
     console.log(`Starting Python backend: ${scriptPath}`);
 
     // Assuming 'python' is in PATH. In prod, this would be the executable.
-    pythonProcess = spawn('python', [scriptPath], {
+    pythonProcess = spawn(process.env.SPARK_PYTHON || 'python', [scriptPath], {
         cwd: path.join(__dirname, '../backend'),
     });
 
