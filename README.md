@@ -2,6 +2,36 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Diagnose Live error 429 without SPARK tools (one explicit request)
+
+A key that lists a Live model does not prove that the project has a Live-session
+allocation. A newly created Google Cloud project can also return 429, so avoid
+assuming either an app syntax error or exhausted daily usage without isolating
+the provider connection.
+
+Close SPARK first, then check that no old process holds port 8000. From a new
+PowerShell window, run an **explicit, one-shot** minimal handshake:
+
+```powershell
+cd "$HOME\\spark"
+Remove-Item Env:\\GEMINI_API_KEY -ErrorAction SilentlyContinue
+& ".\\.venv\\Scripts\\python.exe" ".\\scripts\\spark_live_handshake.py" --attempt-once
+```
+
+The script takes the separate key from `backend/.env`, uses the official
+`google-genai` SDK with API `v1beta`, attempts **one** Live WebSocket
+setup with only `response_modalities=["AUDIO"]`, and closes immediately.
+It has no mic, camera, search, tools, transcription, prompt or retry loop.
+The connection itself may still count against project limits; never run it
+repeatedly when it returns 429.
+
+Interpretation: `connected` means the provider accepts the minimal
+connection, so investigate SPARK's additional Live config (tools, voice,
+transcription) next. `quota_or_rate_limit` from this isolated script
+means SPARK's complex session setup is not required to reproduce the
+provider rejection. `invalid_request` means SDK/endpoint/request
+compatibility deserves investigation. No result authorizes paid billing.
+
 ## SPARK CORE — Gemini Live voice (October 2026)
 
 The desktop UI, Socket.IO, and microphone unmute indicator **do not** prove a Gemini session is live. SPARK Core now uses Google's supported `gemini-3.8-live` model, sends 16-kHz PCM through `send_realtime_input`, and shows distinct **connecting**, **connected**, **microphone error**, **setup required**, or **Gemini error** states. On startup, the backend reads a private key from `backend/.env` or the `GEMINI_API_KEY` environment variable. It will not print or expose the key through the UI.
