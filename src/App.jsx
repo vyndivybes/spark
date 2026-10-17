@@ -372,8 +372,16 @@ function App() {
                     const bridge = new BrowserEchoAudio({
                         socket,
                         onError: message => {
+                            // Only an actual audio device / Chromium exception
+                            // invalidates AEC. Playback buffering must NOT mute
+                            // the session or flood the backend with device errors.
                             socket.emit('browser_audio_error');
                             setIsMuted(true);
+                            addMessage('System', message);
+                        },
+                        onWarning: message => {
+                            // Nonfatal queue congestion: keep microphone and
+                            // speaker graph operational for hands-free turns.
                             addMessage('System', message);
                         }
                     });
