@@ -28,6 +28,7 @@ if sys.version_info < (3, 11, 0):
 
 from tools import tools_list
 from spark_desktop import launch_allowed_app
+from spark_grounding import extract_grounding_sources
 from spark_cinematic_tools import allowed_live_tool, tool_confirmation_required, get_system_status
 
 FORMAT = pyaudio.paInt16
@@ -220,7 +221,7 @@ from kasa_agent import KasaAgent
 from printer_agent import PrinterAgent
 
 class AudioLoop:
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -236,6 +237,8 @@ class AudioLoop:
         self.on_live_status = on_live_status
         self.on_mic_safety = on_mic_safety
         self.on_browser_audio = on_browser_audio
+        self.on_web_sources = on_web_sources
+        self._grounding_signature = None
         self.browser_audio = bool(browser_audio)
         self.input_device_index = input_device_index
         self.input_device_name = input_device_name
@@ -708,7 +711,21 @@ class AudioLoop:
                             self.audio_in_queue.put_nowait(data)
                         # NOTE: 'continue' removed here to allow processing transcription/tools in same packet
 
-                    # 2. Handle Transcription (User & Model)
+                    # 2. Handle grounded Google Search source citations.
+                    # This comes from the provider's typed grounding metadata,
+                    # NOT model-generated spoken claims or untrusted HTML.
+                    if response.server_content:
+                        metadata = getattr(response.server_content, "grounding_metadata", None)
+                        if metadata and self.on_web_sources:
+                            sources = extract_grounding_sources(metadata)
+                            signature = tuple(x["url"] for x in sources)
+                            if sources and signature != self._grounding_signature:
+                                self._grounding_signature = signature
+                                self.on_web_sources({"sources": sources})
+                        if getattr(response.server_content, "turn_complete", False):
+                            self._grounding_signature = None
+
+                    # 3. Handle Transcription (User & Model)
                     if response.server_content:
                         if response.server_content.input_transcription:
                             transcript = response.server_content.input_transcription.text
