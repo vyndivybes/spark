@@ -27,6 +27,7 @@ from spark_live_config import live_status, live_status_report
 from spark_live_profile import live_profile
 from spark_audio_meter import AudioMeter
 from spark_browser_audio import select_transport, validate_pcm
+from spark_groq import GroqVoiceLoop, GroqUnavailable, cloud_provider, groq_model
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -135,16 +136,28 @@ async def startup_event():
 async def status():
     return {"status": "running", "service": "SPARK Core",
             "gemini_configured": ada.client is not None,
-            "live_model": ada.MODEL, "live_profile": live_profile(), "audio_transport": AUDIO_TRANSPORT,
+            "groq_configured": bool(os.environ.get("GROQ_API_KEY")),
+            "ai_provider": cloud_provider(),
+            "live_model": groq_model() if cloud_provider() == "groq" else ada.MODEL,
+            "live_profile": "groq_voice" if cloud_provider() == "groq" else live_profile(),
+            "audio_transport": AUDIO_TRANSPORT,
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
-            **live_status_report(live_state, live_message)}
+            **({"live_state":live_state,
+                "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
+                "live_error_code":None} if cloud_provider()=="groq"
+                else live_status_report(live_state, live_message))}
 
 @sio.event
 async def connect(sid, environ):
     print(f"Client connected: {sid}")
-    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT}, room=sid)
+    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT, 'provider': cloud_provider()}, room=sid)
     await sio.emit('status', {'msg': 'Connected to SPARK Core backend'}, room=sid)
-    await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL), room=sid)
+    if cloud_provider() == "groq":
+        await sio.emit('ai_status', {
+            'state': 'idle', 'model': groq_model(),
+            'message': 'Groq is selected. Start hands-free voice to connect.'}, room=sid)
+    else:
+        await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL), room=sid)
 
     global authenticator
     
@@ -183,7 +196,7 @@ async def connect(sid, environ):
 
 @sio.event
 async def get_audio_transport(sid):
-    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT}, room=sid)
+    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT, 'provider': cloud_provider()}, room=sid)
 
 
 @sio.event
@@ -197,6 +210,69 @@ async def disconnect(sid):
         if loop_task and not loop_task.done():
             loop_task.cancel()
 
+async def start_groq_audio(sid, data=None):
+    """Optional Groq cloud voice, bypassing Gemini Live and ALL local models."""
+    global audio_loop, loop_task, live_state, live_message
+
+    if AUDIO_TRANSPORT != "browser_aec":
+        await sio.emit('error', {'msg': 'Groq hands-free mode requires browser_aec audio.'}, room=sid)
+        return
+    if audio_loop and loop_task and not loop_task.done():
+        await sio.emit('status', {'msg': 'Groq hands-free session already running.'}, room=sid)
+        return
+    if not os.environ.get("GROQ_API_KEY"):
+        live_state = "setup_required"
+        live_message = "Set GROQ_API_KEY in the private backend/.env file."
+        await sio.emit('ai_status', {'state': 'setup_required','model': groq_model(),
+          'message': 'Groq API key missing. Add GROQ_API_KEY to backend/.env.'}, room=sid)
+        return
+    # No arbitrary desktop action is authorized by this free-cloud fallback.
+    # The fixed-route public APIs provide read-only factual retrieval.
+    def on_transcription(payload):
+        asyncio.create_task(sio.emit('transcription', payload, room=sid))
+    def on_browser_audio(pcm):
+        asyncio.create_task(sio.emit('browser_audio', pcm, room=sid))
+    def on_web_sources(payload):
+        asyncio.create_task(sio.emit('web_sources', payload, room=sid))
+    def on_error(message):
+        asyncio.create_task(sio.emit('error', {'msg': str(message)[:180]}, room=sid))
+    def on_live_status(payload):
+        global live_state, live_message
+        live_state = payload.get('state', 'error')
+        live_message = payload.get('message', '')
+        asyncio.create_task(sio.emit('ai_status', payload, room=sid))
+    try:
+        audio_loop=GroqVoiceLoop(
+            on_transcription=on_transcription,
+            on_browser_audio=on_browser_audio,
+            on_web_sources=on_web_sources,
+            on_error=on_error,
+            on_live_status=on_live_status,
+        )
+        audio_loop.owner_sid=sid
+        audio_loop.set_paused(True)
+        live_state='connecting'
+        live_message='Starting Groq cloud hands-free speech.'
+        loop_task=asyncio.create_task(audio_loop.run())
+        def on_exit(task):
+            global audio_loop, loop_task, live_state
+            if task is loop_task:
+                loop_task=None
+                audio_loop=None
+                live_state='idle'
+        loop_task.add_done_callback(on_exit)
+    except GroqUnavailable as exc:
+        live_state='setup_required'
+        await sio.emit('ai_status', {
+            'state':'setup_required','model':groq_model(),
+            'message':str(exc)}, room=sid)
+    except Exception:
+        live_state='error'
+        await sio.emit('ai_status', {
+            'state':'error','model':groq_model(),
+            'message':'Groq voice engine failed to initialize.'}, room=sid)
+
+
 @sio.event
 async def start_audio(sid, data=None):
     global audio_loop, loop_task, live_state, live_message
@@ -208,6 +284,10 @@ async def start_audio(sid, data=None):
             print("Blocked start_audio: Not authenticated.")
             await sio.emit('error', {'msg': 'Authentication Required'})
             return
+
+    if cloud_provider() == "groq":
+        await start_groq_audio(sid, data)
+        return
 
     if ada.client is None:
         live_state = "setup_required"
@@ -499,6 +579,7 @@ async def browser_mic_pcm(sid, payload):
     if (AUDIO_TRANSPORT != "browser_aec" or not audio_loop or
             not audio_loop.browser_audio or audio_loop.owner_sid != sid
             or not audio_loop.session or audio_loop.paused or
+            not getattr(audio_loop, "accepting_mic", True) or
             not audio_loop.browser_ready or audio_loop.out_queue is None):
         return
     try:
@@ -612,7 +693,11 @@ async def user_input(sid, data):
         return
 
     if not audio_loop.session:
-        await sio.emit('error', {'msg': 'Gemini Live is not connected yet. See SPARK Core status.'}, room=sid)
+        await sio.emit('error', {'msg': 'Selected AI provider is not ready.'}, room=sid)
+        return
+
+    if text and getattr(audio_loop, "provider", None) == "groq":
+        asyncio.create_task(audio_loop.handle_text(text))
         return
 
     if text:

@@ -297,6 +297,7 @@ function App() {
     const lastLiveNoticeRef = useRef('');
     const activationPendingRef = useRef(false);
     const audioTransportRef = useRef('pending');
+    const aiProviderRef = useRef('gemini');
     const audioBridgeRef = useRef(null);
     const userMutedRef = useRef(false);
 
@@ -339,6 +340,7 @@ function App() {
         socket.on('audio_transport_config', (data) => {
             const mode = data?.mode === 'native' ? 'native' : 'browser_aec';
             audioTransportRef.current = mode;
+            aiProviderRef.current = data?.provider === 'groq' ? 'groq' : 'gemini';
             setAudioTransport(mode);
         });
         socket.on('disconnect', () => {
@@ -360,7 +362,7 @@ function App() {
             if (!info || !info.state) return;
             setLiveState(info);
             if (info.state === 'connected') {
-                setStatus('Gemini Live Connected');
+                setStatus(aiProviderRef.current === 'groq' ? 'Groq Hands-Free Cloud Ready' : 'Gemini Live Connected');
                 if (activationPendingRef.current) {
                     activationPendingRef.current = false;
                     if (audioTransportRef.current !== 'browser_aec') {
@@ -406,10 +408,10 @@ function App() {
                     });
                 }
             }
-            else if (info.state === 'connecting') setStatus('Connecting to Gemini Live');
+            else if (info.state === 'connecting') setStatus(aiProviderRef.current === 'groq' ? 'Starting Groq Voice' : 'Connecting to Gemini Live');
             else if (info.state === 'setup_required') setStatus('Gemini Setup Required');
             else if (info.state === 'error') {
-                setStatus('Gemini Live Error');
+                setStatus(aiProviderRef.current === 'groq' ? 'Groq Voice Error' : 'Gemini Live Error');
                 audioBridgeRef.current?.stop();
                 audioBridgeRef.current = null;
             }
