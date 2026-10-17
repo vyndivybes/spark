@@ -7,7 +7,9 @@ param(
     [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
     [string]$LiveModel = 'gemini-3.8-live',
     [ValidateSet('full', 'voice', 'cinematic')]
-    [string]$LiveProfile = 'cinematic'
+    [string]$LiveProfile = 'cinematic',
+    [ValidateSet('browser_aec', 'native')]
+    [string]$AudioTransport = 'browser_aec'
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -64,6 +66,8 @@ if ($UseArkusGeminiKey -and [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)) {
 }
 $env:SPARK_LIVE_MODEL = $LiveModel
 $env:SPARK_LIVE_PROFILE = $LiveProfile
+$env:SPARK_AUDIO_TRANSPORT = $AudioTransport
+Write-Host "SPARK audio: $AudioTransport" -ForegroundColor Cyan
 Write-Host "SPARK Live profile: $LiveProfile (model $LiveModel)" -ForegroundColor Cyan
 
 $env:SPARK_PYTHON = $venvPython
