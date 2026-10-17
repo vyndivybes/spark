@@ -1,0 +1,6 @@
+[submodule "vendor/holo-gestures"]
+	path = vendor/holo-gestures
+	url = https://github.com/zubair-trabzada/holo-gestures.git
+[submodule "vendor/brain-map"]
+	path = vendor/brain-map
+	url = https://github.com/zubair-trabzada/brain-map.git
