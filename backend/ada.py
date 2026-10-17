@@ -1223,7 +1223,7 @@ class AudioLoop:
                     if not is_reconnect:
                         if start_message:
                             print(f"[ADA DEBUG] [INFO] Sending start message: {start_message}")
-                            await self.session.send(input=start_message, end_of_turn=True)
+                            await self.session.send_client_content(turns={"role": "user", "parts": [{"text": start_message}]}, turn_complete=True)
                         
                         # Sync Project State
                         if self.on_project_update and self.project_manager:
@@ -1244,7 +1244,7 @@ class AudioLoop:
                         context_msg += "\nPlease acknowledge the reconnection to the user (e.g. 'I lost connection for a moment, but I'm back...') and resume what you were doing."
                         
                         print(f"[ADA DEBUG] [RECONNECT] Sending restoration context to model...")
-                        await self.session.send(input=context_msg, end_of_turn=True)
+                        await self.session.send_client_content(turns={"role": "user", "parts": [{"text": context_msg}]}, turn_complete=True)
 
                     # Reset retry delay on successful connection
                     retry_delay = 1
