@@ -415,6 +415,7 @@ function App() {
         });
         socket.on('audio_transport_status', data => {
             if (!data?.ready) {
+                audioBridgeRef.current?.setMuted(true);
                 setIsMuted(true);
                 if (data?.message) addMessage('System', data.message);
             }
