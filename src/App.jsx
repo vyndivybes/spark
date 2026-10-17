@@ -18,6 +18,7 @@ import KasaWindow from './components/KasaWindow';
 import PrinterWindow from './components/PrinterWindow';
 import SettingsWindow from './components/SettingsWindow';
 import SystemCenter from './components/SystemCenter';
+import HealthConnectPanel from './components/HealthConnectPanel';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
 
@@ -90,6 +91,7 @@ function App() {
     const [selectedWebcamId, setSelectedWebcamId] = useState(() => localStorage.getItem('selectedWebcamId') || '');
     const [showSettings, setShowSettings] = useState(false);
     const [showSystems, setShowSystems] = useState(false);
+    const [showPhoneWatch, setShowPhoneWatch] = useState(false);
     const [diagnostics, setDiagnostics] = useState(null);
     const [systemsNotice, setSystemsNotice] = useState('');
     const [showExperiences, setShowExperiences] = useState(false);
@@ -1735,6 +1737,18 @@ function App() {
                         title="System diagnostics and session export">
                         <Activity size={17}/> SYSTEMS
                     </button>
+                    <button type="button"
+                        onClick={() => {
+                            setShowPhoneWatch(v => !v);
+                            setShowSystems(false);
+                            setShowSettings(false);
+                        }}
+                        aria-expanded={showPhoneWatch}
+                        aria-controls="spark-phone-watch-panel"
+                        className="flex items-center gap-2 rounded-lg border border-cyan-700/70 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-900/50"
+                        title="Import activity from Android Health Connect">
+                        <Activity size={17}/> PHONE / WATCH
+                    </button>
                     {/* Live Clock */}
                     <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/70 font-mono px-2">
                         <Clock size={12} className="text-cyan-500/50" />
@@ -1751,6 +1765,12 @@ function App() {
                     </button>
                 </div>
             </div>
+
+            {showPhoneWatch && (
+                <div id="spark-phone-watch-panel" style={{WebkitAppRegion:'no-drag'}}>
+                    <HealthConnectPanel onClose={() => setShowPhoneWatch(false)} />
+                </div>
+            )}
 
             {showSystems && (
                 <div id="spark-systems-panel" style={{WebkitAppRegion:'no-drag'}}>

@@ -2,6 +2,30 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## ARKUS Android / Garmin fēnix 7 import — SPARK Companion
+
+The existing user-owned ARKUS **Android Health Connect companion** has
+been ported to SPARK, with Android package `com.spark.companion`, the
+`SPARK Companion` label, original read-only Health Connect exercise,
+steps and distance permissions, an explicit Copy Summary action, and an
+independent Android debug APK build workflow.
+
+SPARK's **PHONE / WATCH** cockpit button opens a manual seven-day
+activity import panel. Install the Android APK from a successful
+**Build SPARK Android Companion** GitHub Actions run, authorize access
+in Android Health Connect, copy/share the summary on your phone,
+transfer the text yourself and paste it into SPARK's panel. The activity
+snapshot remains visible in that panel only, not persisted or sent to
+Groq/Gemini.
+
+For Garmin fēnix 7 data to appear, pair the watch with the official
+Garmin Connect app, then enable Garmin Connect's **one-way Health Connect
+sharing** on Android 14+ and grant SPARK Companion access. Data may
+also come from non-Garmin sources; no Garmin-only attribution is made.
+**This is not direct Bluetooth or Garmin account pairing**, not remote
+Android control, and not automatic PC synchronization. ARKUS did not
+contain those capabilities. See [android/README.md](android/README.md).
+
 ## Groq spoken replies and automatic opening greeting
 
 When using `-AIProvider groq`, SPARK now uses a **Windows/Chromium
