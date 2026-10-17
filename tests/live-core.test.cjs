@@ -32,3 +32,10 @@ test('SPARK UI shows failure state instead of silently reporting resumed audio',
   assert.match(app,/setup_required/);
   assert.doesNotMatch(app,/micDevices\.length\s*>\s*0\s*&&\s*!hasAutoConnectedRef/);
 });
+
+test('SPARK CORE is an actionable voice activation control, not decorative text',()=>{
+  const app=read('src/App.jsx');
+  assert.match(app,/const activateSparkCore\s*=\s*\(\)\s*=>/);
+  assert.match(app,/onClick=\{activateSparkCore\}/);
+  assert.match(app,/ACTIVATE CORE/);
+});
