@@ -43,4 +43,5 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_spark_arkus_knowledge.py
       - run: python3 -m unittest discover -s tests -p test_spark_arkus_skill_forge.py
       - run: python3 -m unittest discover -s tests -p test_spark_arkus_skill_upgrades.py
+      - run: python3 -m unittest discover -s tests -p test_spark_workspace_api.py
       - run: npm run build
