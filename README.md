@@ -6,8 +6,16 @@ Groq voice remains on `openai/gpt-oss-20b`, with Whisper transcription and
 local Windows speech. To enable the *separate* experimental Groq vision path,
 first verify that `qwen/qwen3.8-27b` is available **within your Groq free
 account** and that your account cannot generate paid charges; do not enable
-billing. Then set `SPARK_GROQ_VISION_ENABLED=1` in the runtime environment
-and launch Groq mode as before. Vision is disabled by default.
+billing. Then launch Groq mode with the explicit `-EnableGroqVision` switch:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 \`
+  -AIProvider groq -GroqModel openai/gpt-oss-20b \`
+  -AudioTransport browser_aec -EnableGroqVision
+```
+
+The launcher sets `SPARK_GROQ_VISION_ENABLED=1` for that process only.
+Vision is disabled by default on every normal start.
 
 In Groq mode, opening the camera starts **local preview only**. Choose
 **SHARE WITH GROQ VISION** to allow a single newest 640x360 JPEG frame to be
@@ -50,9 +58,10 @@ is dropped on camera stop, connection loss, Live restart and owner disconnect;
 it is not saved to settings or disk. Invalid/oversize frames are rejected.
 A late authorization acknowledgement is revoked when preview is no longer on.
 
-**Groq voice cannot analyze camera frames in this release.** Its local webcam
-preview remains local-only, and the overlay says so. The camera-sharing
-control is disabled unless Gemini Live is connected. No paid fallback, new
+**Groq vision is disabled unless explicitly selected at startup and approved
+in the camera preview.** A supported vision question sends one JPEG to Groq;
+other Groq voice prompts remain text-only. The camera-sharing
+control is disabled unless an eligible Live session is connected. No paid fallback, new
 model subscription, background camera recording or desktop permission is
 introduced. This is *not* always-on scene narration: Gemini decides how to
 interpret shared frames during active conversation. Device-level acceptance
