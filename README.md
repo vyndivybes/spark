@@ -1,5 +1,29 @@
 # SPARK — Immersive AI Workstation
 
+## Camera → Gemini Live: separate, revocable consent
+
+Turning on **Camera** opens only the local preview and hand tracking. **No video
+frames are sent to AI by default.** When Gemini Live is connected, select
+**SHARE WITH GEMINI** within the webcam overlay to explicitly enable a
+bounded 640×360 JPEG stream (at most one frame/sec). The status badge becomes
+**AI SHARING ON**. Select **STOP AI VIEW** to revoke consent at any moment.
+
+The backend rejects frames unless they come from the active session-owning
+window, an authenticated user when face authentication is enabled, a connected
+Gemini Live session, and the explicit consent held for that session. Sharing
+is dropped on camera stop, connection loss, Live restart and owner disconnect;
+it is not saved to settings or disk. Invalid/oversize frames are rejected.
+A late authorization acknowledgement is revoked when preview is no longer on.
+
+**Groq voice cannot analyze camera frames in this release.** Its local webcam
+preview remains local-only, and the overlay says so. The camera-sharing
+control is disabled unless Gemini Live is connected. No paid fallback, new
+model subscription, background camera recording or desktop permission is
+introduced. This is *not* always-on scene narration: Gemini decides how to
+interpret shared frames during active conversation. Device-level acceptance
+still requires a Windows webcam and working Gemini Live session.
+
+
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
 ## ARKUS-inspired Focus Mode + SPARK Resource Advisories

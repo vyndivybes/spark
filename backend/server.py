@@ -28,6 +28,7 @@ from spark_live_profile import live_profile
 from spark_audio_meter import AudioMeter
 from spark_browser_audio import select_transport, validate_pcm
 from spark_groq import GroqVoiceLoop, GroqUnavailable, cloud_provider, groq_model
+from spark_camera_consent import can_stream_camera
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -64,6 +65,9 @@ audio_loop = None
 loop_task = None
 live_state = "idle"
 live_message = ""
+# Ephemeral session consent, never persisted across a Live restart.
+camera_share_sid = None
+camera_frame_last_at = 0.0
 authenticator = None
 kasa_agent = KasaAgent()
 AUDIO_TRANSPORT = select_transport(os.environ.get("SPARK_AUDIO_TRANSPORT"))
@@ -218,6 +222,9 @@ async def get_audio_transport(sid):
 
 @sio.event
 async def disconnect(sid):
+    global camera_share_sid
+    if camera_share_sid == sid:
+        camera_share_sid = None
     print(f"Client disconnected: {sid}")
     # AEC playback reference disappears when the Electron owner disconnects.
     # Stop the session rather than switch behind the user's back to a live mic.
@@ -296,7 +303,9 @@ async def start_groq_audio(sid, data=None):
 
 @sio.event
 async def start_audio(sid, data=None):
-    global audio_loop, loop_task, live_state, live_message
+    global audio_loop, loop_task, live_state, live_message, camera_share_sid
+    # Reconfirmation is required for every new voice session.
+    camera_share_sid = None
     
     # Optional: Block if not authenticated
     # Only block if auth is ENABLED and not authenticated
@@ -560,7 +569,8 @@ async def monitor_printers_loop():
 
 @sio.event
 async def stop_audio(sid):
-    global audio_loop, loop_task, live_state
+    global audio_loop, loop_task, live_state, camera_share_sid
+    camera_share_sid = None
     if audio_loop:
         audio_loop.stop()
         if loop_task and not loop_task.done():
@@ -765,14 +775,58 @@ from pathlib import Path
 # ... (imports)
 
 @sio.event
+async def set_camera_sharing(sid, data):
+    """Only the active Gemini session owner can explicitly enable camera sharing."""
+    global camera_share_sid, camera_frame_last_at
+    requested = data.get("enabled") if isinstance(data, dict) else None
+    is_owner = bool(
+        audio_loop and getattr(audio_loop, "owner_sid", None) == sid
+    )
+    if is_owner and type(requested) is bool:
+        if not requested:
+            camera_share_sid = None
+            camera_frame_last_at = 0.0
+        elif (
+            cloud_provider() == "gemini"
+            and getattr(audio_loop, "session", None)
+            and callable(getattr(audio_loop, "send_frame", None))
+            and live_state == "connected"
+            and (
+                not SETTINGS.get("face_auth_enabled", False)
+                or (authenticator and authenticator.authenticated)
+            )
+        ):
+            camera_share_sid = sid
+            camera_frame_last_at = 0.0
+    await sio.emit(
+        "camera_sharing_status",
+        {"enabled": bool(is_owner and camera_share_sid == sid)},
+        room=sid,
+    )
+
+
+@sio.event
 async def video_frame(sid, data):
-    # Camera requires an explicitly started Live session and an authenticated
-    # user when facial authentication has been enabled.
-    if not audio_loop or not audio_loop.session:
-        return
-    if SETTINGS.get("face_auth_enabled", False) and (
-        not authenticator or not authenticator.authenticated
+    """Forward only consented, owner-origin frames to connected Gemini Live."""
+    global camera_frame_last_at
+    if not can_stream_camera(
+        provider=cloud_provider(),
+        owner_sid=getattr(audio_loop, "owner_sid", None),
+        sender_sid=sid,
+        sharing_sid=camera_share_sid,
+        session_ready=bool(
+            audio_loop and getattr(audio_loop, "session", None)
+            and callable(getattr(audio_loop, "send_frame", None))
+            and live_state == "connected"
+        ),
+        authenticated=bool(
+            not SETTINGS.get("face_auth_enabled", False)
+            or (authenticator and authenticator.authenticated)
+        ),
     ):
+        return
+    now = time.monotonic()
+    if now - camera_frame_last_at < 0.9:
         return
     from spark_camera_frames import validate_camera_frame
     try:
@@ -780,6 +834,7 @@ async def video_frame(sid, data):
     except ValueError:
         await sio.emit('error', {'msg': 'Rejected invalid or oversized camera frame.'}, room=sid)
         return
+    camera_frame_last_at = now
     await audio_loop.send_frame(frame)
 
 @sio.event

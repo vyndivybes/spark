@@ -33,6 +33,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_spark_browser_audio.py
       - run: python3 -m unittest discover -s tests -p test_spark_gemini_preflight.py
       - run: python3 -m unittest discover -s tests -p test_spark_camera_frames.py
+      - run: python3 -m unittest discover -s tests -p test_spark_camera_consent.py
       - run: python3 -m unittest discover -s tests -p test_spark_desktop.py
       - run: python3 -m unittest discover -s tests -p test_web_agent_safety.py
       - run: python3 -m unittest discover -s tests -p test_persistent_conversation.py
