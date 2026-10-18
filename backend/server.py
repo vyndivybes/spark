@@ -47,6 +47,8 @@ _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
 _SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
 spark_workspace = SparkWorkspace(_SPARK_WORKSPACE_ROOT)
+# Only the last project explicitly opened by this session is available by voice.
+workspace_project_by_sid = {}
 
 # --- SHUTDOWN HANDLER ---
 def signal_handler(sig, frame):
@@ -201,6 +203,7 @@ async def workspace_action(sid, data):
         project = data.get("project") if isinstance(data, dict) else None
         payload = data.get("payload") if isinstance(data, dict) else None
         result = await asyncio.to_thread(spark_workspace.execute,action,project,payload)
+        workspace_project_by_sid[sid] = project
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":True,"result":result
         },room=sid)
@@ -273,6 +276,7 @@ async def get_audio_transport(sid):
 @sio.event
 async def disconnect(sid):
     global camera_share_sid
+    workspace_project_by_sid.pop(sid, None)
     if camera_share_sid == sid:
         camera_share_sid = None
     if audio_loop and getattr(audio_loop, "owner_sid", None) == sid:
@@ -318,6 +322,13 @@ async def start_groq_audio(sid, data=None):
         asyncio.create_task(sio.emit('browser_tts', payload, room=sid))
     def on_web_sources(payload):
         asyncio.create_task(sio.emit('web_sources', payload, room=sid))
+    async def on_workspace_search(query):
+        project=workspace_project_by_sid.get(sid, "default")
+        try:
+            return await asyncio.to_thread(
+                spark_workspace.execute,"search_documents",project,{"query":query})
+        except (WorkspaceError, OSError):
+            return []
     async def on_desktop_approval(payload):
         # Speech transcription does not grant execution authority.
         import uuid
@@ -347,6 +358,7 @@ async def start_groq_audio(sid, data=None):
             on_browser_tts=on_browser_tts,
             on_web_sources=on_web_sources,
             on_desktop_approval=on_desktop_approval,
+            on_workspace_search=on_workspace_search,
             on_error=on_error,
             on_live_status=on_live_status,
         )
