@@ -9,6 +9,7 @@ param(
     [ValidateSet('full', 'voice', 'cinematic', 'cinematic_tools', 'cinematic_search')]
     [string]$LiveProfile = 'cinematic',
     [switch]$EnableGoogleSearch,
+    [switch]$EnableGroqVision,
     [ValidateSet('browser_aec', 'native')]
     [string]$AudioTransport = 'browser_aec',
     [ValidateSet('gemini', 'groq')]
@@ -74,6 +75,13 @@ if ($AIProvider -eq 'groq' -and $GroqModel -eq 'llama-3.1-8b-instant') {
 }
 if ($AIProvider -eq 'groq' -and $AudioTransport -ne 'browser_aec') {
     throw 'Groq voice requires the existing Chromium browser_aec microphone and speaker path.'
+}
+if ($EnableGroqVision -and $AIProvider -ne 'groq') {
+    throw 'Groq vision requires -AIProvider groq.'
+}
+$env:SPARK_GROQ_VISION_ENABLED = if ($EnableGroqVision) { '1' } else { '0' }
+if ($EnableGroqVision) {
+    Write-Warning 'Groq preview vision is ON for this launch. Each explicit camera question consumes Groq model quota. Verify your Groq project has no paid billing before use.'
 }
 $env:SPARK_AI_PROVIDER = $AIProvider
 $env:SPARK_GROQ_MODEL = $GroqModel
