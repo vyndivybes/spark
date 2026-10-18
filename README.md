@@ -2,6 +2,43 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## REA AUDIT — local static evidence intake (opt-in)
+
+SPARK now contains a **REA AUDIT** button that reads previously generated
+REA JSON reports **from your own Windows PC** when clicked. This is the
+first evidence-intake stage for the requested cross-repository feature
+integration, **not** automatic cloning or execution of recovered code.
+
+1. After updating and restarting SPARK, select **REA AUDIT** in its top bar.
+2. Click **Scan existing REA reports**. The Electron main process reads only
+   supported, size-limited JSON filenames in these two pre-existing folders:
+   - `%USERPROFILE%\\work\\rea-evidence\\`
+   - `%USERPROFILE%\\work\\arkus-rea-audit\\reports\\`
+3. The panel displays each recognized report and the REA evidence identity,
+   number of files, parsed-JavaScript counts, parse failures and static
+   findings **where supplied by the actual file**.
+4. Click **Copy inventory** and paste the resulting redacted summary into the
+   SPARK integration review. It includes neither local filesystem paths
+   nor untrusted report prose or source code. Review the full original
+   audits privately and share only authorized, redacted evidence if
+   feature-level analysis is required.
+
+The port recognizes REA `normalized_result.statistics` compact summaries
+and `ARKUS_REA_AUDIT.json`-style manifests. A *static finding* is a code
+indicator, **not** proof that a feature exists or functions. In particular,
+REA's JavaScript/Electron summaries do not validate O.L.L.I.E's Python,
+motor/CAN or RealSense runtime. Full feature integration requires reading
+relevant source, writing acceptance tests, and validating on Windows and
+any specific hardware.
+
+The user-controlled scan does **not** invoke REA, execute scripts, browse
+the web, change permissions, upload private evidence, update dependencies,
+or make Gemini/Groq API requests. Files are opened read-only, regular files
+only, with an 8 MiB file limit, 16 MiB aggregate cap and at most 64 files.
+Unknown JSON schemas are skipped. The API/Agent Manager remains on hold.
+SPARK's existing voice, greetings, camera and Android activity features
+are unaffected.
+
 ## ARKUS Android / Garmin fēnix 7 import — SPARK Companion
 
 The existing user-owned ARKUS **Android Health Connect companion** has
