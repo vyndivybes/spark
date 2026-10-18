@@ -31,6 +31,16 @@ class HoloBridgeTests(unittest.TestCase):
         self.assertEqual(self.store.execute("list_holo_notes","carbon",{}),[])
         self.assertFalse(any(x["name"]=="CARBON" for x in upstream.load_tree()))
 
+    def test_deleting_private_source_also_revokes_its_published_holo_card(self):
+        doc=self.store.execute("import_document","carbon",{
+            "name":"sensitive.md","data":b"# Confidential\\nTemporary engineering draft."})
+        self.store.execute("publish_holo_note","carbon",{"id":doc["id"]})
+        self.assertEqual(len(self.store.execute("list_holo_notes","carbon",{})),1)
+        self.store.execute("remove_document","carbon",{"id":doc["id"]})
+        self.assertEqual(self.store.execute("list_holo_notes","carbon",{}),[])
+        holo=load_vendor(ROOT/"vendor/holo-gestures"/"server.py",self.store.holo_notes_root)
+        self.assertFalse(any("Confidential" in str(item) for item in holo.load_tree()))
+
     def test_unpublished_notes_never_appear_in_holo(self):
         self.store.execute("import_document","private",{"name":"confidential.md","data":b"Secret note"})
         self.assertEqual(self.store.execute("list_holo_notes","private",{}),[])
