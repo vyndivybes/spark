@@ -56,6 +56,7 @@ function App() {
     const [isConnected, setIsConnected] = useState(true); // Power state DEFAULT ON
     const [isMuted, setIsMuted] = useState(true); // Mic state DEFAULT MUTED
     const [isVideoOn, setIsVideoOn] = useState(false); // Video state
+    const [isCameraSharing, setIsCameraSharing] = useState(false); // Gemini permission is session-only
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [cadData, setCadData] = useState(null);
@@ -166,6 +167,7 @@ function App() {
 
     // Ref to track video state for the loop (avoids closure staleness)
     const isVideoOnRef = useRef(false);
+    const cameraShareRef = useRef(false); // Rendering stays local until owner approval
     const isModularModeRef = useRef(false);
     const elementPositionsRef = useRef(elementPositions);
     const activeDragElementRef = useRef(null);
@@ -357,9 +359,14 @@ function App() {
             const mode = data?.mode === 'native' ? 'native' : 'browser_aec';
             audioTransportRef.current = mode;
             aiProviderRef.current = data?.provider === 'groq' ? 'groq' : 'gemini';
+            if (cameraShareRef.current) socket.emit('set_camera_sharing', {enabled: false});
+            cameraShareRef.current = false;
+            setIsCameraSharing(false);
             setAudioTransport(mode);
         });
         socket.on('disconnect', () => {
+            cameraShareRef.current = false;
+            setIsCameraSharing(false);
             windowsSpeechRef.current?.stop();
             windowsSpeechRef.current = null;
             setStatus('Disconnected');
@@ -378,6 +385,11 @@ function App() {
         });
         socket.on('ai_status', (info) => {
             if (!info || !info.state) return;
+            if (info.state !== 'connected' && cameraShareRef.current) {
+                cameraShareRef.current = false;
+                setIsCameraSharing(false);
+                socket.emit('set_camera_sharing', {enabled: false});
+            }
             setLiveState(info);
             if (info.state === 'connected') {
                 setStatus(aiProviderRef.current === 'groq' ? 'Groq Hands-Free Cloud Ready' : 'Gemini Live Connected');
@@ -626,6 +638,12 @@ function App() {
             console.log("Received Confirmation Request:", data);
             setConfirmationRequest(data);
         });
+        socket.on('camera_sharing_status', (data) => {
+            const enabled = data?.enabled === true && isVideoOnRef.current &&
+                aiProviderRef.current === 'gemini' && socket.connected;
+            cameraShareRef.current = enabled;
+            setIsCameraSharing(enabled);
+        });
 
         // Handle Print Window Request (from CadWindow)
         socket.on('request_print_window', () => {
@@ -792,6 +810,7 @@ function App() {
             socket.off('transcription');
             socket.off('web_sources');
             socket.off('tool_confirmation_request');
+            socket.off('camera_sharing_status');
             socket.off('kasa_devices');
             socket.off('printer_list');
             socket.off('slicing_progress');
@@ -928,6 +947,8 @@ function App() {
 
             setIsVideoOn(true);
             isVideoOnRef.current = true; // Update ref for loop
+            cameraShareRef.current = false;
+            setIsCameraSharing(false);
 
             console.log("Starting video loop with webcam:", selectedWebcamId || "default");
             requestAnimationFrame(predictWebcam);
@@ -963,7 +984,8 @@ function App() {
 
         // 2. Camera images are opt-in and rate-limited to one JPEG per second.
         // Video preview alone does not authorize streaming to the AI.
-        if (isConnected && socketConnected && isVideoOnRef.current && liveState.state === 'connected') {
+        if (isConnected && socketConnected && isVideoOnRef.current &&
+            cameraShareRef.current && aiProviderRef.current === 'gemini' && liveState.state === 'connected') {
             const frameNow = performance.now();
             if (frameNow - lastSentCameraFrameRef.current >= 1000) {
                 lastSentCameraFrameRef.current = frameNow;
@@ -977,10 +999,11 @@ function App() {
 
                     // Convert resized image to blob
                     transCanvas.toBlob(async (blob) => {
-                        if (!blob || !isVideoOnRef.current || !socket.connected) return;
+                        if (!blob || !isVideoOnRef.current || !cameraShareRef.current || !socket.connected) return;
                         try {
                             const image = await blob.arrayBuffer();
-                            if (isVideoOnRef.current && socket.connected) {
+                            if (isVideoOnRef.current && cameraShareRef.current && socket.connected &&
+                                aiProviderRef.current === 'gemini') {
                                 socket.emit('video_frame', { image });
                             }
                         } catch {
@@ -1243,6 +1266,11 @@ function App() {
     };
 
     const stopVideo = () => {
+        if (cameraShareRef.current && socket.connected) {
+            socket.emit('set_camera_sharing', {enabled: false});
+        }
+        cameraShareRef.current = false;
+        setIsCameraSharing(false);
         if (videoRef.current && videoRef.current.srcObject) {
             videoRef.current.srcObject.getTracks().forEach(track => track.stop());
             videoRef.current.srcObject = null;
@@ -1250,6 +1278,14 @@ function App() {
         setIsVideoOn(false);
         isVideoOnRef.current = false; // Update ref
         setFps(0);
+    };
+
+    const toggleCameraSharing = () => {
+        if (!isVideoOnRef.current || !socket.connected ||
+            aiProviderRef.current !== 'gemini' || liveState.state !== 'connected') return;
+        const requested = !cameraShareRef.current;
+        // Server approval remains authoritative; never update the gate until acknowledged.
+        socket.emit('set_camera_sharing', {enabled: requested});
     };
 
     const toggleVideo = () => {
@@ -1917,7 +1953,20 @@ function App() {
                         {/* Hidden Video Element (Source) */}
                         <video ref={videoRef} autoPlay muted className="absolute inset-0 w-full h-full object-cover opacity-0" />
 
-                        <div className="absolute top-2 left-2 text-[10px] text-cyan-400 bg-black/60 backdrop-blur px-2 py-0.5 rounded border border-cyan-500/20 z-10 font-bold tracking-wider">CAM_01</div>
+                        <div className="absolute top-2 left-2 text-[10px] text-cyan-400 bg-black/60 backdrop-blur px-2 py-0.5 rounded border border-cyan-500/20 z-10 font-bold tracking-wider">CAM_01 · {isCameraSharing ? 'AI SHARING ON' : 'LOCAL PREVIEW'}</div>
+                        {aiProviderRef.current === 'gemini' ? (
+                            <button type="button" onClick={toggleCameraSharing}
+                                aria-pressed={isCameraSharing}
+                                disabled={!socketConnected || liveState.state !== 'connected'}
+                                title={isCameraSharing ? 'Stop sending camera images to Gemini Live' : 'Explicitly allow camera frames to Gemini Live'}
+                                className={`absolute bottom-2 left-2 z-30 rounded-md border px-3 py-1.5 text-xs font-bold shadow-lg disabled:opacity-50 ${isCameraSharing ? 'bg-red-900/90 border-red-400 text-white' : 'bg-black/90 border-cyan-400 text-cyan-200'}`}>
+                                {isCameraSharing ? 'STOP AI VIEW' : 'SHARE WITH GEMINI'}
+                            </button>
+                        ) : (
+                            <span className="absolute bottom-2 left-2 z-30 rounded-md bg-black/90 border border-cyan-600 px-2 py-1 text-xs font-semibold text-cyan-200">
+                                LOCAL ONLY · GROQ VOICE HAS NO CAMERA ANALYSIS
+                            </span>
+                        )}
 
                         {/* Canvas for Displaying Video + Skeleton (Ensures overlap) */}
                         <canvas
