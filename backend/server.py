@@ -39,6 +39,7 @@ app_socketio = socketio.ASGIApp(sio, app)
 import signal
 import time
 from spark_diagnostics import safe_diagnostics
+from spark_host_vitals import collect_host_vitals
 _BACKEND_BOOT_AT = time.monotonic()
 
 # --- SHUTDOWN HANDLER ---
@@ -154,7 +155,11 @@ async def status():
 async def get_diagnostics(sid):
     # Existing status values are filtered before reaching the cockpit.
     # No API keys, prompts, saved settings, paths or full exception bodies.
-    health = safe_diagnostics(await status(),
+    status_data = await status()
+    # Read-only snapshot off the event loop. No client-supplied paths or
+    # operations, no process termination, no external API calls.
+    status_data["host"] = await asyncio.to_thread(collect_host_vitals)
+    health = safe_diagnostics(status_data,
         uptime_seconds=time.monotonic() - _BACKEND_BOOT_AT)
     await sio.emit('spark_diagnostics', health, room=sid)
 

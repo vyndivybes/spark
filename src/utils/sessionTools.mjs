@@ -22,9 +22,20 @@ export function formatHealthReport(status={}) {
     const value=p[k];
     return typeof value==='string' && /^[a-z0-9._/\-]{1,72}$/i.test(value)?value:'unknown';
   };
+  const host=p.host&&typeof p.host==='object'?p.host:{};
+  const limited=(key,max,suffix,places=1)=>{
+    const num=host[key];
+    return typeof num==='number'&&Number.isFinite(num)&&num>=0&&num<=max
+      ?num.toFixed(places)+suffix:'unavailable';
+  };
   return [
     'SPARK systems report — no keys or conversation content',
     ...labels.map(([label,k])=>label+': '+val(k)),
+    'CPU: '+limited('cpu_percent',100,'%'),
+    'RAM usage: '+limited('ram_percent',100,'%'),
+    'Disk available: '+limited('disk_free_gb',1048576,' GB',2),
+    'Battery: '+limited('battery_percent',100,'%'),
+    'AC power: '+(host.ac_connected===true?'connected':host.ac_connected===false?'disconnected':'unavailable'),
     'Quota counters are not provided by external AI providers.',
   ].join('\n');
 }

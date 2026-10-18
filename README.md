@@ -2,6 +2,34 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## Windows Systems Vitals — source-independent integration
+
+SPARK's **SYSTEMS** panel now shows CPU usage, RAM usage/available RAM,
+free space on the Python runtime drive, battery percentage and AC power
+status. These are **read-only** snapshots collected on demand from the
+Windows `kernel32` public APIs (`GetSystemTimes`,
+`GlobalMemoryStatusEx`, `GetSystemPowerStatus`) and Python's
+`shutil.disk_usage`. The panel refreshes through SPARK's existing local
+diagnostic Socket.IO event. The sampling runs off the audio event loop.
+No background cloud calls, API credentials, REA execution, paid services,
+new Python dependencies, or device control privileges are needed.
+
+The command exposes **no drive paths, process names, PIDs, stored files
+or accounts** to the UI. Unknown hardware readings show *Not available*,
+not invented values. The copyable diagnostic report includes only
+bounded numeric totals and a boolean AC-power state.
+
+This is an **original, independently written implementation** of a common
+desktop-health capability also offered by Brahma AI Evo. Brahma's
+source-available license restricts copying/redistribution and commercial
+reuse. Its code is **not copied or imported** into SPARK. The local
+REA compact summaries are static counts and do not establish parity or
+functional acceptance.
+
+The automated unit tests cover valid/malformed telemetry and CPU time
+deltas. Final acceptance of Windows hardware sensor readings still
+requires running SPARK on your actual PC.
+
 ## REA AUDIT — local static evidence intake (opt-in)
 
 SPARK now contains a **REA AUDIT** button that reads previously generated

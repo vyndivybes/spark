@@ -10,6 +10,11 @@ export default function SystemCenter({
   onRefresh, onCopyReport, onSaveTranscript, notice
 }) {
   const d=diagnostics||{};
+  const h=d.host||{};
+  const percent=(value)=>typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=100
+    ?value.toFixed(1)+'%':'Not available';
+  const gigabytes=(value)=>typeof value==='number'&&Number.isFinite(value)&&value>=0
+    ?value.toFixed(2)+' GB':'Not available';
   const connected=socketConnected && d.live_state==='connected';
   const handsFree=connected && d.audio_transport==='browser_aec' && d.hands_free_ready===true;
   const quota=d.live_error_code==='429';
@@ -63,6 +68,29 @@ export default function SystemCenter({
             <span className="font-semibold text-slate-100 text-right break-all">{state}</span>
           </div>
         ))}
+      </div>
+
+      <div className="mt-4 border-t border-slate-700 pt-4">
+        <h3 className="text-cyan-200 font-bold tracking-wide">Windows hardware / read-only</h3>
+        <p className="text-xs text-slate-300 mt-1">
+          Local resource snapshot only. SPARK does not close apps or change device settings.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {[
+            ['CPU usage', percent(h.cpu_percent)],
+            ['RAM usage', percent(h.ram_percent)],
+            ['RAM available', gigabytes(h.ram_available_gb)],
+            ['Disk available', gigabytes(h.disk_free_gb)],
+            ['Battery', percent(h.battery_percent)],
+            ['AC power',h.ac_connected===true?'Connected':
+                         h.ac_connected===false?'Disconnected':'Not available'],
+          ].map(([label,number])=>(
+            <div key={label} className="rounded-xl border border-slate-700/80 bg-slate-900/80 p-3">
+              <div className="text-slate-300 text-xs">{label}</div>
+              <div className="font-semibold text-base mt-1 text-slate-100">{number}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <p className="mt-3 text-xs text-slate-400">
