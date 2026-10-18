@@ -1,5 +1,40 @@
 # SPARK — Immersive AI Workstation
 
+## Stage 9 — Groq voice + explicitly requested visual questions + approved apps
+
+Groq voice remains on `openai/gpt-oss-20b`, with Whisper transcription and
+local Windows speech. To enable the *separate* experimental Groq vision path,
+first verify that `qwen/qwen3.8-27b` is available **within your Groq free
+account** and that your account cannot generate paid charges; do not enable
+billing. Then set `SPARK_GROQ_VISION_ENABLED=1` in the runtime environment
+and launch Groq mode as before. Vision is disabled by default.
+
+In Groq mode, opening the camera starts **local preview only**. Choose
+**SHARE WITH GROQ VISION** to allow a single newest 640x360 JPEG frame to be
+cached *in memory on this PC* (up to one frame/sec). Nothing goes to Groq
+when simply opening the camera or moving about. Say **"What do you see?"**
+or **"Describe what you see"** (or type it) to explicitly authorize sending
+**one fresh image** and that question to the documented Groq Qwen vision
+model. The original voice assistant speaks and displays the answer. Frames
+expire after 5 seconds and are cleared on revoke, camera stop, disconnect
+or voice stop. The prompt/image are not placed in SPARK chat history or
+saved files. Groq vision is not continuous real-time video or automatic
+scene narration; it requires each explicit question and available free
+provider quota. If quota/model access fails, SPARK does not purchase,
+retry, or silently switch to another provider.
+
+In **Groq voice mode**, say **"Open Notepad"**, **"Open Calculator"**, or
+**"Open Paint"**. The strict local parser recognizes only these exact
+requests. SPARK opens an interactive **AUTHORIZATION REQUIRED** panel,
+bound to the active session owner; denying, closing, disconnecting or
+waiting 30 seconds blocks the launch. Approval launches the fixed Windows
+executable through `spark_desktop.launch_allowed_app`; no shell,
+arguments, arbitrary files, URL navigation, unapproved PowerShell
+commands or model-generated executable names are accepted.
+
+This is implementation and CI-level qualification, not acceptance on
+your particular Windows camera, speaker, Groq account or hardware.
+
 ## Camera → Gemini Live: separate, revocable consent
 
 Turning on **Camera** opens only the local preview and hand tracking. **No video
