@@ -8,7 +8,7 @@ const srv=read('backend/server.py');
 const groq=read('backend/spark_groq.py');
 test('Groq vision must be opted into and sends frames only to ephemeral local cache',()=>{
   assert.match(ui, /SHARE WITH GROQ VISION/);
-  assert.match(ui, /cameraShareRef\.current && aiProviderRef\.current === 'groq'/);
+  assert.ok(ui.includes("aiProviderRef.current === 'groq' && groqVisionAvailableRef.current"));
   assert.match(srv, /audio_loop\.set_camera_frame\(frame\)/);
   assert.match(srv, /if not can_groq_vision_frame\(/);
   assert.match(srv, /audio_loop\.clear_camera_frame\(\)/);
