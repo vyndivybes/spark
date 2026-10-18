@@ -1,5 +1,56 @@
 # SPARK — Immersive AI Workstation
 
+## Actual ARKUS integration — offline knowledge base and Skill Forge
+
+This release directly ports **functional source and tests** from the user's
+`vyndivybes/ARKUS` repository into SPARK:
+`backend/arkus_knowledge_base.py` (SQLite FTS5) and
+`backend/arkus_skill_forge.py` (safe declarative Skill Forge).
+Their original unit-test contracts run in SPARK CI. This is not a menu
+stub or an AI claim of features copied from unrelated repositories.
+
+Open **KNOWLEDGE / SKILLS** in the SPARK top bar after the main assistant
+connects. Operations are allowed only from the same active, authenticated
+Socket.IO session owner; other local clients cannot import or query the
+workspace. Storage is on the local Windows PC at
+`%LOCALAPPDATA%\\SPARK\\workspace` (or `~/.spark/SPARK/workspace` on
+non-Windows), outside Git and without cloud upload or per-query API cost.
+
+**Knowledge tab:** Import up to fifty documents per project, up to 2 MB
+each. Supported: UTF-8 TXT/MD, DOCX, and text PDFs (PDF support requires
+optional `pypdf`; scanned PDFs need separate OCR). Documents are chunked
+and indexed locally with SQLite FTS5. Search returns original filenames
+and excerpt citations; delete and replace work. Project searches are
+isolated by project name. There is no unapproved embedding or automatic
+transmission of document text to Gemini/Groq.
+
+**Skill Forge tab:** Create a JSON-only calculation skill with named numeric
+inputs, its output label and optional independent expected-result cases;
+**Test**, **Activate**, **Prepare run**, **Run**, **Revise** and **Rollback**
+are operational. Only allowlisted arithmetic operations work:
+`add`, `subtract`, `multiply`, `divide`, `percentage`,
+`average`, `clamp`. Draft or untested skills cannot execute; upgrades
+must pass tests, remain interface-compatible and support rollback.
+No model-written scripts, modules, shell commands or unrestricted
+computer actions can be created through Skill Forge.
+
+**Voice (Groq path):** After opening the project in the cockpit, say
+“Search my knowledge for T700S” or “Find my notes about layup”.
+SPARK performs the search **offline**, cites the title in its spoken answer
+and does not send retrieved document contents to Groq. Voice only uses
+the active session's selected project; otherwise it defaults to
+`default`. Voice-generated skills, autonomous skill modification and
+Gemini Live knowledge tool declarations are **not** part of this release.
+All on-device audio, local file availability, and Windows UI acceptance
+must still be tested on the user's computer.
+
+**Licensing boundaries:** ADA V2 and HOLO Gestures are MIT licensed and
+are already integrated as source/submodules. Brahma AI Evo's current
+personal-only, no-distribution license does **not** permit copying into
+SPARK. O.L.L.I.E has no repository LICENSE in the inspected checkout;
+no robot-control source has been redistributed or activated here.
+
+
 ## Stage 9 — Groq voice + explicitly requested visual questions + approved apps
 
 Groq voice remains on `openai/gpt-oss-20b`, with Whisper transcription and

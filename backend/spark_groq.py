@@ -19,6 +19,7 @@ from spark_public_apis import public_api_answer
 from spark_groq_capabilities import parse_desktop_command, vision_requested
 from spark_camera_frames import validate_camera_frame
 from spark_desktop import launch_allowed_app
+from spark_workspace_voice import knowledge_search_query
 
 CHAT_URL="https://api.groq.com/openai/v1/chat/completions"
 STT_URL="https://api.groq.com/openai/v1/audio/transcriptions"
@@ -248,7 +249,7 @@ class GroqVoiceLoop:
     def __init__(self,api=None,on_transcription=None,on_browser_audio=None,
                  on_web_sources=None,on_live_status=None,on_error=None,
                  audio_playback_wait=True,fetch_public=None,on_browser_tts=None,
-                 on_desktop_approval=None,launch_app=None):
+                 on_desktop_approval=None,launch_app=None,on_workspace_search=None):
         self.api=api or GroqClient()
         self.on_transcription=on_transcription
         self.on_browser_audio=on_browser_audio
@@ -261,6 +262,7 @@ class GroqVoiceLoop:
         self.audio_playback_wait=audio_playback_wait
         self.fetch_public=fetch_public or get_public_json
         self.on_desktop_approval=on_desktop_approval
+        self.on_workspace_search=on_workspace_search
         self.launch_app=launch_app or launch_allowed_app
         self._vision_frame=None
         self._vision_at=0.0
@@ -464,6 +466,7 @@ class GroqVoiceLoop:
     async def _answer(self,prompt):
         # Speech intents are parsed locally, never inferred from model output.
         app=parse_desktop_command(prompt)
+        search_query=knowledge_search_query(prompt)
         if app:
             approved=False
             if self.on_desktop_approval:
@@ -479,6 +482,18 @@ class GroqVoiceLoop:
                 answer=str(result.get("message","Desktop action did not complete."))[:300]
             else:
                 answer="Desktop action denied or approval unavailable."
+        elif search_query is not None:
+            # Entirely local FTS5 retrieval; do not send source excerpts or
+            # project names to Groq, or insert them into the LLM history.
+            if self.on_workspace_search is None:
+                answer="Local project knowledge is not yet available."
+            else:
+                matches=await self.on_workspace_search(search_query)
+                if matches:
+                    best=matches[0]
+                    answer=(f"Source {best['title']}: {best['excerpt']}")[:600]
+                else:
+                    answer="No local documents matched that search."
         elif vision_requested(prompt):
             frame=self.recent_camera_frame()
             if frame is None:
