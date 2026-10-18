@@ -27,6 +27,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_spark_groq_model_diagnostics.py
       - run: python3 -m unittest discover -s tests -p test_spark_windows_speech.py
       - run: python3 -m unittest discover -s tests -p test_spark_diagnostics.py
+      - run: python3 -m unittest discover -s tests -p test_spark_host_vitals.py
       - run: python3 -m unittest discover -s tests -p test_spark_audio_meter.py
       - run: python3 -m unittest discover -s tests -p test_spark_echo_gate.py
       - run: python3 -m unittest discover -s tests -p test_spark_browser_audio.py
