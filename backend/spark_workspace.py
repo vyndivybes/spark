@@ -60,6 +60,9 @@ class SparkWorkspace:
                 raise WorkspaceError("Document not found in this project.")
             chunks=db.execute("SELECT body FROM passages WHERE doc_id=? ORDER BY rowid",(identity,)).fetchall()
         body="\n\n".join(part[0] for part in chunks)[:4000]
+        # The upstream HOLO note renderer is external code: never export HTML
+        # tags from imported documents into its display surface.
+        body=body.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
         if not body.strip():
             raise WorkspaceError("Document has no readable content.")
         path.parent.mkdir(parents=True,exist_ok=True)
@@ -108,7 +111,11 @@ class SparkWorkspace:
             if action=="search_documents":
                 return self.knowledge.search(project,data["query"])
             if action=="remove_document":
-                return self.knowledge.remove(project,data["id"])
+                # Deleting the source also revokes the separately published copy.
+                path=self._holo_path(project,data["id"])
+                result=self.knowledge.remove(project,data["id"])
+                path.unlink(missing_ok=True)
+                return result
             if action=="list_holo_notes":
                 return self._published(project)
             if action=="publish_holo_note":
