@@ -4,6 +4,7 @@ No API tokens, conversation content, user files, stack traces or network calls.
 Read-only. This is not an API/agent provider manager or quota tracker.
 """
 import re
+from spark_host_vitals import normalize_host_vitals
 
 SAFE_STATUSES={"idle","connected","connecting","disconnected","error","setup_required","audio_error"}
 SAFE_PROVIDERS={"gemini","groq"}
@@ -36,4 +37,5 @@ def safe_diagnostics(status,uptime_seconds=0):
         "groq_configured":status.get("groq_configured") is True,
         "live_error_code":code if code in SAFE_CODES else "unknown",
         "uptime_seconds":min(8640000,max(0,int(uptime_seconds))) if isinstance(uptime_seconds,(int,float)) and not isinstance(uptime_seconds,bool) else 0,
+        "host":normalize_host_vitals(status.get("host")),
     }
