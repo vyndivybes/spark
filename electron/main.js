@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const {createExperienceManager}=require('./experience-manager.cjs');
+const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
 
 // Use ANGLE D3D11 backend - more stable on Windows while keeping WebGL working
 // This fixes "GPU state invalid after WaitForGetOffsetInRange" error
@@ -16,6 +17,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 let mainWindow;
 let pythonProcess;
 let experienceManager;
+let lastReaInventory=null;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -150,6 +152,22 @@ app.whenReady().then(() => {
         if (result.canceled || !result.filePath) return {saved:false};
         await fs.writeFile(result.filePath, content, {encoding:'utf8'});
         return {saved:true};  // Do not leak the selected local path to renderer.
+    });
+
+    ipcMain.handle('spark:scan-rea-reports', async(event) => {
+        if(!mainWindow || event.sender.id !== mainWindow.webContents.id)
+            throw Error('Only the SPARK cockpit may request REA audit.');
+        // Explicit UI-initiated, local-only read. No request-controlled paths.
+        const result=await collectLocalReaSummaries({home:app.getPath('home')});
+        lastReaInventory=result;
+        return result;
+    });
+    ipcMain.handle('spark:copy-rea-inventory', async(event) => {
+        if(!mainWindow || event.sender.id !== mainWindow.webContents.id ||
+           !lastReaInventory || !lastReaInventory.report_count)
+            throw Error('No approved REA inventory available.');
+        clipboard.writeText(formatReaInventory(lastReaInventory));
+        return {copied:true};
     });
 
     ipcMain.on('window-minimize', () => {
