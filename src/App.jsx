@@ -168,6 +168,7 @@ function App() {
     // Ref to track video state for the loop (avoids closure staleness)
     const isVideoOnRef = useRef(false);
     const cameraShareRef = useRef(false); // Rendering stays local until owner approval
+    const liveStateRef = useRef('idle'); // Webcam RAF must observe current Live status
     const isModularModeRef = useRef(false);
     const elementPositionsRef = useRef(elementPositions);
     const activeDragElementRef = useRef(null);
@@ -365,6 +366,7 @@ function App() {
             setAudioTransport(mode);
         });
         socket.on('disconnect', () => {
+            liveStateRef.current = 'idle';
             cameraShareRef.current = false;
             setIsCameraSharing(false);
             windowsSpeechRef.current?.stop();
@@ -390,6 +392,7 @@ function App() {
                 setIsCameraSharing(false);
                 socket.emit('set_camera_sharing', {enabled: false});
             }
+            liveStateRef.current = info.state;
             setLiveState(info);
             if (info.state === 'connected') {
                 setStatus(aiProviderRef.current === 'groq' ? 'Groq Hands-Free Cloud Ready' : 'Gemini Live Connected');
@@ -989,7 +992,7 @@ function App() {
         // 2. Camera images are opt-in and rate-limited to one JPEG per second.
         // Video preview alone does not authorize streaming to the AI.
         if (isConnected && socketConnected && isVideoOnRef.current &&
-            cameraShareRef.current && aiProviderRef.current === 'gemini' && liveState.state === 'connected') {
+            cameraShareRef.current && aiProviderRef.current === 'gemini' && liveStateRef.current === 'connected') {
             const frameNow = performance.now();
             if (frameNow - lastSentCameraFrameRef.current >= 1000) {
                 lastSentCameraFrameRef.current = frameNow;
