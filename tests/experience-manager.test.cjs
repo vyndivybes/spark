@@ -10,6 +10,8 @@ function fixture(){
   const data=path.join(root,'user-data');
   fs.mkdirSync(path.join(root,'vendor','holo-gestures','sample-notes'),{recursive:true});
   fs.mkdirSync(path.join(root,'vendor','brain-map'),{recursive:true});
+  fs.mkdirSync(path.join(root,'scripts'),{recursive:true});
+  fs.writeFileSync(path.join(root,'scripts','holo_notes_launcher.py'),'# HOLO launcher');
   fs.writeFileSync(path.join(root,'vendor','holo-gestures','server.py'),'# test');
   fs.writeFileSync(path.join(root,'vendor','holo-gestures','sample-notes','note.md'),'# Test');
   fs.writeFileSync(path.join(root,'vendor','brain-map','build.py'),'# test');
@@ -22,7 +24,9 @@ test('SPARK HOLO launches the original self-hosted Python server with no shell',
     assert.equal(p.url,'http://127.0.0.1:4890');
     assert.equal(p.steps.length,1);
     assert.equal(p.steps[0].shell,false);
-    assert.deepEqual(p.steps[0].args,[path.join(x.root,'vendor','holo-gestures','server.py')]);
+    assert.deepEqual(p.steps[0].args,[path.join(x.root,'scripts','holo_notes_launcher.py')]);
+    assert.equal(p.steps[0].env.SPARK_HOLO_NOTES_DIR,
+      path.join(x.root,'vendor','holo-gestures','sample-notes'));
     assert.equal(p.steps[0].cwd,path.join(x.root,'vendor','holo-gestures'));
   }finally{x.cleanup()}
 });
@@ -56,4 +60,16 @@ test('SPARK identity and launch controls are present in the desktop shell',()=>{
   assert.equal(pkg.name,'spark');
   assert.match(app,/SPARK/);
   assert.match(app,/spark:open-experience/);
+});
+
+test('both original HOLO gestures and Brain Map use selected SPARK vault after publish',()=>{
+  const x=fixture();try{
+    const vault=path.join(x.data,'workspace','holo-notes');
+    fs.mkdirSync(path.join(vault,'carbon'),{recursive:true});
+    fs.writeFileSync(path.join(vault,'carbon','layup.md'),'# Layup');
+    const holo=getExperiencePlan('holo',{root:x.root,userData:x.data,notesDir:vault,python:'python'});
+    const brain=getExperiencePlan('brain',{root:x.root,userData:x.data,notesDir:vault,python:'python'});
+    assert.equal(holo.steps[0].env.SPARK_HOLO_NOTES_DIR,vault);
+    assert.equal(brain.steps[0].args[2],vault);
+  }finally{x.cleanup()}
 });
