@@ -16,6 +16,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
     const [tab,setTab]=useState('knowledge');
     const [query,setQuery]=useState('');
     const [documents,setDocuments]=useState([]);
+    const [published,setPublished]=useState([]);
     const [hits,setHits]=useState([]);
     const [skills,setSkills]=useState([]);
     const [notice,setNotice]=useState('Connect SPARK to unlock local workspace operations.');
@@ -47,6 +48,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             if(!data.ok) {setNotice(String(data.message||'Workspace action failed.'));return;}
             const result=data.result;
             if(data.action==='list_documents') {setDocuments(Array.isArray(result)?result:[]);return;}
+            if(data.action==='list_holo_notes') {setPublished(Array.isArray(result)?result:[]);return;}
             if(data.action==='list_skills') {setSkills(Array.isArray(result)?result:[]);return;}
             if(data.action==='search_documents') {
                 setHits(Array.isArray(result)?result:[]);
@@ -60,13 +62,20 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             setNotice(`${data.action.replace(/_/g,' ')} completed for ${project}.`);
             if(['import_document','remove_document'].includes(data.action)) {
                 request('list_documents');
-                if(data.action==='remove_document')setHits([]);
+                if(data.action==='remove_document') {
+                    request('list_holo_notes');
+                    setHits([]);
+                }
+            }
+            if(['publish_holo_note','unpublish_holo_note'].includes(data.action)) {
+                request('list_holo_notes');
             }
             if(['propose_skill','test_skill','activate_skill','revise_skill','rollback_skill'].includes(data.action))
                 request('list_skills');
         };
         socket.on('workspace_result',listener);
         request('list_documents');
+        request('list_holo_notes');
         request('list_skills');
         return ()=>socket.off('workspace_result',listener);
     },[socket,visible,project]);
@@ -120,6 +129,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Indexed files ({documents.length}/50)</h3>
+                        <p className="text-sm text-slate-300 mb-2">Choose <strong>Publish to HOLO</strong> for each document you want accessible in the original gesture deck and Brain Map. No other files are exposed.</p>
                         <label className="block text-sm text-cyan-200 mb-2">
                             Import chosen document (local only, up to 2 MB)
                             <input type="file" accept=".txt,.md,.markdown,.docx,.pdf" onChange={upload} className="block w-full mt-2 text-sm"/>
@@ -128,10 +138,23 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         <div className="mt-2 max-h-48 overflow-auto space-y-2">
                             {documents.length ? documents.map(doc=><div key={doc.id} className="flex justify-between items-center gap-2 border-b border-white/10 py-2 text-sm">
                                 <span className="break-all">{doc.name} <span className="text-slate-400">({doc.characters} characters)</span></span>
-                                <button type="button" className={buttonStyle}
-                                    onClick={()=>{if(window.confirm('Remove this local indexed document?'))request('remove_document',{id:doc.id});}}>
-                                    Remove
-                                </button>
+                                <div className="flex flex-wrap gap-1">
+                                    {published.some(note=>note.id===doc.id) ? (
+                                        <button type="button" className={buttonStyle}
+                                            onClick={()=>request('unpublish_holo_note',{id:doc.id})}>
+                                            Unpublish HOLO
+                                        </button>
+                                    ) : (
+                                        <button type="button" className={buttonStyle}
+                                            onClick={()=>request('publish_holo_note',{id:doc.id})}>
+                                            Publish to HOLO
+                                        </button>
+                                    )}
+                                    <button type="button" className={buttonStyle}
+                                        onClick={()=>{if(window.confirm('Delete this indexed document and revoke its HOLO copy?'))request('remove_document',{id:doc.id});}}>
+                                        Remove
+                                    </button>
+                                </div>
                             </div>) : <p className="text-sm text-slate-400">No documents indexed in this project.</p>}
                         </div>
                     </div>
