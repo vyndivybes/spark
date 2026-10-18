@@ -19,3 +19,9 @@ test('Voice launches are determined and approved by server, never by model-gener
   assert.match(srv, /"tool_confirmation_request"/);
   assert.match(srv, /owner_sid.*sid/);
 });
+
+test('Groq vision cannot turn on in launcher without an explicit flag',()=>{
+ const launcher=read('start-spark.ps1');
+ assert.match(launcher,/\[switch\]\$EnableGroqVision/);
+ assert.match(launcher,/\$env:SPARK_GROQ_VISION_ENABLED = if \(\$EnableGroqVision\)/);
+});
