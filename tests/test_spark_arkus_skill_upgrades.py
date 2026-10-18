@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 import tempfile
 import unittest
-from skill_forge import SkillForge, SkillError
+from arkus_skill_forge import SkillForge, SkillError
 
 class SkillUpgradeTests(unittest.TestCase):
     def setUp(self):
