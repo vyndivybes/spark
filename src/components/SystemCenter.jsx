@@ -1,5 +1,6 @@
 import React from 'react';
-import { Activity, X, RefreshCw, Copy, Download, ShieldCheck, Mic } from 'lucide-react';
+import { Activity, X, RefreshCw, Copy, Download, ShieldCheck, Mic, AlertTriangle } from 'lucide-react';
+import {getPressureAdvice} from '../utils/systemPressure.mjs';
 
 /* Independent SPARK operational panel. No provider registration, key editing,
  * device capture, quota polling, or additional AI inference is performed. */
@@ -11,6 +12,7 @@ export default function SystemCenter({
 }) {
   const d=diagnostics||{};
   const h=d.host||{};
+  const advisories=getPressureAdvice(h);
   const percent=(value)=>typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=100
     ?value.toFixed(1)+'%':'Not available';
   const gigabytes=(value)=>typeof value==='number'&&Number.isFinite(value)&&value>=0
@@ -92,6 +94,24 @@ export default function SystemCenter({
           ))}
         </div>
       </div>
+
+
+      {advisories.length>0&&(
+        <div className="mt-4 rounded-xl border border-amber-700/70 bg-amber-950/25 p-3"
+             role="status" aria-label="Resource advisories">
+          <h3 className="flex items-center gap-2 font-semibold text-amber-200">
+            <AlertTriangle size={17}/> Resource advisories
+          </h3>
+          <p className="mt-1 text-xs text-slate-300">
+            Snapshot-based guidance only. No files, apps or processes are changed.
+          </p>
+          <ul className="mt-2 space-y-2">
+            {advisories.map(item=><li key={item.id} className="text-sm text-slate-100">
+              <span className="font-semibold text-amber-100">{item.label}:</span> {item.text}
+            </li>)}
+          </ul>
+        </div>
+      )}
 
       <p className="mt-3 text-xs text-slate-400">
         API quota balances are not available through this diagnostics panel. Groq cloud session
