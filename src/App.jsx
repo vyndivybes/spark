@@ -9,7 +9,7 @@ import ChatModule from './components/ChatModule';
 import ToolsModule from './components/ToolsModule';
 import {BrowserEchoAudio} from './audio/BrowserEchoAudio.mjs';
 import {WindowsSpeech} from './audio/WindowsSpeech.mjs';
-import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock, Activity, Search } from 'lucide-react';
+import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock, Activity, Search, Timer } from 'lucide-react';
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 // MemoryPrompt removed - memory is now actively saved to project
 import ConfirmationPopup from './components/ConfirmationPopup';
@@ -20,6 +20,7 @@ import SettingsWindow from './components/SettingsWindow';
 import SystemCenter from './components/SystemCenter';
 import HealthConnectPanel from './components/HealthConnectPanel';
 import ReaAuditPanel from './components/ReaAuditPanel';
+import FocusPanel from './components/FocusPanel';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
 
@@ -94,6 +95,7 @@ function App() {
     const [showSystems, setShowSystems] = useState(false);
     const [showPhoneWatch, setShowPhoneWatch] = useState(false);
     const [showReaAudit, setShowReaAudit] = useState(false);
+    const [showFocus, setShowFocus] = useState(false);
     const [diagnostics, setDiagnostics] = useState(null);
     const [systemsNotice, setSystemsNotice] = useState('');
     const [showExperiences, setShowExperiences] = useState(false);
@@ -1763,6 +1765,20 @@ function App() {
                         title="Inspect prior local REA evidence — read only">
                         <Search size={17}/> REA AUDIT
                     </button>
+                    <button type="button"
+                        onClick={() => {
+                            setShowFocus(open=>!open);
+                            setShowSystems(false);
+                            setShowReaAudit(false);
+                            setShowPhoneWatch(false);
+                            setShowSettings(false);
+                        }}
+                        aria-expanded={showFocus}
+                        aria-controls="spark-focus-panel"
+                        className="flex items-center gap-2 rounded-lg border border-cyan-700/70 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-900/50"
+                        title="Focus timer — runs locally, no window monitoring">
+                        <Timer size={17}/> FOCUS
+                    </button>
                     {/* Live Clock */}
                     <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/70 font-mono px-2">
                         <Clock size={12} className="text-cyan-500/50" />
@@ -1778,6 +1794,10 @@ function App() {
                         <X size={18} />
                     </button>
                 </div>
+            </div>
+
+            <div id="spark-focus-panel" style={{WebkitAppRegion:'no-drag'}}>
+                <FocusPanel visible={showFocus} onClose={() => setShowFocus(false)} />
             </div>
 
             {showReaAudit && (

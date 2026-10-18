@@ -2,6 +2,41 @@
 
 SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
+## ARKUS-inspired Focus Mode + SPARK Resource Advisories
+
+The SPARK cockpit has a **FOCUS** toolbar control with an offline
+focus timer, inspired by the high-level user workflow in the
+user-owned ARKUS `focus.py` implementation. Choose 5, 25 or 50
+minutes (or a custom whole number up to 240); optionally name your
+work, then Start, Pause, Resume, Add 5 minutes, or Reset. A wall-clock
+deadline means the countdown remains accurate when a browser tab is
+throttled. Closing the panel merely hides the timer; it stays mounted
+in the main SPARK cockpit. Restarting SPARK clears the ephemeral
+session. It does not create background processes, inspect foreground
+apps, use the microphone/camera, or store attention/health scores.
+**No app tracking is active, so no observed attention percentage or
+distraction count is claimed.**
+
+The existing **SYSTEMS** panel now offers lightweight advice using
+its already collected, read-only Windows telemetry:
+- RAM at or above 80%: recommend closing unused applications/tabs.
+- Free system-drive space at or below 15 GB: recommend examining files
+  before building, never deleting them.
+- Battery at or below 25% while disconnected from AC: recommend
+  connecting the charger.
+- CPU at or above 90%: recommend reducing simultaneous heavy workloads.
+
+Unknown or invalid readings produce no advice, not false alarms. All
+advice is bounded local text; it never invokes agents, shell
+commands, process termination or cloud AI. The new functionality
+adds no paid integrations and leaves voice, REA evidence and Android
+Health Connect paths unchanged.
+
+This release provides **functional local timer and advisory components**,
+not full ARKUS active-window monitoring, posture detection, or
+autonomous action remediation. Automated state-machine tests and
+production build are separate from Windows desktop acceptance.
+
 ## Windows Systems Vitals — source-independent integration
 
 SPARK's **SYSTEMS** panel now shows CPU usage, RAM usage/available RAM,
