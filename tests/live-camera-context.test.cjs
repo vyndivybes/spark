@@ -7,9 +7,9 @@ const app = fs.readFileSync(path.join(__dirname, '../src/App.jsx'), 'utf8');
 const ada = fs.readFileSync(path.join(__dirname, '../backend/ada.py'), 'utf8');
 
 test('opt-in video transmission requires connected Gemini Live and active webcam', () => {
-  assert.match(app, /if \\(isConnected && socketConnected && isVideoOnRef\\.current &&/);
-  assert.match(app, /cameraShareRef\\.current &&/);
-  assert.match(app, /liveStateRef\\.current === 'connected'/);
+  assert.ok(app.includes('if (isConnected && socketConnected && isVideoOnRef.current &&'));
+  assert.ok(app.includes('cameraShareRef.current &&'));
+  assert.ok(app.includes("liveStateRef.current === 'connected'"));
   assert.match(app, /frameNow - lastSentCameraFrameRef\.current >= 1000/);
 });
 
