@@ -590,7 +590,7 @@ function App() {
         });
         socket.on('browser_frame', (data) => {
             setBrowserData(prev => ({
-                image: data.image,
+                image: data.image || prev.image,
                 logs: [...prev.logs, data.log].filter(l => l).slice(-50) // Keep last 50 logs
             }));
             setShowBrowserWindow(true);
@@ -2161,7 +2161,10 @@ function App() {
                         showPrinterWindow={showPrinterWindow}
                         onToggleCad={() => setShowCadWindow(!showCadWindow)}
                         showCadWindow={showCadWindow}
-                        onToggleBrowser={() => setShowBrowserWindow(!showBrowserWindow)}
+                        onToggleBrowser={() => {
+                            if (!showBrowserWindow) setBrowserData({ image: null, logs: [] });
+                            setShowBrowserWindow(!showBrowserWindow);
+                        }}
                         showBrowserWindow={showBrowserWindow}
                         activeDragElement={activeDragElement}
                         position={elementPositions.tools}

@@ -43,6 +43,7 @@ import time
 from spark_diagnostics import safe_diagnostics
 from spark_host_vitals import collect_host_vitals
 from spark_workspace import SparkWorkspace, WorkspaceError
+from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
 _SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
@@ -128,6 +129,18 @@ def save_settings():
 
 # Load on startup
 load_settings()
+
+# The browser view works independently of Live audio and cloud API credentials.
+browser_sessions = register_browser_sessions(sio, lambda sid: bool(
+    sio.manager.is_connected(sid, '/')
+    and SETTINGS.get('tool_permissions', {}).get('run_web_agent', False)
+    and (not SETTINGS.get('face_auth_enabled', False)
+         or (authenticator and authenticator.authenticated))
+))
+
+@app.on_event("shutdown")
+async def close_browser_sessions():
+    await browser_sessions.close()
 
 authenticator = None
 kasa_agent = KasaAgent(known_devices=SETTINGS.get("kasa_devices"))
@@ -274,8 +287,9 @@ async def get_audio_transport(sid):
 
 
 @sio.event
-async def disconnect(sid):
+async def disconnect(sid, reason=None):
     global camera_share_sid
+    await browser_sessions.stop(sid)
     workspace_project_by_sid.pop(sid, None)
     if camera_share_sid == sid:
         camera_share_sid = None
@@ -800,6 +814,7 @@ async def confirm_tool(sid, data):
 async def shutdown(sid, data=None):
     """Gracefully shutdown the server when the application closes."""
     global audio_loop, loop_task, authenticator
+    await browser_sessions.close()
     
     print("[SERVER] ========================================")
     print("[SERVER] SHUTDOWN SIGNAL RECEIVED FROM FRONTEND")
@@ -1165,34 +1180,12 @@ async def generate_cad(sid, data):
 
 @sio.event
 async def prompt_web_agent(sid, data):
-    # data: { prompt: "find xyz" }
-    prompt = data.get('prompt')
-    print(f"Received web agent prompt: '{prompt}'")
-    
-    if not audio_loop or not audio_loop.web_agent:
-        await sio.emit('error', {'msg': "Web Agent not available"})
+    # Old clients must update instead of silently calling nonexistent run().
+    # Gemini voice automation still uses WebAgent.run_task separately.
+    if not isinstance(data, dict) or not data.get('session_id'):
+        await sio.emit('error', {'msg': 'Update SPARK and reopen WEB_AGENT_VIEW to start a local browser session.'}, room=sid)
         return
-
-    try:
-        await sio.emit('status', {'msg': 'Web Agent running...'})
-        
-        # We assume web_agent has a run method or similar.
-        # This might block the loop if not strictly async or offloaded.
-        # Ideally web_agent.run is async.
-        # And it should emit 'browser_snap' and logs automatically via hooks if setup.
-        
-        # We might need to launch this as a task if it's long running?
-        # asyncio.create_task(audio_loop.web_agent.run(prompt))
-        # But we want to catch errors here.
-        
-        # Based on typical agent design, run() is the entry point.
-        await audio_loop.web_agent.run(prompt)
-        
-        await sio.emit('status', {'msg': 'Web Agent finished'})
-        
-    except Exception as e:
-        print(f"Error running Web Agent: {e}")
-        await sio.emit('error', {'msg': f"Web Agent Error: {str(e)}"})
+    await browser_sessions.command(sid, data)
 
 @sio.event
 async def discover_printers(sid):

@@ -1,5 +1,55 @@
 # SPARK — Immersive AI Workstation
 
+## Local browser view on Windows
+
+WEB_AGENT_VIEW now starts its own local Playwright Chromium session when opened.
+It does not require Live audio, Gemini, a cloud browser subscription, or an API key.
+In the same Python environment used by `start-spark.ps1`, install the browser once:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install playwright
+.\.venv\Scripts\python.exe -m playwright install chromium
+```
+
+Then start SPARK normally and open the browser view. Use **Go** for a URL or search,
+click the streamed page to focus a field, and use **Type** to insert the entered text.
+Enter, Tab, Backspace, Escape and arrow keys work when the view has focus.
+The mouse wheel scrolls; Back, Forward and Reload navigate. Frames update roughly
+twice per second, so this is a browser control view rather than a video player.
+Closing the view or disconnecting releases its private, temporary browser session.
+Reconnecting creates a fresh session, without retaining cookies or login state.
+
+Startup errors include setup instructions and **Retry**. A missing or stalled stream
+shows an error after 45 seconds. Navigation errors keep the browser available for
+another URL. Web Agent must be enabled in Settings, and face authentication must
+pass if enabled. Existing Gemini voice computer-use remains a separate optional
+feature with its existing API/model requirements. **Browse locally** switches from
+its screenshot result to the free local browser. Local commands are navigation,
+search and manual controls, not autonomous natural-language task execution.
+
+Verification commands, after installing pytest, pytest-asyncio, python-socketio
+and aiohttp in a development environment:
+
+```powershell
+node --test tests/browser-session.test.cjs
+.\.venv\Scripts\python.exe -m pytest tests/test_spark_browser_session.py tests/test_web_agent_safety.py -q
+$env:SPARK_TEST_LOCAL_BROWSER = '1'
+.\.venv\Scripts\python.exe -m pytest tests/test_spark_browser_session.py -q
+npm run build
+```
+
+The opt-in integration test launches real local Chromium, streams JPEG frames over
+Socket.IO, navigates to a local fixture, and verifies disconnect cleanup. It uses
+no cloud service. Passing it does not verify the full Electron app or the user's
+installed SPARK environment.
+
+For the optional rendered-panel check, run `npm exec vite -- --host 127.0.0.1`
+in another terminal, set `$env:SPARK_TEST_BROWSER_UI = '1'`, and rerun the opt-in
+integration test. It mounts the real BrowserWindow component at
+`/tests/browser-view.html`, navigates, clicks a streamed field, types into it,
+checks for renderer errors, and closes the session. The backend fixture uses an
+ephemeral local port and only permits the local Vite origin.
+
 ## Actual HOLO Gestures + Brain Map on SPARK project notes
 
 The original MIT-licensed HOLO gesture engine and Brain Map submodules were
