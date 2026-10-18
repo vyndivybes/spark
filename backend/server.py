@@ -29,6 +29,7 @@ from spark_audio_meter import AudioMeter
 from spark_browser_audio import select_transport, validate_pcm
 from spark_groq import GroqVoiceLoop, GroqUnavailable, cloud_provider, groq_model
 from spark_camera_consent import can_stream_camera
+from spark_groq_capabilities import can_groq_vision_frame
 from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
@@ -68,6 +69,8 @@ live_message = ""
 # Ephemeral session consent, never persisted across a Live restart.
 camera_share_sid = None
 camera_frame_last_at = 0.0
+# Ephemeral confirmations for the current Groq window.
+groq_pending_approvals = {}
 authenticator = None
 kasa_agent = KasaAgent()
 AUDIO_TRANSPORT = select_transport(os.environ.get("SPARK_AUDIO_TRANSPORT"))
@@ -149,6 +152,7 @@ async def status():
             "live_model": groq_model() if cloud_provider() == "groq" else ada.MODEL,
             "live_profile": "groq_voice" if cloud_provider() == "groq" else live_profile(),
             "audio_transport": AUDIO_TRANSPORT,
+            "groq_vision_available": os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1",
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **({"live_state":live_state,
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
@@ -171,7 +175,8 @@ async def get_diagnostics(sid):
 @sio.event
 async def connect(sid, environ):
     print(f"Client connected: {sid}")
-    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT, 'provider': cloud_provider()}, room=sid)
+    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT, 'provider': cloud_provider(),
+        'groq_vision_available': os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1"}, room=sid)
     await sio.emit('status', {'msg': 'Connected to SPARK Core backend'}, room=sid)
     if cloud_provider() == "groq":
         await sio.emit('ai_status', {
@@ -217,7 +222,8 @@ async def connect(sid, environ):
 
 @sio.event
 async def get_audio_transport(sid):
-    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT, 'provider': cloud_provider()}, room=sid)
+    await sio.emit('audio_transport_config', {'mode': AUDIO_TRANSPORT, 'provider': cloud_provider(),
+        'groq_vision_available': os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1"}, room=sid)
 
 
 @sio.event
@@ -225,6 +231,13 @@ async def disconnect(sid):
     global camera_share_sid
     if camera_share_sid == sid:
         camera_share_sid = None
+    if audio_loop and getattr(audio_loop, "owner_sid", None) == sid:
+        if getattr(audio_loop, "provider", None) == "groq":
+            audio_loop.clear_camera_frame()
+        for future in groq_pending_approvals.values():
+            if not future.done():
+                future.set_result(False)
+        groq_pending_approvals.clear()
     print(f"Client disconnected: {sid}")
     # AEC playback reference disappears when the Electron owner disconnects.
     # Stop the session rather than switch behind the user's back to a live mic.
@@ -261,6 +274,21 @@ async def start_groq_audio(sid, data=None):
         asyncio.create_task(sio.emit('browser_tts', payload, room=sid))
     def on_web_sources(payload):
         asyncio.create_task(sio.emit('web_sources', payload, room=sid))
+    async def on_desktop_approval(payload):
+        # Speech transcription does not grant execution authority.
+        import uuid
+        request_id = str(uuid.uuid4())
+        future = asyncio.get_running_loop().create_future()
+        groq_pending_approvals[request_id] = future
+        try:
+            await sio.emit("tool_confirmation_request", {
+                "id":request_id,"tool":payload["tool"],"args":payload["args"]
+            },room=sid)
+            return bool(await asyncio.wait_for(future,timeout=30))
+        except asyncio.TimeoutError:
+            return False
+        finally:
+            groq_pending_approvals.pop(request_id,None)
     def on_error(message):
         asyncio.create_task(sio.emit('error', {'msg': str(message)[:180]}, room=sid))
     def on_live_status(payload):
@@ -274,6 +302,7 @@ async def start_groq_audio(sid, data=None):
             on_browser_audio=on_browser_audio,
             on_browser_tts=on_browser_tts,
             on_web_sources=on_web_sources,
+            on_desktop_approval=on_desktop_approval,
             on_error=on_error,
             on_live_status=on_live_status,
         )
@@ -306,6 +335,10 @@ async def start_audio(sid, data=None):
     global audio_loop, loop_task, live_state, live_message, camera_share_sid
     # Reconfirmation is required for every new voice session.
     camera_share_sid = None
+    for future in groq_pending_approvals.values():
+        if not future.done():
+            future.set_result(False)
+    groq_pending_approvals.clear()
     
     # Optional: Block if not authenticated
     # Only block if auth is ENABLED and not authenticated
@@ -570,7 +603,15 @@ async def monitor_printers_loop():
 @sio.event
 async def stop_audio(sid):
     global audio_loop, loop_task, live_state, camera_share_sid
+    if audio_loop and getattr(audio_loop, "owner_sid", None) != sid:
+        return
     camera_share_sid = None
+    if audio_loop and getattr(audio_loop,"provider",None)=="groq":
+        audio_loop.clear_camera_frame()
+    for future in groq_pending_approvals.values():
+        if not future.done():
+            future.set_result(False)
+    groq_pending_approvals.clear()
     if audio_loop:
         audio_loop.stop()
         if loop_task and not loop_task.done():
@@ -692,10 +733,12 @@ async def confirm_tool(sid, data):
     
     print(f"[SERVER DEBUG] Received confirmation response for {request_id}: {confirmed}")
     
-    if audio_loop:
+    if getattr(audio_loop,"provider",None) == "groq":
+        future=groq_pending_approvals.get(request_id)
+        if future and not future.done():
+            future.set_result(confirmed)
+    elif audio_loop:
         audio_loop.resolve_tool_confirmation(request_id, confirmed)
-    else:
-        print("Audio loop not active, cannot resolve confirmation.")
 
 @sio.event
 async def shutdown(sid, data=None):
@@ -742,6 +785,12 @@ async def user_input(sid, data):
         return
 
     if text and getattr(audio_loop, "provider", None) == "groq":
+        if getattr(audio_loop,"owner_sid",None) != sid:
+            return
+        if SETTINGS.get("face_auth_enabled", False) and (
+            not authenticator or not authenticator.authenticated
+        ):
+            return
         asyncio.create_task(audio_loop.handle_text(text))
         return
 
@@ -755,7 +804,7 @@ async def user_input(sid, data):
         # Use the currently documented Live SDK client-content interface for
         # finished typed turns; realtime media is a separate input stream.
         try:
-            if audio_loop._latest_image_payload:
+            if camera_share_sid == sid and audio_loop._latest_image_payload:
                 frame = audio_loop._latest_image_payload["data"]
                 if isinstance(frame, str):
                     import base64
@@ -786,10 +835,28 @@ async def set_camera_sharing(sid, data):
         if not requested:
             camera_share_sid = None
             camera_frame_last_at = 0.0
+            if getattr(audio_loop,"provider",None) == "groq":
+                audio_loop.clear_camera_frame()
+            elif audio_loop is not None:
+                # Do not reuse a Gemini JPEG on a later typed question after revoke.
+                audio_loop._latest_image_payload = None
         elif (
             cloud_provider() == "gemini"
             and getattr(audio_loop, "session", None)
             and callable(getattr(audio_loop, "send_frame", None))
+            and live_state == "connected"
+            and (
+                not SETTINGS.get("face_auth_enabled", False)
+                or (authenticator and authenticator.authenticated)
+            )
+        ):
+            camera_share_sid = sid
+            camera_frame_last_at = 0.0
+        elif (
+            cloud_provider() == "groq"
+            and os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1"
+            and isinstance(audio_loop, GroqVoiceLoop)
+            and getattr(audio_loop, "session", None)
             and live_state == "connected"
             and (
                 not SETTINGS.get("face_auth_enabled", False)
@@ -807,8 +874,37 @@ async def set_camera_sharing(sid, data):
 
 @sio.event
 async def video_frame(sid, data):
-    """Forward only consented, owner-origin frames to connected Gemini Live."""
+    """Cache Groq preview locally, or forward opt-in Gemini video to Live."""
     global camera_frame_last_at
+    if cloud_provider() == "groq":
+        if not can_groq_vision_frame(
+            provider=cloud_provider(),
+            owner_sid=getattr(audio_loop,"owner_sid",None),
+            sender_sid=sid,
+            sharing_sid=camera_share_sid,
+            session_ready=bool(
+                isinstance(audio_loop, GroqVoiceLoop)
+                and audio_loop.session and live_state == "connected"
+                and os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1"
+            ),
+            authenticated=bool(
+                not SETTINGS.get("face_auth_enabled",False)
+                or (authenticator and authenticator.authenticated)
+            ),
+        ):
+            return
+        now=time.monotonic()
+        if now-camera_frame_last_at < 0.9:
+            return
+        from spark_camera_frames import validate_camera_frame
+        try:
+            frame=validate_camera_frame(data.get("image") if isinstance(data,dict) else None)
+        except ValueError:
+            await sio.emit('error', {'msg':'Rejected invalid or oversized camera frame.'},room=sid)
+            return
+        camera_frame_last_at=now
+        audio_loop.set_camera_frame(frame)
+        return
     if not can_stream_camera(
         provider=cloud_provider(),
         owner_sid=getattr(audio_loop, "owner_sid", None),

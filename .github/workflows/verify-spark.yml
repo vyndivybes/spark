@@ -24,6 +24,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_spark_cinematic_tools.py
       - run: python3 -m unittest discover -s tests -p test_spark_grounding.py
       - run: python3 -m unittest discover -s tests -p test_spark_groq_cloud.py
+      - run: python3 -m unittest discover -s tests -p test_spark_groq_vision_desktop.py
       - run: python3 -m unittest discover -s tests -p test_spark_groq_model_diagnostics.py
       - run: python3 -m unittest discover -s tests -p test_spark_windows_speech.py
       - run: python3 -m unittest discover -s tests -p test_spark_diagnostics.py

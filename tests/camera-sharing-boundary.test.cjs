@@ -11,7 +11,8 @@ test('webcam preview stays local until Gemini streaming receives explicit approv
     assert.match(app, /socket\.emit\('set_camera_sharing', \{enabled: requested\}\)/);
     assert.match(app, /socket\.on\('camera_sharing_status'/);
     assert.match(app, /onClick=\{toggleCameraSharing\}/);
-    assert.match(app, /cameraShareRef\.current && aiProviderRef\.current === 'gemini'/);
+    assert.ok(app.includes('cameraShareRef.current &&'));
+    assert.ok(app.includes('groqVisionAvailableRef.current'));
     assert.match(app, /isVideoOnRef\.current && cameraShareRef\.current && socket\.connected/);
 });
 
