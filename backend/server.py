@@ -804,7 +804,7 @@ async def user_input(sid, data):
         # Use the currently documented Live SDK client-content interface for
         # finished typed turns; realtime media is a separate input stream.
         try:
-            if audio_loop._latest_image_payload:
+            if camera_share_sid == sid and audio_loop._latest_image_payload:
                 frame = audio_loop._latest_image_payload["data"]
                 if isinstance(frame, str):
                     import base64
@@ -837,6 +837,9 @@ async def set_camera_sharing(sid, data):
             camera_frame_last_at = 0.0
             if getattr(audio_loop,"provider",None) == "groq":
                 audio_loop.clear_camera_frame()
+            elif audio_loop is not None:
+                # Do not reuse a Gemini JPEG on a later typed question after revoke.
+                audio_loop._latest_image_payload = None
         elif (
             cloud_provider() == "gemini"
             and getattr(audio_loop, "session", None)
