@@ -10,7 +10,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import zipfile
-from knowledge_base import KnowledgeBase, KnowledgeError
+from arkus_knowledge_base import KnowledgeBase, KnowledgeError
 
 class KnowledgeTests(unittest.TestCase):
  def setUp(self):
