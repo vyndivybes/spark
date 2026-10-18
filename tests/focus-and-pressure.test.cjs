@@ -57,7 +57,7 @@ test('focus panel retains timer state when hidden; UI never claims app tracking'
  assert.match(app,/FOCUS/);
  assert.match(app,/<FocusPanel/);
  assert.match(app,/visible=\{showFocus\}/);
- assert.match(focus,/timer_only/);
+ assert.match(focus,/state\.observationMode/);
  assert.match(focus,/setInterval/);
  assert.match(focus,/advanceFocus/);
  assert.match(focus,/This timer does not monitor/i);
