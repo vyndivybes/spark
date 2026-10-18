@@ -13,6 +13,12 @@ test('opt-in video transmission requires connected Gemini Live and active webcam
   assert.match(app, /frameNow - lastSentCameraFrameRef\.current >= 1000/);
 });
 
+test('revoked Gemini camera sharing prevents a typed turn from reusing the image', () => {
+  const backend = fs.readFileSync(path.join(__dirname, '../backend/server.py'), 'utf8');
+  assert.match(backend, /if camera_share_sid == sid and audio_loop\\._latest_image_payload:/);
+  assert.match(backend, /audio_loop\\._latest_image_payload = None/);
+});
+
 test('webcam sends binary JPEG rather than unchecked blobs', () => {
   assert.match(app, /await blob\.arrayBuffer\(\)/);
   assert.match(app, /socket\.emit\('video_frame', \{ image \}\)/);
