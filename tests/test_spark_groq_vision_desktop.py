@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from spark_groq_capabilities import parse_desktop_command, vision_requested, can_groq_vision_frame
 from spark_groq import GroqClient, GroqVoiceLoop, GroqUnavailable
 
-JPEG = b"\xff\\xd8\xff" + b"jpeg-data" + b"\xff\\xd9"
+JPEG = bytes([255, 216, 255]) + b'jpeg-data' + bytes([255, 217])
 
 class ParsedCommandTests(unittest.TestCase):
     def test_single_whitelisted_desktop_command(self):
