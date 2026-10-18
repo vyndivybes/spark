@@ -1,5 +1,40 @@
 # SPARK — Immersive AI Workstation
 
+## Actual HOLO Gestures + Brain Map on SPARK project notes
+
+The original MIT-licensed HOLO gesture engine and Brain Map submodules were
+already launchable from SPARK's Experience Deck, but previously used only the
+upstream sample notes unless manually configured. They can now show selected,
+real SPARK knowledge-base documents *without modifying or replacing HOLO's
+gesture engine*.
+
+1. Open **KNOWLEDGE / SKILLS**, then import a permitted document in the
+   project (the original ARKUS SQLite FTS5 ingestion).
+2. Beside that document, choose **Publish to HOLO**. This creates a
+   bounded, local Markdown snapshot of the selected document at
+   `%LOCALAPPDATA%\\SPARK\\workspace\\holo-notes\\<project>\\<document-id>.md`.
+   Nothing is published until the button is clicked, and the original
+   source remains in the private FTS5 database. Each publication is at
+   most 4,000 characters of document content, with HTML tags escaped.
+3. Open **EXPERIENCE DECK → HOLO**. The original HOLO server is loaded
+   unchanged by `scripts/holo_notes_launcher.py`, and its gesture engine
+   now reads the published project notes as folder orbs. Open
+   **EXPERIENCE DECK → Brain Map** to build the genuine original graph
+   from the same published Markdown collection.
+4. **Unpublish HOLO** immediately revokes the Markdown snapshot.
+   Removing a document from the private index also revokes its published
+   copy. Already loaded cards may remain visible until the HOLO window
+   is refreshed or closed.
+
+Without published notes, the original upstream sample notes remain
+available so first launch still works. `SPARK_NOTES_DIR` remains an
+explicit environment override for users who want to point both
+experiences at another existing Markdown folder. No cloud API,
+licence bypass, privileged shell command or automatic webcam activation
+is used. HOLO's camera permission is handled in the HOLO window.
+Original HOLO hand and Brain Map hardware acceptance remains pending on
+the user's Windows PC.
+
 ## Actual ARKUS integration — offline knowledge base and Skill Forge
 
 This release directly ports **functional source and tests** from the user's

@@ -17,10 +17,17 @@ function getExperiencePlan(name,{root,userData,python='python',notesDir}={}){
   const script=path.join(folder,name==='holo'?'server.py':'build.py');
   if(!fs.existsSync(script))throw new Error('Experience files are missing. Run npm run setup:experiences from your SPARK checkout.');
   const port=KNOWN[name];
-  if(name==='holo')return {name,port,url:'http://127.0.0.1:'+port,steps:[
-    {command:python,args:[script],cwd:folder,shell:false,once:false}
-  ]};
-  const vault=notesDir||path.join(vendor,'holo-gestures','sample-notes');
+  const requestedVault=notesDir||path.join(vendor,'holo-gestures','sample-notes');
+  const vault=fs.existsSync(requestedVault)&&fs.statSync(requestedVault).isDirectory()
+    ? requestedVault:path.join(vendor,'holo-gestures','sample-notes');
+  if(name==='holo'){
+    const wrapper=path.join(root,'scripts','holo_notes_launcher.py');
+    if(!fs.existsSync(wrapper))throw new Error('The SPARK HOLO notes launcher is missing.');
+    return {name,port,url:'http://127.0.0.1:'+port,steps:[
+      {command:python,args:[wrapper],cwd:folder,shell:false,once:false,
+       env:{SPARK_HOLO_NOTES_DIR:vault}}
+    ]};
+  }
   if(!fs.existsSync(vault)||!fs.statSync(vault).isDirectory())throw new Error('A readable local Markdown notes folder is required for Brain Map.');
   const out=path.join(userData,'spark-brain-map');
   return {name,port,url:'http://127.0.0.1:'+port,steps:[
@@ -88,7 +95,8 @@ function createExperienceManager({root,userData,python='python',notesDir,Browser
     await assertPortFree(plan.port);
     for(const step of plan.steps){
       if(step.once){fs.mkdirSync(path.dirname(step.args[step.args.indexOf('--out')+1]),{recursive:true});await completedProcess(step);continue;}
-      const child=spawn(step.command,step.args,{cwd:step.cwd,shell:false,windowsHide:true,stdio:'ignore',env:experiencePythonEnvironment()});
+      const child=spawn(step.command,step.args,{cwd:step.cwd,shell:false,windowsHide:true,stdio:'ignore',
+        env:experiencePythonEnvironment({...process.env,...(step.env||{})})});
       children.set(name,child);
       const failedToStart=new Promise((_,reject)=>child.once('error',()=>reject(new Error('Python is unavailable. Configure SPARK_PYTHON or install Python.'))));
       try{await Promise.race([waitForServer(plan.port,child),failedToStart]);}

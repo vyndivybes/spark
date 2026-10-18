@@ -100,7 +100,9 @@ app.whenReady().then(() => {
         root:path.resolve(__dirname,'..'),
         userData:app.getPath('userData'),
         python:process.env.SPARK_PYTHON||'python',
-        notesDir:process.env.SPARK_NOTES_DIR||undefined,
+        notesDir:process.env.SPARK_NOTES_DIR || path.join(
+            process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
+            'SPARK','workspace','holo-notes'),
         BrowserWindow,
     });
     ipcMain.handle('spark:open-experience',async(event,name)=>{
