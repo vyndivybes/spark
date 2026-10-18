@@ -641,6 +641,10 @@ function App() {
         socket.on('camera_sharing_status', (data) => {
             const enabled = data?.enabled === true && isVideoOnRef.current &&
                 aiProviderRef.current === 'gemini' && socket.connected;
+            if (data?.enabled === true && !enabled && socket.connected) {
+                // An approval arriving after the camera stopped must be revoked.
+                socket.emit('set_camera_sharing', {enabled: false});
+            }
             cameraShareRef.current = enabled;
             setIsCameraSharing(enabled);
         });
