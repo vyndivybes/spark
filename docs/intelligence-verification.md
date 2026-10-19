@@ -129,3 +129,21 @@ Commits: `0f14866` persistent services; `ad553a6` guarded workbench/recovery/MCP
 `0d103d1` local Chromium fix. It started one commit ahead of `origin/main`.
 
 ![Native status workload completed](evidence/intelligence-agents.jpg)
+
+## Pull request and working tree
+
+Review: [draft PR #42](https://github.com/vyndivybes/spark/pull/42), branch
+`codex/openjarvis-intelligence`. This has not been merged or deployed.
+
+The first clean GitHub Actions run passed Ubuntu intelligence and the broader
+JS/build job. Its Windows run exposed a test-only temporary-path alias mismatch:
+`test_post_application_failure_restores_backup` compared path spellings rather
+than filesystem identity. Commit `7003b39` uses `samefile` and asserts that both
+staged and live validation occurred. The seven targeted repair tests pass locally;
+CI is rerun on that revision. The production rollback path did not change.
+
+The local working tree intentionally retains three unrelated modified files:
+`backend/settings.json`, `backend/spark_groq_capabilities.py`, and
+`src/components/PrinterWindow.jsx`, plus the two pre-existing `.bak` files.
+These are not in the PR. No task-owned implementation remains uncommitted after
+handover; the exact final documentation revision is available with `git rev-parse HEAD`.
