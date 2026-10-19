@@ -7,6 +7,7 @@ import json
 import os
 import re
 import uuid
+import hmac
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
@@ -18,6 +19,14 @@ MAX_REPLY=16384
 
 class JarvisBridgeError(ValueError):
     pass
+
+def local_bridge_client_allowed(environ, provided, expected):
+    """No unauthenticated localhost or idle-voice fallback for VAOS delegation."""
+    origin=(environ or {}).get('HTTP_ORIGIN','')
+    return bool(origin in ('http://localhost:5173','http://127.0.0.1:5173')
+                and isinstance(expected,str) and len(expected)==64
+                and isinstance(provided,str) and len(provided)==64
+                and hmac.compare_digest(provided,expected))
 
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self,req,fp,code,msg,headers,newurl):
