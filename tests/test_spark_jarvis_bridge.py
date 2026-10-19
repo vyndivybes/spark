@@ -7,7 +7,7 @@ from unittest.mock import patch
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
-from spark_jarvis_bridge import JarvisBridge, JarvisBridgeError
+from spark_jarvis_bridge import JarvisBridge, JarvisBridgeError, local_bridge_client_allowed
 
 class Reply:
     status=200
@@ -37,6 +37,12 @@ class BridgeTests(unittest.TestCase):
         c=JarvisBridge('https://vaos.example','x'*40,'spark-windows-1',opener=lambda *a,**k:Reply({'data':{'actionAuthorized':True}}))
         with self.assertRaises(JarvisBridgeError):c.ask('Delete all records')
         with self.assertRaises(JarvisBridgeError):c.ask('How many sales orders?')
+    def test_local_desktop_session_requires_real_token_and_trusted_origin(self):
+        actual='a'*64
+        self.assertTrue(local_bridge_client_allowed({'HTTP_ORIGIN':'http://localhost:5173'},actual,actual))
+        self.assertFalse(local_bridge_client_allowed({'HTTP_ORIGIN':'http://localhost:5173'},'b'*64,actual))
+        self.assertFalse(local_bridge_client_allowed({'HTTP_ORIGIN':'https://other.example'},actual,actual))
+        self.assertFalse(local_bridge_client_allowed({'HTTP_ORIGIN':'http://localhost:5173'},None,actual))
     def test_no_configuration_is_explicitly_unavailable(self):
         with patch.dict('os.environ',{},clear=True):
             with self.assertRaises(JarvisBridgeError):JarvisBridge.from_environment()
