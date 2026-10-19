@@ -22,6 +22,7 @@ import HealthConnectPanel from './components/HealthConnectPanel';
 import ReaAuditPanel from './components/ReaAuditPanel';
 import FocusPanel from './components/FocusPanel';
 import WorkspacePanel from './components/WorkspacePanel';
+import JarvisPanel from './components/JarvisPanel';
 import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
@@ -102,6 +103,7 @@ function App() {
     const [showReaAudit, setShowReaAudit] = useState(false);
     const [showFocus, setShowFocus] = useState(false);
     const [showWorkspace, setShowWorkspace] = useState(false);
+    const [showJarvis, setShowJarvis] = useState(false);
     const [diagnostics, setDiagnostics] = useState(null);
     const [systemsNotice, setSystemsNotice] = useState('');
     const [showExperiences, setShowExperiences] = useState(false);
@@ -1853,6 +1855,10 @@ function App() {
                         title="Real ARKUS offline project knowledge and Skill Forge">
                         <Search size={17}/> KNOWLEDGE / SKILLS
                     </button>
+                    <button type="button" onClick={() => { setShowJarvis(v => !v); setShowWorkspace(false); setShowSystems(false); }}
+                      aria-expanded={showJarvis} aria-controls="spark-jarvis-panel"
+                      className="flex items-center gap-2 rounded-lg border border-cyan-700/70 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-900/50"
+                      title="Read-only enterprise connection to VAOS Jarvis">JARVIS</button>
                     {/* Live Clock */}
                     <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/70 font-mono px-2">
                         <Clock size={12} className="text-cyan-500/50" />
@@ -1870,6 +1876,8 @@ function App() {
                 </div>
             </div>
 
+            <JarvisPanel socket={socket} visible={showJarvis} authenticated={isAuthenticated}
+                onClose={() => setShowJarvis(false)} />
             <div id="spark-focus-panel" style={{WebkitAppRegion:'no-drag'}}>
                 <FocusPanel visible={showFocus} onClose={() => setShowFocus(false)} />
             </div>
