@@ -47,6 +47,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_spark_workspace_api.py
       - run: python3 -m unittest discover -s tests -p test_spark_workspace_voice.py
       - run: python3 -m unittest discover -s tests -p test_spark_holo_bridge.py
+      - run: python3 -m unittest discover -s tests -p test_spark_jarvis_bridge.py
       - run: npm run build
   intelligence:
     strategy:
