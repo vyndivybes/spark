@@ -54,7 +54,7 @@ from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
 from spark_workspace_auth import workspace_client_allowed
-from spark_jarvis_bridge import JarvisBridge, JarvisBridgeError
+from spark_jarvis_bridge import JarvisBridge, JarvisBridgeError, local_bridge_client_allowed
 from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
@@ -276,12 +276,9 @@ async def jarvis_ask(sid, data):
         request_id = None
     question = data.get('question') if isinstance(data, dict) else None
     authorized = bool(
-        workspace_client_allowed(sio.get_environ(sid),
+        local_bridge_client_allowed(sio.get_environ(sid),
             data.get('workspace_token') if isinstance(data, dict) else None,
             os.environ.get('SPARK_WORKSPACE_TOKEN'))
-        and audio_loop is not None
-        and getattr(audio_loop, 'owner_sid', None) == sid
-        and getattr(audio_loop, 'session', None) is not None
         and (not SETTINGS.get('face_auth_enabled', False)
              or (authenticator and authenticator.authenticated))
     )
