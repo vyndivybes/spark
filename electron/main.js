@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
 const workspaceToken=require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
+const {BackendRecoveryBudget}=require('./backend-recovery.cjs');
 const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
 
 // Use ANGLE D3D11 backend - more stable on Windows while keeping WebGL working
@@ -18,6 +19,8 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let mainWindow;
 let pythonProcess;
+let quitting=false;
+const backendRestartBudget=new BackendRecoveryBudget();
 let experienceManager;
 let lastReaInventory=null;
 
@@ -95,6 +98,19 @@ function startPythonBackend() {
 
     pythonProcess.stderr.on('data', (data) => {
         console.error(`[Python Error]: ${data}`);
+    });
+    const child=pythonProcess;
+    child.once('close', () => {
+        if (quitting || child !== pythonProcess) return;
+        const delay=backendRestartBudget.nextDelay();
+        if(delay===null){
+            console.error('SPARK backend restart limit reached. Manual repair required.');
+            return;
+        }
+        console.warn('SPARK backend exited; attempting bounded recovery.');
+        setTimeout(() => {
+            if (!quitting && pythonProcess === child) startPythonBackend();
+        }, delay);
     });
 }
 
@@ -274,6 +290,8 @@ app.on('window-all-closed', () => {
         console.log('Window was never shown - keeping app alive to allow retries');
     }
 });
+
+app.on('before-quit',()=>{quitting=true});
 
 app.on('will-quit', () => {
     experienceManager?.stopAll();
