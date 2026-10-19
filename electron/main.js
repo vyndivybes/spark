@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require('elect
 const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
+const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
+const workspaceToken=require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
 const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
 
@@ -81,6 +83,7 @@ function startPythonBackend() {
     // Assuming 'python' is in PATH. In prod, this would be the executable.
     pythonProcess = spawn(process.env.SPARK_PYTHON || 'python', [scriptPath], {
         cwd: path.join(__dirname, '../backend'),
+        env: {...process.env,SPARK_WORKSPACE_TOKEN:workspaceToken},
     });
 
     pythonProcess.on('error', (error) => {
@@ -96,6 +99,11 @@ function startPythonBackend() {
 }
 
 app.whenReady().then(() => {
+    ipcMain.handle('spark:workspace-token',event=>{
+        if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
+            throw new Error('Workspace access requires the root SPARK cockpit.');
+        return workspaceToken;
+    });
     experienceManager=createExperienceManager({
         root:path.resolve(__dirname,'..'),
         userData:app.getPath('userData'),

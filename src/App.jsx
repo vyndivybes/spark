@@ -22,12 +22,14 @@ import HealthConnectPanel from './components/HealthConnectPanel';
 import ReaAuditPanel from './components/ReaAuditPanel';
 import FocusPanel from './components/FocusPanel';
 import WorkspacePanel from './components/WorkspacePanel';
+import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
 
 
 const socket = io('http://localhost:8000');
 const { ipcRenderer } = window.require('electron');
+ipcRenderer.invoke('spark:workspace-token').then(token=>{socket.workspaceToken=token;}).catch(()=>{});
 
 function App() {
     const [status, setStatus] = useState('Disconnected');
@@ -590,7 +592,7 @@ function App() {
         });
         socket.on('browser_frame', (data) => {
             setBrowserData(prev => ({
-                image: data.image,
+                image: data.image || prev.image,
                 logs: [...prev.logs, data.log].filter(l => l).slice(-50) // Keep last 50 logs
             }));
             setShowBrowserWindow(true);
@@ -1876,6 +1878,8 @@ function App() {
                 <WorkspacePanel socket={socket} visible={showWorkspace}
                     project={currentProject} onClose={() => setShowWorkspace(false)} />
             </div>
+            <ReminderToast socket={socket} project={currentProject}
+                enabled={isConnected && isAuthenticated && liveState.state === 'connected'} />
 
             {showReaAudit && (
                 <div id="spark-rea-audit-panel" style={{WebkitAppRegion:'no-drag'}}>
@@ -2161,7 +2165,10 @@ function App() {
                         showPrinterWindow={showPrinterWindow}
                         onToggleCad={() => setShowCadWindow(!showCadWindow)}
                         showCadWindow={showCadWindow}
-                        onToggleBrowser={() => setShowBrowserWindow(!showBrowserWindow)}
+                        onToggleBrowser={() => {
+                            if (!showBrowserWindow) setBrowserData({ image: null, logs: [] });
+                            setShowBrowserWindow(!showBrowserWindow);
+                        }}
                         showBrowserWindow={showBrowserWindow}
                         activeDragElement={activeDragElement}
                         position={elementPositions.tools}

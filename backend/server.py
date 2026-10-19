@@ -22,6 +22,11 @@ from pathlib import Path
 # Ensure we can import ada
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# Recover source transactions before importing modules a patch may have changed.
+from spark_maintenance import Maintenance, MaintenanceError
+_SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
+Maintenance(Path(__file__).resolve().parents[1], _SPARK_WORKSPACE_ROOT).recover()
+
 import ada
 from spark_live_config import live_status, live_status_report
 from spark_live_profile import live_profile
@@ -34,7 +39,7 @@ from authenticator import FaceAuthenticator
 from kasa_agent import KasaAgent
 
 # Create a Socket.IO server
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', max_http_buffer_size=3_000_000)
 app = FastAPI()
 app_socketio = socketio.ASGIApp(sio, app)
 
@@ -43,10 +48,33 @@ import time
 from spark_diagnostics import safe_diagnostics
 from spark_host_vitals import collect_host_vitals
 from spark_workspace import SparkWorkspace, WorkspaceError
+from spark_evolution import Evolution, ACTION_KEYS as EVOLUTION_ACTIONS
+from spark_rea import ReaError
+from arkus_skill_forge import SkillError
+from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
+from spark_productivity import WorkbenchError
+from spark_workspace_auth import workspace_client_allowed
+from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
-_SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
 spark_workspace = SparkWorkspace(_SPARK_WORKSPACE_ROOT)
+spark_evolution = Evolution(spark_workspace)
+spark_workbench = Workbench(spark_workspace)
+
+@app.on_event("startup")
+async def start_intelligence_scheduler():
+    if os.environ.get('SPARK_INTELLIGENCE_ENABLED','1')=='0':
+        return
+    try:
+        await spark_workbench.intelligence.start()
+    except Exception:
+        print('[SPARK] Optional intelligence scheduler unavailable; voice remains available.')
+
+@app.on_event("shutdown")
+async def close_rea_connection():
+    await spark_evolution.rea.close()
+    await spark_workbench.integrations.close()
+    await spark_workbench.intelligence.close()
 # Only the last project explicitly opened by this session is available by voice.
 workspace_project_by_sid = {}
 
@@ -129,6 +157,18 @@ def save_settings():
 # Load on startup
 load_settings()
 
+# The browser view works independently of Live audio and cloud API credentials.
+browser_sessions = register_browser_sessions(sio, lambda sid: bool(
+    sio.manager.is_connected(sid, '/')
+    and SETTINGS.get('tool_permissions', {}).get('run_web_agent', False)
+    and (not SETTINGS.get('face_auth_enabled', False)
+         or (authenticator and authenticator.authenticated))
+))
+
+@app.on_event("shutdown")
+async def close_browser_sessions():
+    await browser_sessions.close()
+
 authenticator = None
 kasa_agent = KasaAgent(known_devices=SETTINGS.get("kasa_devices"))
 # tool_permissions is now SETTINGS["tool_permissions"]
@@ -187,7 +227,10 @@ async def workspace_action(sid, data):
     action = data.get("action") if isinstance(data, dict) else None
     # Do not allow arbitrary localhost clients to enumerate or modify data.
     authorized = bool(
-        audio_loop is not None
+        workspace_client_allowed(sio.get_environ(sid),
+            data.get('workspace_token') if isinstance(data, dict) else None,
+            os.environ.get('SPARK_WORKSPACE_TOKEN'))
+        and audio_loop is not None
         and getattr(audio_loop, "owner_sid", None) == sid
         and getattr(audio_loop, "session", None) is not None
         and (not SETTINGS.get("face_auth_enabled", False)
@@ -202,12 +245,17 @@ async def workspace_action(sid, data):
     try:
         project = data.get("project") if isinstance(data, dict) else None
         payload = data.get("payload") if isinstance(data, dict) else None
-        result = await asyncio.to_thread(spark_workspace.execute,action,project,payload)
+        if isinstance(action, str) and action in EVOLUTION_ACTIONS:
+            result = await spark_evolution.execute(action, project, payload)
+        elif isinstance(action, str) and action in WORKBENCH_ACTIONS:
+            result = await spark_workbench.execute(action, project, payload)
+        else:
+            result = await asyncio.to_thread(spark_workspace.execute,action,project,payload)
         workspace_project_by_sid[sid] = project
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":True,"result":result
         },room=sid)
-    except WorkspaceError as error:
+    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError) as error:
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":False,"message":str(error)[:200]
         },room=sid)
@@ -274,8 +322,9 @@ async def get_audio_transport(sid):
 
 
 @sio.event
-async def disconnect(sid):
+async def disconnect(sid, reason=None):
     global camera_share_sid
+    await browser_sessions.stop(sid)
     workspace_project_by_sid.pop(sid, None)
     if camera_share_sid == sid:
         camera_share_sid = None
@@ -329,6 +378,29 @@ async def start_groq_audio(sid, data=None):
                 spark_workspace.execute,"search_documents",project,{"query":query})
         except (WorkspaceError, OSError):
             return []
+    async def on_workbench_command(command):
+        if (audio_loop is None or getattr(audio_loop, "owner_sid", None) != sid
+                or (SETTINGS.get("face_auth_enabled", False) and not (authenticator and authenticator.authenticated))):
+            return "Authenticate to SPARK before using saved preferences or reminders."
+        project = workspace_project_by_sid.get(sid, "default")
+        try:
+            result = await spark_workbench.execute(command["action"], project, command["payload"])
+            if command['action']=='agent_snapshot':
+                counts={}
+                for job in result['jobs']:
+                    counts[job['state']]=counts.get(job['state'],0)+1
+                return ('Agent workloads: '+', '.join(str(count)+' '+state.replace('_',' ') for state,count in counts.items())) if counts else 'No agent workloads in this project.'
+            if command['action']=='intelligence_health':
+                return 'Spark core is '+result['state']+'. '+str(result['interrupted_jobs'])+' interrupted workloads need review.'
+            if command["action"] == "save_preference":
+                return "Saved locally: "+result["key"]+" is "+result["value"]
+            if command["action"] == "add_agenda":
+                return "Reminder saved. SPARK will show it when due while this project is connected."
+            preferences = result["preference"]
+            return ("; ".join(p["key"]+": "+p["value"] for p in preferences)[:600]
+                    or "No preferences saved in this project.")
+        except (WorkbenchError, SkillError, OSError):
+            return "The local workbench action could not complete."
     async def on_desktop_approval(payload):
         # Speech transcription does not grant execution authority.
         import uuid
@@ -359,6 +431,7 @@ async def start_groq_audio(sid, data=None):
             on_web_sources=on_web_sources,
             on_desktop_approval=on_desktop_approval,
             on_workspace_search=on_workspace_search,
+            on_workbench_command=on_workbench_command,
             on_error=on_error,
             on_live_status=on_live_status,
         )
@@ -800,6 +873,7 @@ async def confirm_tool(sid, data):
 async def shutdown(sid, data=None):
     """Gracefully shutdown the server when the application closes."""
     global audio_loop, loop_task, authenticator
+    await browser_sessions.close()
     
     print("[SERVER] ========================================")
     print("[SERVER] SHUTDOWN SIGNAL RECEIVED FROM FRONTEND")
@@ -1165,34 +1239,12 @@ async def generate_cad(sid, data):
 
 @sio.event
 async def prompt_web_agent(sid, data):
-    # data: { prompt: "find xyz" }
-    prompt = data.get('prompt')
-    print(f"Received web agent prompt: '{prompt}'")
-    
-    if not audio_loop or not audio_loop.web_agent:
-        await sio.emit('error', {'msg': "Web Agent not available"})
+    # Old clients must update instead of silently calling nonexistent run().
+    # Gemini voice automation still uses WebAgent.run_task separately.
+    if not isinstance(data, dict) or not data.get('session_id'):
+        await sio.emit('error', {'msg': 'Update SPARK and reopen WEB_AGENT_VIEW to start a local browser session.'}, room=sid)
         return
-
-    try:
-        await sio.emit('status', {'msg': 'Web Agent running...'})
-        
-        # We assume web_agent has a run method or similar.
-        # This might block the loop if not strictly async or offloaded.
-        # Ideally web_agent.run is async.
-        # And it should emit 'browser_snap' and logs automatically via hooks if setup.
-        
-        # We might need to launch this as a task if it's long running?
-        # asyncio.create_task(audio_loop.web_agent.run(prompt))
-        # But we want to catch errors here.
-        
-        # Based on typical agent design, run() is the entry point.
-        await audio_loop.web_agent.run(prompt)
-        
-        await sio.emit('status', {'msg': 'Web Agent finished'})
-        
-    except Exception as e:
-        print(f"Error running Web Agent: {e}")
-        await sio.emit('error', {'msg': f"Web Agent Error: {str(e)}"})
+    await browser_sessions.command(sid, data)
 
 @sio.event
 async def discover_printers(sid):

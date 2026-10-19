@@ -1,5 +1,55 @@
 # SPARK — Immersive AI Workstation
 
+## Local browser view on Windows
+
+WEB_AGENT_VIEW now starts its own local Playwright Chromium session when opened.
+It does not require Live audio, Gemini, a cloud browser subscription, or an API key.
+In the same Python environment used by `start-spark.ps1`, install the browser once:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install playwright
+.\.venv\Scripts\python.exe -m playwright install chromium
+```
+
+Then start SPARK normally and open the browser view. Use **Go** for a URL or search,
+click the streamed page to focus a field, and use **Type** to insert the entered text.
+Enter, Tab, Backspace, Escape and arrow keys work when the view has focus.
+The mouse wheel scrolls; Back, Forward and Reload navigate. Frames update roughly
+twice per second, so this is a browser control view rather than a video player.
+Closing the view or disconnecting releases its private, temporary browser session.
+Reconnecting creates a fresh session, without retaining cookies or login state.
+
+Startup errors include setup instructions and **Retry**. A missing or stalled stream
+shows an error after 45 seconds. Navigation errors keep the browser available for
+another URL. Web Agent must be enabled in Settings, and face authentication must
+pass if enabled. Existing Gemini voice computer-use remains a separate optional
+feature with its existing API/model requirements. **Browse locally** switches from
+its screenshot result to the free local browser. Local commands are navigation,
+search and manual controls, not autonomous natural-language task execution.
+
+Verification commands, after installing pytest, pytest-asyncio, python-socketio
+and aiohttp in a development environment:
+
+```powershell
+node --test tests/browser-session.test.cjs
+.\.venv\Scripts\python.exe -m pytest tests/test_spark_browser_session.py tests/test_web_agent_safety.py -q
+$env:SPARK_TEST_LOCAL_BROWSER = '1'
+.\.venv\Scripts\python.exe -m pytest tests/test_spark_browser_session.py -q
+npm run build
+```
+
+The opt-in integration test launches real local Chromium, streams JPEG frames over
+Socket.IO, navigates to a local fixture, and verifies disconnect cleanup. It uses
+no cloud service. Passing it does not verify the full Electron app or the user's
+installed SPARK environment.
+
+For the optional rendered-panel check, run `npm exec vite -- --host 127.0.0.1`
+in another terminal, set `$env:SPARK_TEST_BROWSER_UI = '1'`, and rerun the opt-in
+integration test. It mounts the real BrowserWindow component at
+`/tests/browser-view.html`, navigates, clicks a streamed field, types into it,
+checks for renderer errors, and closes the session. The backend fixture uses an
+ephemeral local port and only permits the local Vite origin.
+
 ## Actual HOLO Gestures + Brain Map on SPARK project notes
 
 The original MIT-licensed HOLO gesture engine and Brain Map submodules were
@@ -218,6 +268,126 @@ functional acceptance.
 The automated unit tests cover valid/malformed telemetry and CPU time
 deltas. Final acceptance of Windows hardware sensor readings still
 requires running SPARK on your actual PC.
+
+## Workbench: repository comparison and new desktop tools
+
+The [source comparison](docs/repository-feature-audit.md) records the exact
+ADA V2, Brahma AI Evo and O.L.L.I.E revisions inspected, features already in
+Spark, new original implementations, and remaining gaps. No restricted Brahma
+or unlicensed O.L.L.I.E source, assets, robot models or prompts are included.
+
+Open **Knowledge / Skills → Workbench** in a connected, authenticated session:
+
+- **Agenda & memory:** save explicit project preferences, local reminders and
+  calendar events. Times entered in the UI use your local timezone and are
+  stored as UTC. Due items appear in Spark while the selected project is
+  connected, including overdue items after restarting. Spark must be running;
+  these do not register Windows scheduled tasks or wake a sleeping computer.
+- **Routines:** save 1–12 steps using `get_system_status`, `run_skill` with an
+  active calculation skill, or `launch_desktop_app` for Calculator, Notepad or
+  Paint. Approve each current step; stale approvals cannot advance later steps.
+  The execution history retains actual statuses, parameters, bounded results,
+  timing and audit events. Failed or interrupted actions are not retried.
+- **Office & PDFs:** create DOCX reports, XLSX workbooks with multiple sheets,
+  local range formulas and charts, PPTX presentations with speaker notes, and
+  PDFs. Structured creation is local. **Generate content with Groq** optionally
+  sends the entered prompt to your configured model and validates its output.
+  Import PDFs up to 2 MB, select files, merge them, extract pages or read text.
+  Download generated files directly from the artifact list. Artifacts are kept
+  under the project in `%LOCALAPPDATA%/SPARK/workspace/workbench/`.
+- **Robot & routes:** play idealized 3-joint arm sequences with Cartesian
+  movement, gripper states and delays. This simulator performs no motor I/O,
+  collision detection or physical calibration. Enter latitude/longitude pairs
+  for offline great-circle distances and route plotting.
+- **Services & context:** discover and call trusted host-configured stdio MCP
+  services. Read the clipboard once, format JSON, trim text, change case and
+  inspect statistics locally. Select a screenshot or image for an explicit
+  question through the existing opt-in Groq vision model. Images are not saved
+  into project memory; no background screen or clipboard capture is added.
+
+Groq voice also recognizes **“Remember my units as metric”**, **“Show my
+preferences”** and **“Remind me in 10 minutes to review the design”** locally.
+These workbench operations do not enter Groq chat history. Transcription still
+uses the voice provider selected for the session. Gemini Live workbench tool
+declarations are not included.
+
+Install the updated `requirements.txt` into Spark's `.venv`. General MCP
+services are configured by the host through `SPARK_MCP_SERVERS`, for example:
+
+```json
+{"my-service":{"command":"C:/path/to/trusted-server.exe","args":["--stdio"],"env":{"SERVICE_TOKEN":"set privately on the host"},"read_tools":["your_verified_read_tool"]}}
+```
+
+Do not commit real credentials. Only sanitized configuration, approved read-tool
+names and connection health are returned to the UI. Tools are denied unless
+host-listed in `read_tools`; writes through the general MCP hub are disabled.
+The client cannot supply executable paths or credential configuration.
+Spotify, Google Workspace and smart-home bridges need their own trusted server,
+OAuth or credentials and provider acceptance. Configuring the hub does not
+prove those accounts or devices are connected. The fixed REA connection remains
+available in **Recovery & REA**.
+
+## Intelligence
+
+Open **Knowledge & Skills → Intelligence** for Agents, Autonomy, Learning,
+Skills, Memory, Models, System health, Benchmarks, Integrations and Upgrades.
+The console uses the existing owner/authentication gate. Scheduling is off by
+default; model use and project-context sharing require explicit choices.
+
+See the [operations guide](docs/intelligence-operations.md),
+[capability manifest](docs/openjarvis-integration-manifest.json),
+[source audit](docs/openjarvis-audit.md) and
+[verification report](docs/intelligence-verification.md) for setup, evidence,
+resource limits, optional components and remaining acceptance work.
+
+## Recovery, generated skills and direct REA tools
+
+Open **Knowledge & Skills → Recovery & REA** in a connected, authenticated
+SPARK session. The workspace remains restricted to the session-owning window.
+
+- **Detect errors** parses backend Python sources and runs the local Python
+  regression suite. **Generate staged repair** sends only the selected source
+  files, issue and diagnostic summary to the configured Groq model. It requires
+  `GROQ_API_KEY`, makes one generation attempt, and never retries a failed request.
+  Repairs replace at most four existing `backend/*.py` files, 64 KB each.
+  Recovery, server authorization and REA bridge modules require manual review.
+- Candidates remain staged for source inspection. **Approve local tests** runs
+  regression checks in a temporary directory; this is not an OS sandbox.
+  **Approve activation** is a separate operation. Before applying a tested
+  candidate, SPARK saves original bytes and hashes to
+  `%LOCALAPPDATA%/SPARK/workspace/maintenance/<repair-id>/`. It validates again
+  after application and restores the originals on failure. Interrupted applying
+  transactions recover before backend modules import on the next launch.
+  **Refresh backups** lists persistent repair IDs and offers rollback. Recovery
+  refuses to overwrite newer edits. Restart SPARK after a retained repair or
+  manual rollback; loaded Python objects are not hot-reloaded.
+- Describe a new calculation skill or supply an active revision ID to upgrade
+  one. SPARK generates declarative JSON, validates its independent expected-result
+  examples, and leaves it tested for separate inspection and activation in
+  **Skill Forge**. Rejected candidates preserve
+  the active skill. Each run rechecks acceptance examples and restores the prior
+  revision if an active upgrade fails them. Skills use the existing allowlisted
+  math operations; they do not install executable Python or shell skills.
+- **Discover REA tools** connects directly to REA MCP and reads its paginated
+  tool catalog, descriptions and JSON schemas. Select a tool, enter JSON
+  arguments and choose **Run selected REA tool**. SPARK validates arguments
+  against the discovered schema and returns the actual MCP result, including
+  tool errors. A persistent session retains REA active-target state. Calls have
+  timeouts, a bounded queue and a 4 MB response limit. REA engine prerequisites
+  still determine which analyses can run. Tool execution is explicit and can
+  modify targets; review the selected tool and arguments before running it.
+
+Install backend dependencies from `requirements.txt` in SPARK's `.venv`.
+The default REA command uses the already cached `rea-agents@6.5.0` package via
+`npx --offline -y rea-agents@6.5.0 mcp`. Install that package separately if absent.
+Host operators can override `SPARK_REA_COMMAND` and `SPARK_REA_ARGS`, a JSON
+array of arguments. Socket clients cannot configure executable paths. Use
+`SPARK_PYTHON` or the existing Windows launcher to select `.venv` when launching.
+
+These are user-started maintenance workflows. They do not continuously monitor
+every runtime exception, install arbitrary skills, or restart SPARK automatically.
+Staging runs trusted local tests; it is not an operating-system sandbox for
+generated code. Review source changes before using them with sensitive workloads.
 
 ## REA AUDIT — local static evidence intake (opt-in)
 

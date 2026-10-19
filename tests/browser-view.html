@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>SPARK browser view test</title></head>
+<body style="margin:0;background:#080b10"><div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { io } from 'socket.io-client';
+import BrowserWindow from '/src/components/BrowserWindow.jsx';
+import '/src/index.css';
+const socket = io(new URLSearchParams(location.search).get('backend') || 'http://127.0.0.1:8000');
+createRoot(document.getElementById('root')).render(React.createElement('div',
+    { style: { width: 550, height: 380, margin: 24 } },
+    React.createElement(BrowserWindow, { socket, logs: [], onClose: () => socket.disconnect() })));
+</script></body></html>

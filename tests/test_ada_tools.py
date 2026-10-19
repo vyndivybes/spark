@@ -150,7 +150,8 @@ class TestLiveConnectConfig:
     def test_config_has_audio_modality(self):
         """Test config includes audio modality."""
         from ada import config
-        assert 'AUDIO' in config.response_modalities
+        modalities = config.get('response_modalities', []) if isinstance(config, dict) else config.response_modalities
+        assert 'AUDIO' in modalities
         print("Audio modality configured")
 
 

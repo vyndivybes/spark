@@ -1,0 +1,41 @@
+{
+  "generated_utc": "2026-10-19T14:28:42.829356+00:00",
+  "source_revision": "250a88ad2781e876219bb6435d85a29b7b8e8572",
+  "platform": "Windows",
+  "python": "3.11.9",
+  "scope": "isolated intelligence services and five real local system-status jobs; excludes Electron, voice and model inference",
+  "samples": 5,
+  "mean_job_ms": 50.47231998760253,
+  "max_job_ms": 131.6705999779515,
+  "wall_seconds": 1.176095200004056,
+  "process_cpu_seconds": 0.625,
+  "peak_traced_python_bytes": 3691937,
+  "temporary_data_bytes": 110595,
+  "host_vitals": {
+    "cpu_percent": 75.0,
+    "ram_percent": 90.4,
+    "ram_total_gb": 7.7,
+    "ram_available_gb": 0.74,
+    "disk_total_gb": 239.86,
+    "disk_free_gb": 14.65,
+    "battery_percent": 29.0,
+    "ac_connected": true
+  },
+  "verified_steps": 5,
+  "retrieval_fixture": {
+    "queries": 1,
+    "hit_rate": 1.0,
+    "mean_reciprocal_rank": 1.0,
+    "scope": "one synthetic labeled query; not a general retrieval quality claim"
+  },
+  "heavy_modules_loaded": {
+    "torch": false,
+    "dspy": false,
+    "gepa": false,
+    "faiss": false,
+    "sentence_transformers": false
+  },
+  "energy_wh": null,
+  "model_cost": null,
+  "model_ttft_seconds": null
+}

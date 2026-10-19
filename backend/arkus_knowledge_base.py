@@ -83,7 +83,10 @@ def chunks(text,size=850,overlap=100):
     return parts
 
 class KnowledgeBase:
-    def __init__(self,data_dir):
+    def __init__(self,data_dir,*,chunk_size=850,chunk_overlap=100):
+        if type(chunk_size) is not int or type(chunk_overlap) is not int or not 250<=chunk_size<=4000 or not 0<=chunk_overlap<chunk_size//2:
+            raise KnowledgeError('Chunk size must be 250–4000 characters with overlap below half its size.')
+        self.chunk_size,self.chunk_overlap=chunk_size,chunk_overlap
         self.root=Path(data_dir).resolve()/"knowledge"
         self.lock=threading.RLock()
     def _path(self,project):
@@ -111,7 +114,7 @@ class KnowledgeBase:
     def import_bytes(self,project,name,raw):
         text=extract(name,raw)
         sha=hashlib.sha256(raw).hexdigest()
-        sliced=chunks(text)
+        sliced=chunks(text,self.chunk_size,self.chunk_overlap)
         with self.lock,self._db(project) as db:
             existing=db.execute("SELECT id FROM documents WHERE name=?",(name,)).fetchone()
             count=db.execute("SELECT count(*) FROM documents").fetchone()[0]

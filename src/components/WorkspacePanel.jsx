@@ -1,4 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import EvolutionPanel from './EvolutionPanel';
+import WorkbenchPanel from './WorkbenchPanel';
+const IntelligenceConsole=React.lazy(()=>import('./IntelligenceConsole'));
 
 const buttonStyle = 'rounded-lg border border-cyan-600/50 bg-cyan-950/50 px-3 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-800/60 disabled:opacity-40';
 const panelStyle = 'rounded-xl border border-cyan-500/20 bg-black/40 p-3';
@@ -35,7 +38,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
         if(!socket.connected) {setNotice('SPARK backend is not connected.');return;}
         counter.current+=1;
         setWorking(true);
-        socket.emit('workspace_action',{
+        socket.emit('workspace_action',{workspace_token:socket.workspaceToken,
             request_id:`workspace-${counter.current}`,action,project,payload
         });
     };
@@ -43,7 +46,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
     useEffect(()=>{
         if(!visible) return undefined;
         const listener=(data)=>{
-            if(!data || typeof data.action!=='string') return;
+            if(!data || typeof data.action!=='string' || !data.request_id?.startsWith('workspace-')) return;
             setWorking(false);
             if(!data.ok) {setNotice(String(data.message||'Workspace action failed.'));return;}
             const result=data.result;
@@ -110,19 +113,22 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
     }
 
     return (
-        <section className="relative z-40 mx-3 my-2 rounded-2xl border border-cyan-500/50 bg-slate-950/95 p-4 text-white shadow-2xl"
+        <section className="relative z-40 mx-3 my-2 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-cyan-500/50 bg-slate-950/95 p-4 text-white shadow-2xl"
             role="region" aria-label="SPARK knowledge and skill workspace">
             <div className="flex items-center justify-between gap-2">
                 <div>
                     <div className="text-xs tracking-widest text-cyan-400">SPARK / ACTUAL ARKUS ENGINE</div>
                     <h2 className="text-xl font-bold">Knowledge &amp; Skills</h2>
-                    <p className="text-sm text-slate-300">Offline workspace · Project: <strong>{project}</strong> · No automatic LLM uploads</p>
+                    <p className="text-sm text-slate-300">Project: <strong>{project}</strong> · Documents stay local · Generation uses your configured model</p>
                 </div>
                 <button type="button" className={buttonStyle} onClick={onClose}>Close</button>
             </div>
-            <div className="mt-3 flex gap-2" role="tablist">
+            <div className="mt-3 flex flex-wrap gap-2" role="tablist">
                 <button type="button" role="tab" aria-selected={tab==='knowledge'} className={buttonStyle} onClick={()=>setTab('knowledge')}>Document knowledge</button>
                 <button type="button" role="tab" aria-selected={tab==='skills'} className={buttonStyle} onClick={()=>setTab('skills')}>Skill Forge</button>
+                <button type="button" role="tab" aria-selected={tab==='evolution'} className={buttonStyle} onClick={()=>setTab('evolution')}>Recovery &amp; REA</button>
+                <button type="button" role="tab" aria-selected={tab==='workbench'} className={buttonStyle} onClick={()=>setTab('workbench')}>Workbench</button>
+                <button type="button" role="tab" aria-selected={tab==='intelligence'} className={buttonStyle} onClick={()=>setTab('intelligence')}>Intelligence</button>
             </div>
             <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>
             {tab==='knowledge' ? (
@@ -174,7 +180,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         </div>
                     </div>
                 </div>
-            ) : (
+            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project}/></React.Suspense> : (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Skill specification (declarative JSON only)</h3>
@@ -194,6 +200,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                             {skills.map(skill=><div key={skill.id} className="rounded-lg border border-white/10 p-2 text-sm">
                                 <div className="font-semibold text-cyan-200">{skill.name} — {skill.status}, rev {skill.revision||1}</div>
                                 <p className="text-slate-400">{skill.operation}({skill.inputs.join(', ')})</p>
+                                <p className="text-xs text-slate-400 select-all">Revision ID: {skill.id}</p>
                                 <div className="flex flex-wrap gap-1 mt-2">
                                     {skill.status!=='active' && <button type="button" className={buttonStyle} onClick={()=>request('test_skill',{id:skill.id})}>Test</button>}
                                     {skill.status==='tested' && <button type="button" className={buttonStyle} onClick={()=>request('activate_skill',{id:skill.id})}>Activate</button>}
