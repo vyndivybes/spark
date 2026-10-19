@@ -20,6 +20,7 @@ from spark_groq_capabilities import parse_desktop_command, vision_requested
 from spark_camera_frames import validate_camera_frame
 from spark_desktop import launch_allowed_app
 from spark_workspace_voice import knowledge_search_query
+from spark_workbench_voice import parse_workbench_command
 
 CHAT_URL="https://api.groq.com/openai/v1/chat/completions"
 STT_URL="https://api.groq.com/openai/v1/audio/transcriptions"
@@ -249,7 +250,7 @@ class GroqVoiceLoop:
     def __init__(self,api=None,on_transcription=None,on_browser_audio=None,
                  on_web_sources=None,on_live_status=None,on_error=None,
                  audio_playback_wait=True,fetch_public=None,on_browser_tts=None,
-                 on_desktop_approval=None,launch_app=None,on_workspace_search=None):
+                 on_desktop_approval=None,launch_app=None,on_workspace_search=None,on_workbench_command=None):
         self.api=api or GroqClient()
         self.on_transcription=on_transcription
         self.on_browser_audio=on_browser_audio
@@ -263,6 +264,7 @@ class GroqVoiceLoop:
         self.fetch_public=fetch_public or get_public_json
         self.on_desktop_approval=on_desktop_approval
         self.on_workspace_search=on_workspace_search
+        self.on_workbench_command=on_workbench_command
         self.launch_app=launch_app or launch_allowed_app
         self._vision_frame=None
         self._vision_at=0.0
@@ -467,7 +469,11 @@ class GroqVoiceLoop:
         # Speech intents are parsed locally, never inferred from model output.
         app=parse_desktop_command(prompt)
         search_query=knowledge_search_query(prompt)
-        if app:
+        workbench_command=parse_workbench_command(prompt)
+        if workbench_command:
+            answer=(await self.on_workbench_command(workbench_command) if self.on_workbench_command
+                    else "Local preferences and reminders are not available in this session.")
+        elif app:
             approved=False
             if self.on_desktop_approval:
                 try:

@@ -227,9 +227,22 @@ class SkillForge:
 
     def run(self,project,name,params):
         with self.lock:
-            item=next((i for i in self._load(project)
+            items=self._load(project)
+            item=next((i for i in items
                        if i["spec"]["name"]==name and i["status"]=="active"),None)
             if item is None: raise SkillError("No active skill with that name.")
+            recovered=False
+            try:
+                self._check_tests(item["spec"])
+            except SkillError:
+                if not item.get("supersedes"):
+                    raise
+                previous=self._get(items,item["supersedes"])
+                self._check_tests(previous["spec"])
+                item["status"]="draft";previous["status"]="active"
+                self._save(project,items)
+                item=previous;recovered=True
             result=evaluate(item["spec"],params)
             return {"skill":name,"result":result,"output":item["spec"]["output"],
+                    "recovered_previous_revision":recovered,
                     "execution":"local_allowlisted_math_only"}
