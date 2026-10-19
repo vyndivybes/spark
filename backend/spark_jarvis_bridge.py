@@ -12,7 +12,7 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
 
 DEVICE=re.compile(r"^[a-z][a-z0-9-]{3,63}$")
-WRITE=re.compile(r"\\b(approve|reject|execute|delete|transfer|dispatch|submit|authorize|authorise|activate|deactivate|override|merge|deploy|issue|write|pay|purchase|send|remove|update|modify|create)\\b",re.I)
+WRITE=re.compile(r"\b(approve|reject|execute|delete|transfer|dispatch|submit|authorize|authorise|activate|deactivate|override|merge|deploy|issue|write|pay|purchase|send|remove|update|modify|create)\b",re.I)
 ALLOWED_STATUS=frozenset({'READY','HOLD','OBSERVED','UNAVAILABLE'})
 MAX_REPLY=16384
 
