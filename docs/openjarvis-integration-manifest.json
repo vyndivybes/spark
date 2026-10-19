@@ -1,0 +1,379 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "https://github.com/open-jarvis/OpenJarvis",
+    "revision": "2817faa5fe9dbf0612f56be46f77d7c5c38e271c",
+    "license": "Apache-2.0",
+    "method": "Source audit and independent bounded adaptations; no upstream installer executed"
+  },
+  "status_vocabulary": [
+    "NOT_STARTED",
+    "IN_PROGRESS",
+    "IMPLEMENTED",
+    "TESTED",
+    "BLOCKED",
+    "DEFERRED"
+  ],
+  "scope": "TESTED means the listed bounded behavior and evidence scope, not unrestricted upstream parity or real external-service qualification.",
+  "features": [
+    {
+      "feature": "persistent_agents",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/runtime.py",
+        "backend/spark_intelligence/service.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_runtime.py",
+        "tests/test_spark_intelligence_process.py"
+      ],
+      "evidence_scope": "Approved bounded plans, checkpoints, cancel/resume, archive and process lease; not an unrestricted executor.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "scheduler",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/runtime.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_runtime.py",
+        "tests/test_spark_intelligence_process.py"
+      ],
+      "evidence_scope": "Persisted once/interval/cron, off by default, single claim, explicit recovery.",
+      "dependencies": [
+        "Python 3.11 standard library",
+        "croniter/tzdata for cron"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "trace_learning",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/policy.py",
+        "backend/spark_intelligence/service.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_policy.py",
+        "tests/test_spark_workbench.py"
+      ],
+      "evidence_scope": "Staged prompt/few-shot candidates, matched baseline/candidate fixtures, explicit activation and rollback. No live quality claim.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "research_optimizers",
+      "status": "DEFERRED",
+      "sources": [
+        "backend/spark_intelligence/upgrades.py"
+      ],
+      "tests": [],
+      "evidence_scope": "DSPy, GEPA and ACE research engines are not executed or qualified on this low-memory host.",
+      "dependencies": [
+        "Python 3.11 standard library",
+        "optional DSPy/GEPA research stacks; not installed"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "memory_fts_rrf",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/memory.py",
+        "backend/spark_intelligence/service.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_memory.py",
+        "tests/test_spark_workbench.py"
+      ],
+      "evidence_scope": "TTL, deduplication, project scope, source IDs, RRF, deletion and consented RAG.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "optional_semantic_search",
+      "status": "IMPLEMENTED",
+      "sources": [
+        "backend/spark_intelligence/semantic.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_semantic.py"
+      ],
+      "evidence_scope": "Fake-encoder math and missing-dependency fallback tested. Real local model and FAISS qualification deferred; no downloads.",
+      "dependencies": [
+        "Python 3.11 standard library",
+        "optional sentence-transformers",
+        "optional faiss",
+        "existing licensed local embedding model"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "task_models_and_routing",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/models.py",
+        "backend/spark_intelligence/policy.py",
+        "backend/spark_intelligence/service.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_models.py",
+        "tests/test_spark_intelligence_policy.py"
+      ],
+      "evidence_scope": "Context, declared quality, memory and latency; local first and per-call cloud consent; real local HTTP fixture, no live provider qualification.",
+      "dependencies": [
+        "Python 3.11 standard library",
+        "configured local model server or explicit cloud provider credentials"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "instructional_skills",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/skills.py",
+        "backend/spark_intelligence/service.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_skills.py",
+        "tests/test_spark_workbench.py"
+      ],
+      "evidence_scope": "Strict subset of SKILL.md; dependencies, metadata tests, activation/rollback. Instructions grant no execution permissions.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "self_healing",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_maintenance.py",
+        "backend/spark_evolution.py"
+      ],
+      "tests": [
+        "tests/test_spark_evolution.py"
+      ],
+      "evidence_scope": "Generate/stage, inspect, approved test, separate approved activation, stale hashes, backups, failed-patch rollback and startup recovery. Tests are not an OS sandbox.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "self_upgrading",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/skills.py",
+        "backend/spark_intelligence/policy.py",
+        "backend/arkus_skill_forge.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_skills.py",
+        "tests/test_spark_evolution.py"
+      ],
+      "evidence_scope": "Versioned skills and prompts with validation and rollback; no automatic arbitrary package upgrades.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "rea_mcp",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_rea.py",
+        "backend/spark_integrations.py"
+      ],
+      "tests": [
+        "tests/test_spark_rea.py",
+        "tests/test_spark_workbench.py"
+      ],
+      "evidence_scope": "Actual cached REA discovery: 207 tool schemas. stdio/HTTP invocation, read allowlist, schema bounds, cancellation, restart and persistent sanitized audit tested with fixtures. Separate direct REA cockpit calls require a human-selected tool and confirmation; agent plans only get host-approved reads.",
+      "dependencies": [
+        "Python 3.11 standard library",
+        "mcp>=1.30,<2",
+        "httpx",
+        "jsonschema",
+        "installed REA tool engines"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "business_connections",
+      "status": "BLOCKED",
+      "sources": [
+        "backend/spark_integrations.py"
+      ],
+      "tests": [
+        "tests/test_spark_workbench.py"
+      ],
+      "evidence_scope": "Adapters implemented but disabled/unconnected. Authorized endpoint credentials and governed contracts are not configured.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "health_recovery",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/service.py",
+        "backend/spark_intelligence/policy.py",
+        "backend/spark_integrations.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_policy.py",
+        "tests/test_spark_rea.py",
+        "tests/test_spark_intelligence_process.py"
+      ],
+      "evidence_scope": "Host vitals, stalls, bounded circuit/backoff, owned transport recovery and explicit interrupted-job resume.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "benchmarks_and_usage",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/service.py"
+      ],
+      "tests": [
+        "tests/test_spark_workbench.py"
+      ],
+      "evidence_scope": "Persisted sanitized model/route usage, real local tool outcomes, labeled retrieval ranking and evidence export. No invented energy/cost/TTFT.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "config_and_upgrades",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_intelligence/runtime.py",
+        "backend/spark_intelligence/upgrades.py"
+      ],
+      "tests": [
+        "tests/test_spark_intelligence_runtime.py",
+        "tests/test_spark_intelligence_policy.py"
+      ],
+      "evidence_scope": "Versioned SQLite schema/config, approved restore, package compatibility and explicit read-only release checks. No production dependency upgrade.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "workspace_auth",
+      "status": "TESTED",
+      "sources": [
+        "backend/spark_workspace_auth.py",
+        "backend/server.py"
+      ],
+      "tests": [
+        "tests/test_spark_workspace_auth.py",
+        "tests/test_spark_evolution.py",
+        "tests/workspace-auth.test.cjs"
+      ],
+      "evidence_scope": "Owner session and face-auth plus trusted dev origin or root-frame desktop nonce; foreign origins denied.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "ten_console_pages",
+      "status": "IMPLEMENTED",
+      "sources": [
+        "src/components/IntelligenceConsole.jsx",
+        "src/components/EvolutionPanel.jsx"
+      ],
+      "tests": [
+        "tests/intelligence-ui.test.cjs"
+      ],
+      "evidence_scope": "All ten pages inspected in the live browser. Actual agent create/review/approve/execute, memory save/retrieve, health, model discovery, integration listing, benchmark evidence and versions succeeded against temporary local storage. Model/provider/hardware workflows retain backend fixture verification only.",
+      "dependencies": [
+        "existing React/Vite/Electron/socket.io-client"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    },
+    {
+      "feature": "live_hardware_acceptance",
+      "status": "BLOCKED",
+      "sources": [],
+      "tests": [],
+      "evidence_scope": "Camera, microphone, Kasa, CAD provider and printer need configured devices/accounts and human acceptance; no hardware mutation run.",
+      "dependencies": [
+        "Python 3.11 standard library"
+      ],
+      "evidence": [
+        "docs/intelligence-verification.md"
+      ]
+    }
+  ],
+  "evidence": [
+    "docs/intelligence-verification.md",
+    "docs/evidence/intelligence-performance.json",
+    "docs/intelligence-operations.md",
+    "docs/openjarvis-audit.md"
+  ],
+  "optional_dependencies": [
+    "croniter/tzdata for cron",
+    "mcp/httpx/jsonschema for MCP",
+    "sentence-transformers and optional faiss for preinstalled licensed local embeddings; not installed here"
+  ],
+  "business_sources": [
+    {
+      "repository": "https://github.com/vyndivybes/vaos",
+      "revision": "06bdb059d01b6ea85b985f133db55041ad1f2bbd"
+    },
+    {
+      "repository": "https://github.com/vyndivybes/vyndios",
+      "revision": "cb4051542b4e94ab583153c18022ef51f32ea2eb"
+    }
+  ]
+}
