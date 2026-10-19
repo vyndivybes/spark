@@ -9,8 +9,8 @@ test('SPARK exposes Jarvis only through existing owner-gated local session',()=>
  const server=source('backend/server.py');
  assert.match(server,/@sio.event\s+async def jarvis_ask\(sid, data\)/);
  const segment=server.split('async def jarvis_ask(sid, data):')[1].split('@sio.event')[0];
- assert.match(segment,/workspace_client_allowed/);
- assert.match(segment,/owner_sid/);
+ assert.match(segment,/local_bridge_client_allowed/);
+ assert.match(segment,/SPARK_WORKSPACE_TOKEN/);
  assert.match(segment,/face_auth_enabled/);
  assert.match(segment,/JarvisBridge.from_environment/);
  assert.match(segment,/asyncio.to_thread/);
