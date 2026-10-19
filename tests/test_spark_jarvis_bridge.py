@@ -28,6 +28,7 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(timeout,8)
             body=json.loads(request.data)
             return Reply({'data':{'requestId':body['requestId'],'readOnly':True,'actionAuthorized':False,
+                'schemaVersion':'SPARK_JARVIS_V1','businessEffectsExecuted':False,
                 'answer':'2 inventory records in selected window','status':'OBSERVED','sourceAuthority':'getAuthoritativeInventory'}})
         c=JarvisBridge('https://vaos.example','x'*40,'spark-windows-1',opener=open_request)
         result=c.ask('How many stock items are recorded?')
@@ -50,4 +51,32 @@ class BridgeTests(unittest.TestCase):
         payload={'data':{'answer':'a'*20000,'status':'OBSERVED','requestId':'x','readOnly':True,'actionAuthorized':False}}
         c=JarvisBridge('https://vaos.example','x'*40,'spark-windows-1',opener=lambda *a,**k:Reply(payload))
         with self.assertRaises(JarvisBridgeError):c.ask('How many sales orders?')
+
+    def test_rejects_contract_version_and_effects_ambiguity(self):
+        """A remote status claim cannot override missing or contradictory safety evidence."""
+        def open_with(data_overrides, drop=None):
+            def send(request, timeout):
+                identifier=json.loads(request.data)['requestId']
+                reply={'schemaVersion':'SPARK_JARVIS_V1','requestId':identifier,
+                       'readOnly':True,'actionAuthorized':False,
+                       'businessEffectsExecuted':False,'status':'OBSERVED',
+                       'answer':'2 stock records','sourceSystem':'VYNDI_OS',
+                       'sourceAuthority':'getAuthoritativeInventory'}
+                reply.update(data_overrides)
+                if drop:
+                    reply.pop(drop,None)
+                return Reply({'data':reply})
+            return send
+        for bad,drop in [
+            ({'businessEffectsExecuted':True},None),
+            ({},'businessEffectsExecuted'),
+            ({'schemaVersion':'SPARK_JARVIS_V2'},None),
+            ({},'schemaVersion'),
+        ]:
+            with self.subTest(bad=bad,missing=drop):
+                c=JarvisBridge('https://vaos.example','x'*40,'spark-windows-1',
+                               opener=open_with(bad,drop))
+                with self.assertRaises(JarvisBridgeError):
+                    c.ask('How many stock items are recorded?')
+
 if __name__=='__main__': unittest.main()
