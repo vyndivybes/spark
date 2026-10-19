@@ -16,6 +16,6 @@ test('Electron backend owns restarts and suppresses them during shutdown',()=>{
  const code=fs.readFileSync(require('node:path').join(__dirname,'../electron/main.js'),'utf8');
  assert.match(code,/BackendRecoveryBudget/);
  assert.match(code,/backendRestartBudget.nextDelay\(\)/);
- assert.match(code,/if\s*\(quitting\)/);
+ assert.match(code,/if\s*\(quitting\s*\|\|/);
  assert.match(code,/app.on\('before-quit'/);
 });
