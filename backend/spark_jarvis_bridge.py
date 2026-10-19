@@ -83,7 +83,9 @@ class JarvisBridge:
             if isinstance(error,JarvisBridgeError): raise
             raise JarvisBridgeError('Jarvis connection unavailable or response unverified.') from None
         if (not isinstance(data,dict) or data.get('requestId')!=request_id
+                or data.get('schemaVersion')!='SPARK_JARVIS_V1'
                 or data.get('readOnly') is not True or data.get('actionAuthorized') is not False
+                or data.get('businessEffectsExecuted') is not False
                 or data.get('status') not in ALLOWED_STATUS
                 or not isinstance(data.get('answer'),str) or len(data['answer'])>1300):
             raise JarvisBridgeError('Jarvis response failed read-only verification.')
