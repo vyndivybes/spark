@@ -69,13 +69,18 @@ class RepairTests(unittest.TestCase):
         self.assertEqual(self.source.read_text(), "value = 1\n")
 
     def test_post_application_failure_restores_backup(self):
+        scopes=[]
         def validate(root):
-            if root == self.root:
+            # Windows runners can expose TEMP through a short-name alias.
+            live=root.samefile(self.root)
+            scopes.append(live)
+            if live:
                 raise RuntimeError("live smoke failed")
         engine = Maintenance(self.root, self.data, validate)
         with self.assertRaises(RuntimeError):
             engine.apply(self.patch())
         self.assertEqual(self.source.read_text(), "value = 1\n")
+        self.assertEqual(scopes,[False,True])
         self.assertEqual(engine.history()[0]["status"], "rolled_back")
 
     def test_interrupted_application_recovers_after_new_engine_starts(self):
