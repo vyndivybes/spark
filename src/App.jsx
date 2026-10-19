@@ -22,12 +22,14 @@ import HealthConnectPanel from './components/HealthConnectPanel';
 import ReaAuditPanel from './components/ReaAuditPanel';
 import FocusPanel from './components/FocusPanel';
 import WorkspacePanel from './components/WorkspacePanel';
+import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
 
 
 const socket = io('http://localhost:8000');
 const { ipcRenderer } = window.require('electron');
+ipcRenderer.invoke('spark:workspace-token').then(token=>{socket.workspaceToken=token;}).catch(()=>{});
 
 function App() {
     const [status, setStatus] = useState('Disconnected');
@@ -1876,6 +1878,8 @@ function App() {
                 <WorkspacePanel socket={socket} visible={showWorkspace}
                     project={currentProject} onClose={() => setShowWorkspace(false)} />
             </div>
+            <ReminderToast socket={socket} project={currentProject}
+                enabled={isConnected && isAuthenticated && liveState.state === 'connected'} />
 
             {showReaAudit && (
                 <div id="spark-rea-audit-panel" style={{WebkitAppRegion:'no-drag'}}>
