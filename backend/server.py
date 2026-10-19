@@ -54,6 +54,7 @@ from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
 from spark_workspace_auth import workspace_client_allowed
+from spark_jarvis_bridge import JarvisBridge, JarvisBridgeError
 from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
@@ -265,6 +266,39 @@ async def workspace_action(sid, data):
             "request_id":request_id,"action":action,"ok":False,
             "message":"Local workspace operation failed. Check document format and disk availability."
         },room=sid)
+
+
+@sio.event
+async def jarvis_ask(sid, data):
+    """Read-only desktop request; local owner and remote device both authenticate."""
+    request_id = data.get('request_id') if isinstance(data, dict) else None
+    if not isinstance(request_id, str) or len(request_id)>64:
+        request_id = None
+    question = data.get('question') if isinstance(data, dict) else None
+    authorized = bool(
+        workspace_client_allowed(sio.get_environ(sid),
+            data.get('workspace_token') if isinstance(data, dict) else None,
+            os.environ.get('SPARK_WORKSPACE_TOKEN'))
+        and audio_loop is not None
+        and getattr(audio_loop, 'owner_sid', None) == sid
+        and getattr(audio_loop, 'session', None) is not None
+        and (not SETTINGS.get('face_auth_enabled', False)
+             or (authenticator and authenticator.authenticated))
+    )
+    if not authorized:
+        await sio.emit('jarvis_result', {'request_id':request_id,'ok':False,
+            'message':'Connect and authenticate to SPARK before asking Jarvis.'},room=sid)
+        return
+    try:
+        result = await asyncio.to_thread(JarvisBridge.from_environment().ask,question)
+        await sio.emit('jarvis_result', {'request_id':request_id,'ok':True,
+            'result':result},room=sid)
+    except JarvisBridgeError as error:
+        await sio.emit('jarvis_result', {'request_id':request_id,'ok':False,
+            'message':str(error)[:160]},room=sid)
+    except Exception:
+        await sio.emit('jarvis_result', {'request_id':request_id,'ok':False,
+            'message':'Jarvis is unavailable; no enterprise records were changed.'},room=sid)
 
 
 @sio.event
