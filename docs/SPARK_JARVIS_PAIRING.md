@@ -22,3 +22,22 @@ Electron restarts an unexpectedly exited, locally managed Python backend at most
 ## Verification
 
 Run `python -m unittest discover -s tests -p test_spark_jarvis_bridge.py`, `npm test`, and `npm run build`. Confirm the *real* VAOS read-only endpoint with both sides configured before claiming live pairing or deployment. Full enterprise mission execution and voice handoff are later work.
+
+## Safe Windows acceptance checklist (no paid Cloudflare Builds)
+
+1. Keep VAOS PR #425 and SPARK PR #43 in draft until live pairing is established. The Cloudflare Workers Builds allowance was exhausted on 20 October 2026; GitHub Actions dry-run qualification is separate from that quota. Do not merge or trigger a production release merely to test pairing.
+2. Confirm the existing VAOS Worker currently serves `POST /api/spark-bridge`. The production Worker may not have this route yet. A route only present in an unmerged pull request cannot pass a live pairing test.
+3. On the Cloudflare account that owns **vaos**, store `VAOS_SPARK_BRIDGE_TOKEN` as an encrypted Worker secret (not in repository variables). Configure `VAOS_SPARK_DEVICE_ID` and enable `VAOS_SPARK_BRIDGE_CONTROL=read-only-v1` only after deployment and governance checks. Keep them disabled beforehand.
+4. On Windows, place only `SPARK_JARVIS_URL`, `SPARK_JARVIS_DEVICE_ID` and `SPARK_JARVIS_TOKEN` in ignored `C:\\Users\\ASUS\\spark\\backend\\.env`. `SPARK_JARVIS_URL` is the HTTPS **origin** obtained from the existing Cloudflare Worker Visit link, not an invented URL or the endpoint path. Keep the Worker token out of GitHub Actions, ChatGPT, Electron, and PowerShell parent process variables.
+5. From PowerShell, after obtaining the same value on both sides:
+   ```powershell
+   cd C:\Users\ASUS\spark
+   & .\.venv\Scripts\python.exe scripts\spark_jarvis_preflight.py --check
+   & .\.venv\Scripts\python.exe scripts\spark_jarvis_preflight.py --probe
+   ```
+   `--check` is entirely offline. `--probe` sends exactly one harmless greeting over HTTPS, checks the read-only response contract and prints no secrets or enterprise records. Its PASS proves only endpoint reachability and device authentication, **not** that signed VYNDI business sources are functioning.
+6. Verify a separately authorized, bounded VYNDI inventory/mission **read** with observed-source evidence before releasing. A HOLD response is an honest failure of source qualification, not proof of zero records.
+
+If the Cloudflare connected app reports 403 on Worker settings or secrets, its permission grants are missing `workers-scripts.read` (or suitable Workers Scripts permissions). ChatGPT identity/account listing alone does not grant Worker access. Reconnect with a suitable scope or carry out these configuration steps directly in the Cloudflare dashboard. Never paste the bridge secret into a chat.
+
+**Rollback / revoke:** remove `VAOS_SPARK_BRIDGE_CONTROL`, rotate the encrypted Worker secret, and remove the local SPARK Jarvis lines from `backend/.env`. Leave the existing production Worker and its other bindings intact.
