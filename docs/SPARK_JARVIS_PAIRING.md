@@ -4,12 +4,12 @@ The **JARVIS** control on the SPARK cockpit opens a separate, read-only enterpri
 
 ## Configure (Windows)
 
-Set these in the local backend process environment (not in React or Electron):
+Set these only in the ignored local `backend/.env` file loaded by the Python backend (not in PowerShell parent environment, React or Electron):
 - `SPARK_JARVIS_URL`: exact HTTPS origin of your VAOS Cloudflare Worker
 - `SPARK_JARVIS_DEVICE_ID`: same unique ID as VAOS `VAOS_SPARK_DEVICE_ID`
 - `SPARK_JARVIS_TOKEN`: same confidential 32+ character token as Cloudflare secret `VAOS_SPARK_BRIDGE_TOKEN`
 
-On VAOS, explicitly enable `VAOS_SPARK_BRIDGE_CONTROL=read-only-v1`. A token and URL must not be committed. Set process environment variables securely before starting SPARK with `start-spark.ps1`. Never store token in a web page or include it in diagnostics.
+On VAOS, explicitly enable `VAOS_SPARK_BRIDGE_CONTROL=read-only-v1`. A token and URL must not be committed. Add the variables to `backend/.env` and then start SPARK normally with `start-spark.ps1`. The Electron process must not inherit the VAOS shared secret from its parent environment. Never store token in a web page or include it in diagnostics.
 
 SPARK's desktop session token remains separate from the VAOS device secret. The JARVIS panel requires the authenticated local Electron cockpit but **not** a live audio connection.
 
