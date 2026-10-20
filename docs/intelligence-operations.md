@@ -342,4 +342,28 @@ horizon — pure arithmetic, used for §5 disk-space forecasting.
 These are exposed as read-only actions `self_heal_diagnose` (`deep`),
 `self_heal_recover` (replays interrupted rollback journals) and `disk_forecast`.
 
+## Self-optimization profiling (read-only)
+
+`backend/spark_profiler.py` is the §3F measurement half — evidence *before* any
+optimization recommendation:
+
+* `ProfileRecorder` collects named timing samples (seconds) and summarises
+  `count`/`min`/`mean`/`p50`/`p95`/`max`, so tail latency is visible, not just the
+  average. Its clock is injected, so tests are deterministic.
+* `profile_callable` runs a callable N times and records each run.
+* `import_cost` measures the wall time to import a module in a fresh subprocess
+  against the current interpreter — a real SPARK-owned cost. No profiler daemon.
+* `compare(name, before, after, tolerance)` is tolerance-gated: a change only
+  counts as `improved`/`regressed` when it clears the relative tolerance floor;
+  otherwise it is `no_measurable_change`, so noise is never reported as a win.
+  The verdict is directly consumable by the SAEE ledger's `record_benchmark`.
+* `resource_delta` compares two host-vitals snapshots (RAM/disk) and flags
+  meaningful growth.
+
+Everything is read-only and advisory. Acting on a recommendation still flows
+through the maintenance and repository approval gates. Exposed as the read-only
+actions `profile_import_cost` (`module`, `repeats`) and `profile_compare`
+(`name`, `before`, `after`, `tolerance`).
+
+
 

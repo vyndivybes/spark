@@ -113,6 +113,11 @@ KNOWN_CAPABILITIES = (
      "engine": "spark_self_healing.diagnose",
      "summary": "Read-only startup, dependency, runtime, connectivity and resource checks; bounded repair gate.",
      "verified": True, "gate": "read-only; repair still approval-gated"},
+    {"id": "self_optimization_profiler",
+     "name": "Self-Optimization Profiler",
+     "engine": "spark_profiler.ProfileRecorder",
+     "summary": "Timing recorder, import-cost measurement and tolerance-gated before/after benchmarks.",
+     "verified": True, "gate": "read-only measurement; changes still approved"},
 )
 
 # Capability gaps the master prompt asks for that have no engine yet. SAEE
@@ -124,9 +129,6 @@ KNOWN_GAPS = (
     {"id": "weight_training",
      "name": "Model Weight Training / Optimizers",
      "reason": "DSPy/GEPA/ACE optimizers remain deferred; no research stack installed."},
-    {"id": "self_optimization_profiler",
-     "name": "Self-Optimization Profiler",
-     "reason": "Only host vitals and read-only version inspection exist; no SPARK-owned process profiler."},
     {"id": "recursive_file_organization",
      "name": "Recursive / Scheduled File Organization",
      "reason": "Only single-directory, top-level, approval-gated moves exist; no recursion or scheduling."},

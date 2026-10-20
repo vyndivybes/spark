@@ -13,6 +13,9 @@ from spark_security_scan import scan_sources, scan_secrets, scan_code
 from spark_self_healing import (
     RepairGate, SelfHealingError, diagnose, disk_forecast,
 )
+from spark_profiler import (
+    ProfileRecorder, ProfilerError, compare, import_cost, resource_delta,
+)
 
 
 ACTION_KEYS = {
@@ -32,6 +35,9 @@ ACTION_KEYS = {
     "rea_discover": set(),
     "rea_call": {"name", "arguments"},
     "security_scan": {"paths"},
+    # §3F self-optimization profiler (read-only measurement).
+    "profile_import_cost": {"module", "repeats"},
+    "profile_compare": {"name", "before", "after", "tolerance"},
     "import_repository": {"url", "reference_paths"},
     # §3E environmental self-diagnosis (read-only) and disk forecasting.
     "self_heal_diagnose": {"deep"},
@@ -140,6 +146,12 @@ class Evolution:
         if action == "disk_forecast":
             return disk_forecast(payload["free_gb"], payload["used_gb_per_day"],
                                  horizon_days=payload["horizon_days"])
+        if action == "profile_import_cost":
+            return await asyncio.to_thread(import_cost, payload["module"],
+                                            repeats=payload["repeats"])
+        if action == "profile_compare":
+            return compare(payload["name"], payload["before"], payload["after"],
+                           tolerance=payload["tolerance"])
         if action == "import_repository":
             return await asyncio.to_thread(import_evidence, payload["url"],
                                            selected=payload["reference_paths"])
