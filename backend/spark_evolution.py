@@ -7,6 +7,7 @@ from arkus_skill_forge import check_spec, SkillError
 from spark_maintenance import Maintenance, MaintenanceError, digest
 from spark_rea import ReaClient, ReaError
 from spark_repo_upgrade import RepositoryUpgrades, snapshot
+from spark_repo_import import RepoImportError, import_evidence, parse_github_url
 from spark_saee import AutonomousEvolutionEngine, SAEEError
 from spark_security_scan import scan_sources, scan_secrets, scan_code
 from spark_self_healing import (
@@ -31,6 +32,7 @@ ACTION_KEYS = {
     "rea_discover": set(),
     "rea_call": {"name", "arguments"},
     "security_scan": {"paths"},
+    "import_repository": {"url", "reference_paths"},
     # §3E environmental self-diagnosis (read-only) and disk forecasting.
     "self_heal_diagnose": {"deep"},
     "self_heal_recover": set(),
@@ -138,6 +140,27 @@ class Evolution:
         if action == "disk_forecast":
             return disk_forecast(payload["free_gb"], payload["used_gb_per_day"],
                                  horizon_days=payload["horizon_days"])
+        if action == "import_repository":
+            return await asyncio.to_thread(import_evidence, payload["url"],
+                                           selected=payload["reference_paths"])
+        if action == "analyze_repository":
+            goal = payload['goal']
+            if not isinstance(goal, str) or not 1 <= len(goal.strip()) <= 2000:
+                raise MaintenanceError('Describe the desired Spark improvement in 1–2000 characters.')
+            repository = payload['repository']
+            try:
+                parse_github_url(repository)
+                is_url = True
+            except RepoImportError:
+                is_url = False
+            # Clone/read evidence outside the maintenance lock.
+            if is_url:
+                evidence = await asyncio.to_thread(import_evidence, repository,
+                                                   selected=payload['reference_paths'])
+            else:
+                evidence = await asyncio.to_thread(snapshot, repository, payload['reference_paths'])
+        else:
+            evidence = None
         async with self.lock:
             await asyncio.to_thread(self.maintenance.recover)
             if action == 'list_repository_analyses':
@@ -145,11 +168,7 @@ class Evolution:
             if action == 'read_repository_analysis':
                 return await asyncio.to_thread(self.repositories.read, project, payload['id'])
             if action == 'analyze_repository':
-                goal = payload['goal']
-                if not isinstance(goal, str) or not 1 <= len(goal.strip()) <= 2000:
-                    raise MaintenanceError('Describe the desired Spark improvement in 1–2000 characters.')
-                evidence = await asyncio.to_thread(snapshot, payload['repository'], payload['reference_paths'])
-                return await self.repositories.analyze(project, evidence, goal)
+                return await self.repositories.analyze(project, evidence, payload['goal'])
             if action == 'stage_repository_upgrade':
                 return await self.repositories.stage(project, payload['analysis_id'], payload['opportunity'])
             if action == "diagnose_sources":
