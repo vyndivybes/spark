@@ -182,8 +182,8 @@ account** and that your account cannot generate paid charges; do not enable
 billing. Then launch Groq mode with the explicit `-EnableGroqVision` switch:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 \`
-  -AIProvider groq -GroqModel openai/gpt-oss-20b \`
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\start-spark.ps1 `
+  -AIProvider groq -GroqModel openai/gpt-oss-20b `
   -AudioTransport browser_aec -EnableGroqVision
 ```
 
@@ -436,8 +436,8 @@ integration, **not** automatic cloning or execution of recovered code.
 1. After updating and restarting SPARK, select **REA AUDIT** in its top bar.
 2. Click **Scan existing REA reports**. The Electron main process reads only
    supported, size-limited JSON filenames in these two pre-existing folders:
-   - `%USERPROFILE%\\work\\rea-evidence\\`
-   - `%USERPROFILE%\\work\\arkus-rea-audit\\reports\\`
+   - `%USERPROFILE%\\work\\rea-evidence\`
+   - `%USERPROFILE%\\work\\arkus-rea-audit\\reports\`
 3. The panel displays each recognized report and the REA evidence identity,
    number of files, parsed-JavaScript counts, parse failures and static
    findings **where supplied by the actual file**.
@@ -956,29 +956,29 @@ SPARK is a multimodal React/Electron and Python assistant with live voice, camer
 
 ### Quick start
 
-From a Windows PowerShell terminal in the existing \`C:\Users\ASUS\spark\` checkout:
+From a Windows PowerShell terminal in the existing `C:\Users\ASUS\spark` checkout:
 
-\`\`\`powershell
+```powershell
 Set-Location "C:\Users\ASUS\spark"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-spark.ps1
-\`\`\`
+```
 
-This is the recommended Windows launcher. It uses the local SPARK Python runtime and does not require creating or activating an old \`ada_v2\` Conda environment.
+This is the recommended Windows launcher. It uses the local SPARK Python runtime and does not require creating or activating an obsolete Conda environment.
 
 For frontend development, after setting up the environment:
 
-\`\`\`powershell
+```powershell
 Set-Location "C:\Users\ASUS\spark"
 npm ci
 npm run dev
-\`\`\`
+```
 
 For backend-only debugging, open a separate PowerShell terminal:
 
-\`\`\`powershell
+```powershell
 Set-Location "C:\Users\ASUS\spark"
 .\.venv\Scripts\python.exe backend\server.py
-\`\`\`
+```
 
 Do not run the backend twice: Electron may already start it. When working in two terminals, confirm that only one Python backend is listening on the configured port.
 
@@ -986,7 +986,7 @@ Do not run the backend twice: Electron may already start it. When working in two
 
 1. **Voice:** Connect the chosen configured provider, and test the SPARK voice interface and speaker/microphone path.
 2. **Vision:** Open the camera preview with permission; test face authentication if configured. Sharing images with an AI provider is opt-in.
-3. **CAD:** Open the CAD panel and create a test cube. The optional \`build123d\` dependency must be installed.
+3. **CAD:** Open the CAD panel and create a test cube. The optional `build123d` dependency must be installed.
 4. **Browser:** Open WEB_AGENT_VIEW, navigate to a page, and test its local mouse and keyboard controls. Autonomous web actions depend on the enabled agent and provider.
 5. **Smart home:** Test a supported TP-Link Kasa device only if you own and configured one.
 6. **Printing:** Verify printer discovery and OrcaSlicer profile before authorizing any physical print.
@@ -1004,7 +1004,7 @@ Commands are examples, not a promise that all optional integrations are enabled.
 
 ### Project layout
 
-\`\`\`text
+```text
 spark/
 ├── backend/
 │   ├── ada.py                # Legacy internal Gemini Live implementation module
@@ -1021,13 +1021,13 @@ spark/
 ├── start-spark.ps1            # Recommended Windows launch
 ├── package.json
 └── README.md
-\`\`\`
+```
 
-The filename \`backend/ada.py\` is an **internal compatibility module**, not the product's name. Do not rename it without updating all imports and testing Python integration.
+The filename `backend/ada.py` is an **internal compatibility module**, not the product's name. Do not rename it without updating all imports and testing Python integration.
 
 ### Troubleshooting
 
-**AI credentials:** Use only your configured provider and the documented local private configuration. Keep \`.env\` and API keys out of Git. Follow the startup diagnostics if a provider credential is missing.
+**AI credentials:** Use only your configured provider and the documented local private configuration. Keep `.env` and API keys out of Git. Follow the startup diagnostics if a provider credential is missing.
 
 **Microphone or camera:** Verify Windows privacy permissions, device selection, and whether the application is in a connected authenticated session.
 
@@ -1035,11 +1035,11 @@ The filename \`backend/ada.py\` is an **internal compatibility module**, not the
 
 **Printer/CAD/browser dependencies:** Their optional installations and drivers are not guaranteed by an ordinary npm install.
 
-**Python environment:** Use the existing SPARK \`.venv\` and the project's launcher; do not create a second Conda environment unnecessarily.
+**Python environment:** Use the existing SPARK `.venv` and the project's launcher; do not create a second Conda environment unnecessarily.
 
 ### Security and licensing
 
-Keep \`.env\`, face-reference images and project records private. File writes, external navigation, code execution and device actions should remain subject to applicable permissions. All upstream copyright and licence notices are preserved in [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and retained upstream files. Rebranding does not transfer third-party authorship or rights.
+Keep `.env`, face-reference images and project records private. File writes, external navigation, code execution and device actions should remain subject to applicable permissions. All upstream copyright and licence notices are preserved in [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and retained upstream files. Rebranding does not transfer third-party authorship or rights.
 
 ---
 
