@@ -582,7 +582,7 @@ class GroqVoiceLoop:
                                       {"role":"assistant","content":answer[:700]}))
                 self._history=self._history[-6:]
         if self.on_transcription:
-            self.on_transcription({"sender":"ADA","text":answer})
+            self.on_transcription({"sender":"SPARK","text":answer})
         if self.on_browser_tts:
             await self._speak_browser(answer)
             return

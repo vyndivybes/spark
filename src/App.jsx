@@ -1754,7 +1754,7 @@ function App() {
                         SPARK
                     </h1>
                     <div className="text-[10px] text-cyan-700 border border-cyan-900 px-1 rounded">
-                        FUSION · ADA CORE
+                        FUSION • SPARK CORE
                     </div>
                     {/* FPS Counter */}
                     {isVideoOn && (
@@ -1954,7 +1954,7 @@ function App() {
                         <button type="button" className="spark-experience-card spark-core" onClick={activateSparkCore}
                             title="Activate SPARK voice core and return to the cockpit">
                             <span className="spark-exp-symbol">✦</span><span className="spark-exp-subtitle">ASSISTANT CONTROL CENTER</span>
-                            <strong>SPARK CORE</strong><small>ADA V2 voice · CAD · browser · Kasa · printers · face lock</small>
+                            <strong>SPARK CORE</strong><small>SPARK voice · CAD · browser · Kasa · printers · face lock</small>
                             <em>ACTIVATE CORE →</em>
                         </button>
                     </div>

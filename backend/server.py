@@ -738,7 +738,7 @@ async def start_audio(sid, data=None):
 
     # Callback to send Transcription data to frontend
     def on_transcription(data):
-        # data = {"sender": "User"|"ADA", "text": "..."}
+        # data = {"sender": "User"|"SPARK", "text": "..."}
         asyncio.create_task(sio.emit('transcription', data))
 
     # Callback to send Confirmation Request to frontend
