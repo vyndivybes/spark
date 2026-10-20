@@ -306,3 +306,40 @@ This is a heuristic linter, not a proof: it cannot certify the absence of secret
 or vulnerabilities, and it does not run antivirus or a full SCA. It reduces risk
 and says so.
 
+## Environmental self-diagnosis (read-only)
+
+`backend/spark_self_healing.py` covers the §3E self-healing items that are *not*
+about source code the engine writes itself — the running environment:
+
+* `check_startup` — required backend modules present and parseable; a missing or
+  unparseable core module is a startup failure.
+* `check_dependencies` — optional/platform imports (`psutil`, `faiss`,
+  `croniter`, …) reported present/absent via `find_spec` only; nothing is
+  installed.
+* `check_runtime` — Python version floor and the stdlib features the safety code
+  relies on (`Path.is_relative_to`, `ast.parse`).
+* `check_resources` — RAM/disk headroom against configurable floors, sourced from
+  host vitals; low headroom is a warning.
+* `check_connectivity` — opt-in DNS/TCP reachability of a fixed, tiny provider
+  set. A `probe` function is injected so tests never touch the network; without
+  one, connectivity is reported as not-checked.
+
+`diagnose(deep=…)` aggregates these and returns a `healthy` verdict plus a note
+that **no repair is performed here**. Repair still flows through the maintenance
+and repository approval gates.
+
+`RepairGate` implements §3E's "never repeatedly execute the same failing repair
+without new evidence": an identical `(signature, evidence)` attempt is refused
+(`identical_repair_without_new_evidence`); a changed evidence digest is new
+evidence and is allowed. `repeated_failures()` surfaces signatures attempted more
+than once for escalation. State is supplied by the caller (the SAEE ledger), so
+the gate is pure and testable.
+
+`disk_forecast(free_gb, used_gb_per_day, horizon_days)` projects free space at a
+constant daily growth and warns when the disk is projected to empty within the
+horizon — pure arithmetic, used for §5 disk-space forecasting.
+
+These are exposed as read-only actions `self_heal_diagnose` (`deep`),
+`self_heal_recover` (replays interrupted rollback journals) and `disk_forecast`.
+
+

@@ -103,6 +103,11 @@ KNOWN_CAPABILITIES = (
      "engine": "spark_file_intelligence.FileIntelligence",
      "summary": "Exact duplicate detection, large/old/temp inventory; changes nothing.",
      "verified": True, "gate": "read-only report"},
+    {"id": "environmental_self_healing",
+     "name": "Environmental Self-Diagnosis",
+     "engine": "spark_self_healing.diagnose",
+     "summary": "Read-only startup, dependency, runtime, connectivity and resource checks; bounded repair gate.",
+     "verified": True, "gate": "read-only; repair still approval-gated"},
 )
 
 # Capability gaps the master prompt asks for that have no engine yet. SAEE

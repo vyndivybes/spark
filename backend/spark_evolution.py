@@ -9,6 +9,9 @@ from spark_rea import ReaClient, ReaError
 from spark_repo_upgrade import RepositoryUpgrades, snapshot
 from spark_saee import AutonomousEvolutionEngine, SAEEError
 from spark_security_scan import scan_sources, scan_secrets, scan_code
+from spark_self_healing import (
+    RepairGate, SelfHealingError, diagnose, disk_forecast,
+)
 
 
 ACTION_KEYS = {
@@ -28,6 +31,10 @@ ACTION_KEYS = {
     "rea_discover": set(),
     "rea_call": {"name", "arguments"},
     "security_scan": {"paths"},
+    # §3E environmental self-diagnosis (read-only) and disk forecasting.
+    "self_heal_diagnose": {"deep"},
+    "self_heal_recover": set(),
+    "disk_forecast": {"free_gb", "used_gb_per_day", "horizon_days"},
     # SAEE core: advisory discovery plus its own local registry and ledger.
     "saee_registry": set(),
     "saee_inventory": set(),
@@ -120,6 +127,17 @@ class Evolution:
             return await self._saee(action, project, payload)
         if action == "security_scan":
             return await asyncio.to_thread(self._security_scan, payload["paths"])
+        if action == "self_heal_diagnose":
+            deep = payload["deep"]
+            if not isinstance(deep, bool):
+                raise MaintenanceError("Specify whether to run the deep connectivity probe.")
+            return await asyncio.to_thread(diagnose, deep=deep)
+        if action == "self_heal_recover":
+            async with self.lock:
+                return await asyncio.to_thread(self.maintenance.recover)
+        if action == "disk_forecast":
+            return disk_forecast(payload["free_gb"], payload["used_gb_per_day"],
+                                 horizon_days=payload["horizon_days"])
         async with self.lock:
             await asyncio.to_thread(self.maintenance.recover)
             if action == 'list_repository_analyses':
