@@ -1622,6 +1622,35 @@ class AudioLoop:
 
                     # Handle Startup vs Reconnect Logic
                     if not is_reconnect:
+                        # Prime a fresh session with the recent conversation so
+                        # SPARK resumes with continuity instead of greeting the
+                        # user cold. This is silent context, not a spoken turn:
+                        # turn_complete is never set, so the model waits for the
+                        # user before it speaks.
+                        try:
+                            history_text = (
+                                self.project_manager.format_recent_chat_context(12)
+                                if self.project_manager else "")
+                        except Exception:
+                            history_text = ""
+                        if history_text:
+                            try:
+                                await self.session.send_client_content(
+                                    turns={"role": "user", "parts": [{
+                                        "text": (
+                                            "Recent conversation for continuity. "
+                                            "Use it naturally so a returning user "
+                                            "feels remembered; never read it back "
+                                            "as a list and never invent anything "
+                                            "beyond it.\n\n" + history_text
+                                        )
+                                    }]},
+                                    turn_complete=True,
+                                )
+                                print("[SPARK] Primed session with recent conversation history.")
+                            except Exception as e:
+                                print(f"[SPARK] History priming skipped: {e}")
+
                         if start_message:
                             print(f"[ADA DEBUG] [INFO] Sending start message: {start_message}")
                             await self.session.send_client_content(turns={"role": "user", "parts": [{"text": start_message}]}, turn_complete=True)

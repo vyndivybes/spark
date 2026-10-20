@@ -337,6 +337,25 @@ class GroqVoiceLoop:
         self._history=[]
         self._lock=asyncio.Lock()
 
+    def seed_history(self, transcript):
+        """Load persisted conversation into the LLM history for continuity.
+
+        Accepts a compact 'User:'/'SPARK:' transcript and rebuilds the recent
+        OpenAI-style message list so Groq voice resumes mid-conversation like
+        Gemini Live does, instead of answering without context. Bounded to the
+        same six-message window the live turn loop keeps.
+        """
+        if not isinstance(transcript, str) or not transcript.strip():
+            return
+        messages = []
+        for line in transcript.splitlines():
+            line = line.strip()
+            if line.startswith("User:"):
+                messages.append({"role": "user", "content": line[5:].strip()[:1200]})
+            elif line.startswith("SPARK:"):
+                messages.append({"role": "assistant", "content": line[6:].strip()[:700]})
+        self._history = messages[-6:]
+
     @property
     def accepting_mic(self):
         # Full-duplex Chromium AEC remains on, but stale samples captured

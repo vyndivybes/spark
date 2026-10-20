@@ -641,6 +641,14 @@ async def start_groq_audio(sid, data=None):
         audio_loop.owner_sid=sid
         audio_loop.pc_access=session_pc_access(sid, data)
         audio_loop.jarvis_access=session_jarvis_access(sid, data)
+        # Seed cloud voice with the persisted conversation so it resumes with
+        # continuity. The Gemini path primes its own Live session separately.
+        try:
+            from project_manager import ProjectManager
+            _pm = ProjectManager(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            audio_loop.seed_history(_pm.format_recent_chat_context(12))
+        except Exception:
+            pass
         audio_loop.set_paused(True)
         live_state='connecting'
         live_message='Starting Groq cloud hands-free speech.'
