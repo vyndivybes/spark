@@ -6,9 +6,14 @@ from pathlib import Path
 from arkus_skill_forge import check_spec, SkillError
 from spark_maintenance import Maintenance, MaintenanceError, digest
 from spark_rea import ReaClient, ReaError
+from spark_repo_upgrade import RepositoryUpgrades, snapshot
 
 
 ACTION_KEYS = {
+    "analyze_repository": {"repository", "goal", "reference_paths"},
+    "list_repository_analyses": set(),
+    "read_repository_analysis": {"id"},
+    "stage_repository_upgrade": {"analysis_id", "opportunity"},
     "diagnose_sources": set(),
     "list_repairs": set(),
     "list_repair_candidates": set(),
@@ -44,6 +49,7 @@ class Evolution:
         self.workspace = workspace
         self.maintenance = Maintenance(repository or Path(__file__).resolve().parents[1], workspace.skills.root.parent)
         self.generator = generator or generate_json
+        self.repositories = RepositoryUpgrades(self.maintenance, self.generator)
         self.rea = rea or ReaClient()
         self.lock = asyncio.Lock()
 
@@ -56,6 +62,18 @@ class Evolution:
             return await self.rea.request(action, payload)
         async with self.lock:
             await asyncio.to_thread(self.maintenance.recover)
+            if action == 'list_repository_analyses':
+                return await asyncio.to_thread(self.repositories.list, project)
+            if action == 'read_repository_analysis':
+                return await asyncio.to_thread(self.repositories.read, project, payload['id'])
+            if action == 'analyze_repository':
+                goal = payload['goal']
+                if not isinstance(goal, str) or not 1 <= len(goal.strip()) <= 2000:
+                    raise MaintenanceError('Describe the desired Spark improvement in 1–2000 characters.')
+                evidence = await asyncio.to_thread(snapshot, payload['repository'], payload['reference_paths'])
+                return await self.repositories.analyze(project, evidence, goal)
+            if action == 'stage_repository_upgrade':
+                return await self.repositories.stage(project, payload['analysis_id'], payload['opportunity'])
             if action == "diagnose_sources":
                 return await asyncio.to_thread(self.maintenance.detect)
             if action == "list_repairs":

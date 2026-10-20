@@ -6,8 +6,10 @@ import sys
 import traceback
 from dotenv import load_dotenv
 from pathlib import Path
-from spark_live_config import live_model, live_error_message
+from spark_live_config import live_model, live_error_message, live_error_requires_user_action
 from spark_live_profile import live_profile, select_live_config
+from spark_pc_access import pc_live_config
+from spark_jarvis import jarvis_live_config
 from spark_echo_gate import EchoGate
 import cv2
 import pyaudio
@@ -221,7 +223,9 @@ from kasa_agent import KasaAgent
 from printer_agent import PrinterAgent
 
 class AudioLoop:
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None):
+    pc_access = None
+    jarvis_access = None
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -238,6 +242,9 @@ class AudioLoop:
         self.on_mic_safety = on_mic_safety
         self.on_browser_audio = on_browser_audio
         self.on_web_sources = on_web_sources
+        self.on_graphify_query = on_graphify_query
+        self._graphify_calls = []
+        self._graphify_cache = {}
         self._grounding_signature = None
         self.browser_audio = bool(browser_audio)
         self.input_device_index = input_device_index
@@ -792,15 +799,65 @@ class AudioLoop:
 
                     # 3. Handle Tool Calls
                     if response.tool_call:
-                        print("The tool was called")
+                        print("[SPARK] Gemini requested: " + ", ".join(str(getattr(fc, "name", "unknown")) for fc in (response.tool_call.function_calls or [])))
                         function_responses = []
                         for fc in response.tool_call.function_calls:
+                            if fc.name == 'ask_vaos_jarvis':
+                                result = (await self.jarvis_access.ask((fc.args or {}).get('question'))
+                                          if self.jarvis_access else {'ok': False, 'message': 'Jarvis connection unavailable.'})
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name, response=result))
+                                continue
+                            if fc.name == 'pc_action':
+                                result = (await asyncio.to_thread(self.pc_access.execute, dict(fc.args or {}))
+                                          if self.pc_access else {'ok': False, 'error': 'PC autonomy unavailable.'})
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name, response=result))
+                                continue
                             # Enforce the configured provider tool boundary on
                             # execution; never trust a model-provided name.
                             if not allowed_live_tool(live_profile(), fc.name):
                                 function_responses.append(types.FunctionResponse(
                                     id=fc.id, name=fc.name,
                                     response={"result": "Tool unavailable in the current SPARK voice profile."}
+                                ))
+                                continue
+
+                            if fc.name == "query_spark_graph":
+                                args = fc.args if isinstance(fc.args, dict) else {}
+                                question = args.get("question")
+                                now = time.monotonic()
+                                self._graphify_calls = [
+                                    t for t in self._graphify_calls
+                                    if now - t < 60
+                                ]
+                                self._graphify_cache = {
+                                    k: v for k, v in self._graphify_cache.items()
+                                    if now - v[0] < 60
+                                }
+                                if not isinstance(question, str) or not 1 <= len(question.strip()) <= 220:
+                                    answer = "Invalid Graphify question."
+                                else:
+                                    key = " ".join(question.lower().split())
+                                    if key in self._graphify_cache:
+                                        answer = self._graphify_cache[key][1]
+                                    elif len(self._graphify_calls) >= 3:
+                                        answer = "Graphify rate limit reached for this voice session."
+                                    elif self.on_graphify_query is None:
+                                        answer = "Graphify callback unavailable."
+                                    else:
+                                        self._graphify_calls.append(now)
+                                        try:
+                                            answer = await asyncio.wait_for(
+                                                self.on_graphify_query(question.strip()),
+                                                timeout=25
+                                            )
+                                        except Exception:
+                                            answer = "Local Graphify query failed."
+                                        self._graphify_cache[key] = (now, answer)
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name,
+                                    response={"result": answer}
                                 ))
                                 continue
                             if fc.name == "get_system_status":
@@ -1180,9 +1237,9 @@ class AudioLoop:
                                         if status.temperatures:
                                             temps = status.temperatures
                                             if "hotend" in temps:
-                                                result_str += f"Hotend: {temps['hotend']['current']:.0f}°C / {temps['hotend']['target']:.0f}°C\n"
+                                                result_str += f"Hotend: {temps['hotend']['current']:.0f}Â°C / {temps['hotend']['target']:.0f}Â°C\n"
                                             if "bed" in temps:
-                                                result_str += f"Bed: {temps['bed']['current']:.0f}°C / {temps['bed']['target']:.0f}°C"
+                                                result_str += f"Bed: {temps['bed']['current']:.0f}Â°C / {temps['bed']['target']:.0f}Â°C"
                                     else:
                                         result_str = f"Could not get status for printer '{printer}'. Ensure it is discovered first."
                                     
@@ -1307,6 +1364,7 @@ class AudioLoop:
         if client is None:
             raise RuntimeError("Gemini Live is not configured. Set GEMINI_API_KEY privately in backend/.env.")
         retry_delay = 1
+        reconnect_attempts = 0
         is_reconnect = False
         
         while not self.stop_event.is_set():
@@ -1315,7 +1373,9 @@ class AudioLoop:
                     self.on_live_status({"state": "connecting", "model": MODEL, "message": "Connecting to Gemini Live..."})
                 print(f"[SPARK] Connecting to Gemini Live model {MODEL}; profile={live_profile()}...")
                 async with (
-                    client.aio.live.connect(model=MODEL, config=config) as session,
+                    client.aio.live.connect(model=MODEL, config=jarvis_live_config(pc_live_config(
+                        config, bool(self.pc_access and self.pc_access.enabled())),
+                        bool(self.jarvis_access and self.jarvis_access.enabled()))) as session,
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session = session
@@ -1391,11 +1451,13 @@ class AudioLoop:
                 print(f"[SPARK] {message}")
                 if self.on_live_status:
                     self.on_live_status({"state": "error", "model": MODEL, "message": message})
-                permanent = any(code in str(e).lower() for code in ("429", "quota", "401", "403", "404", "permission", "1008", "policy violation", "requested entity was not found"))
-                if permanent:
+                if live_error_requires_user_action(e):
                     break  # Never spin/retry an unavailable model, bad key or depleted quota.
                 if self.stop_event.is_set():
                     break
+                if reconnect_attempts >= 1:
+                    break
+                reconnect_attempts += 1
                 
                 print(f"[ADA DEBUG] [RETRY] Reconnecting in {retry_delay} seconds...")
                 await asyncio.sleep(retry_delay)
@@ -1445,3 +1507,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main = AudioLoop(video_mode=args.mode)
     asyncio.run(main.run())
+

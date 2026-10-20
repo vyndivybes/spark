@@ -16,7 +16,9 @@ function cleanProject(name) {
 // Operations go only through the currently authorized local SPARK Socket.IO owner.
 export default function WorkspacePanel({socket,visible,project:rawProject,onClose}) {
     const project=useMemo(() => cleanProject(rawProject),[rawProject]);
-    const [tab,setTab]=useState('knowledge');
+    const [tab,setTab]=useState('home');
+    const [intelligencePage,setIntelligencePage]=useState('Agents');
+    const openIntelligence=page=>{setIntelligencePage(page);setTab('intelligence');};
     const [query,setQuery]=useState('');
     const [documents,setDocuments]=useState([]);
     const [published,setPublished]=useState([]);
@@ -53,6 +55,10 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             if(data.action==='list_documents') {setDocuments(Array.isArray(result)?result:[]);return;}
             if(data.action==='list_holo_notes') {setPublished(Array.isArray(result)?result:[]);return;}
             if(data.action==='list_skills') {setSkills(Array.isArray(result)?result:[]);return;}
+            if(data.action==='publish_vayu_snapshot'){
+                setNotice(`Published ${result.documents} notes and ${result.tasks} tasks for ${project}. In VAYU, open Spark project data. Refresh this snapshot after changes.`);
+                return;
+            }
             if(data.action==='search_documents') {
                 setHits(Array.isArray(result)?result:[]);
                 setNotice(`Found ${Array.isArray(result)?result.length:0} matching document(s) in ${project}.`);
@@ -117,13 +123,14 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             role="region" aria-label="SPARK knowledge and skill workspace">
             <div className="flex items-center justify-between gap-2">
                 <div>
-                    <div className="text-xs tracking-widest text-cyan-400">SPARK / ACTUAL ARKUS ENGINE</div>
-                    <h2 className="text-xl font-bold">Knowledge &amp; Skills</h2>
+                    <div className="text-xs tracking-widest text-cyan-400">SPARK HOME</div>
+                    <h2 className="text-xl font-bold">Knowledge &amp; Intelligence</h2>
                     <p className="text-sm text-slate-300">Project: <strong>{project}</strong> · Documents stay local · Generation uses your configured model</p>
                 </div>
-                <button type="button" className={buttonStyle} onClick={onClose}>Close</button>
+                <button type="button" className={buttonStyle} onClick={onClose}>Voice cockpit</button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2" role="tablist">
+                <button type="button" role="tab" aria-selected={tab==='home'} className={buttonStyle} onClick={()=>setTab('home')}>Home</button>
                 <button type="button" role="tab" aria-selected={tab==='knowledge'} className={buttonStyle} onClick={()=>setTab('knowledge')}>Document knowledge</button>
                 <button type="button" role="tab" aria-selected={tab==='skills'} className={buttonStyle} onClick={()=>setTab('skills')}>Skill Forge</button>
                 <button type="button" role="tab" aria-selected={tab==='evolution'} className={buttonStyle} onClick={()=>setTab('evolution')}>Recovery &amp; REA</button>
@@ -131,7 +138,29 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 <button type="button" role="tab" aria-selected={tab==='intelligence'} className={buttonStyle} onClick={()=>setTab('intelligence')}>Intelligence</button>
             </div>
             <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>
-            {tab==='knowledge' ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Publish / refresh VAYU snapshot</button>
+                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('unpublish_vayu_snapshot')}>Remove VAYU snapshot</button>
+                <span className="text-xs text-slate-400">Shares published notes and task states for this project only.</span>
+            </div>
+            {tab==='home' ? <div className="mt-4 space-y-4">
+                <div><h3 className="text-2xl font-semibold">Your project starts here</h3><p className="mt-1 text-slate-300">Bring in knowledge, run reviewed agents, and inspect Spark's health.</p></div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                        ['Document knowledge','Import and search project documents.',()=>setTab('knowledge')],
+                        ['Agents','Create, approve, and run a plan. Inspect saved results.',()=>openIntelligence('Agents')],
+                        ['Memory','Save and retrieve project context.',()=>openIntelligence('Memory')],
+                        ['Skill Forge','Create, test, and activate calculation skills.',()=>setTab('skills')],
+                        ['Recovery & REA','Review repairs, rollback, and REA tool calls.',()=>setTab('evolution')],
+                        ['Upgrades','Inspect versions and stage reviewed changes.',()=>openIntelligence('Upgrades')],
+                        ['System health','Inspect diagnostics and resource readings.',()=>openIntelligence('System health')],
+                        ['Models','Inspect and probe configured task models.',()=>openIntelligence('Models')],
+                        ['Integrations','Inspect MCP connections and connection audit.',()=>openIntelligence('Integrations')],
+                        ['Schedules','Review scheduled workloads and execution history.',()=>openIntelligence('Autonomy')],
+                    ].map(([label,description,open])=><button key={label} type="button" onClick={open} className={`${panelStyle} text-left hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300`}><span className="block font-semibold text-cyan-100">{label}</span><span className="mt-1 block text-sm text-slate-300">{description}</span></button>)}
+                </div>
+                <p className="text-sm text-slate-400">Choose a plan to review before execution. Models and external connections use your existing configuration.</p>
+            </div> : tab==='knowledge' ? (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Indexed files ({documents.length}/50)</h3>
@@ -180,7 +209,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         </div>
                     </div>
                 </div>
-            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project}/></React.Suspense> : (
+            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project} initialPage={intelligencePage}/></React.Suspense> : (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Skill specification (declarative JSON only)</h3>

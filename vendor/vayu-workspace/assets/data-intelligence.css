@@ -1,0 +1,30 @@
+/* VĀYÚ Analytics extension. Works with the existing theme and mobile breakpoints. */
+.vdi-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.vdi-kpis>div{border:1px solid #35515a;background:#0d2530;border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:7px}
+.vdi-kpis strong{font-size:24px;line-height:1.15;color:#d3f9ec}
+.vdi-kpis span{font-size:12px;color:#aac2c9}
+.vdi-split{display:grid;grid-template-columns: minmax(0,1.12fr) minmax(0,1fr);gap:15px;align-items:start}
+.vdi-split>.acard{margin:12px 0}
+.vdi-controls{display:flex;flex-wrap:wrap;align-items:end;gap:14px;margin:12px 0}
+.vdi-controls label{display:grid;gap:7px;font-size:12px;color:#b6ccd2}
+.vdi-controls input,.vdi-controls select{width:100%;max-width:340px;min-width:120px;background:#112b35;color:#eaf8fa;border:1px solid #3e606b;border-radius:8px;padding:9px;font:inherit}
+.vdi-controls button{align-self:end}
+.vdi-scroll{max-height:480px;overflow-y:auto;display:grid;gap:5px;padding-right:4px}
+.vdi-cap{display:flex;gap:10px;align-items:center;justify-content:space-between;width:100%;text-align:left;min-width:0;background:#122d37!important;border:1px solid #36515d!important;padding:12px!important;border-radius:8px!important;color:#e0ecf0!important;font-size:12px!important}
+.vdi-cap.chosen{border-color:#66d6c4!important;background:#1a4249!important}
+.vdi-cap>span:first-child{overflow-wrap:anywhere}
+.vdi-badge{display:inline-flex;flex:none;align-items:center;border:1px solid #63809266;padding:5px 7px;border-radius:8px;font-weight:650;font-size:10px;color:#c8dce3;background:#213640}
+.vdi-badge.vdi-code{border-color:#4ab8a277;color:#8adbc6;background:#18483e}
+.vdi-badge.vdi-partial{border-color:#c8a66b77;color:#f0c68b;background:#493923}
+.vdi-badge.vdi-planned{border-color:#7185a377;color:#bfd0e0;background:#2a3444}
+.vdi-opportunities{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.vdi-opportunities>div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #294a52;padding:11px 0;font-size:13px}
+.vdi-mini{display:block;color:#91aeba;margin-top:4px;font-size:10px;overflow-wrap:anywhere}
+.vdi-tags{display:flex;gap:8px;flex-wrap:wrap}.vdi-tags span{background:#1c3540;border:1px solid #3b5560;padding:8px 10px;border-radius:20px;font-size:11px}
+.vdi-rel{display:flex;gap:8px;flex-wrap:wrap;padding:5px 0}.vdi-rel button{font-size:11px}
+.vdi-enterprise-tab>.afilters{display:none}
+.vdi-enterprise-tab>.anote:first-of-type{display:none}
+.vdi-enterprise-tab .acard p{overflow-wrap:anywhere}
+@media(max-width:960px){.vdi-split{grid-template-columns:minmax(0,1fr)}.vdi-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.vdi-kpis{gap:7px}.vdi-kpis>div{padding:11px}.vdi-kpis strong{font-size:20px}.vdi-opportunities{grid-template-columns:1fr}.vdi-controls label{width:100%}.vdi-cap{flex-wrap:wrap}}
+.vdi-enterprise-tab>.wtitle .wactions{display:none}

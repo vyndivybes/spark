@@ -29,7 +29,11 @@ test('cinematic voice is single-turn: backend and frontend require explicit mic 
 });
 
 test('reconnect is silent and 1008 policy violation does not retry',()=>{
+  const liveConfig = fs.readFileSync(path.resolve(__dirname,'../backend/spark_live_config.py'),'utf8');
   assert.doesNotMatch(ada,/Please acknowledge the reconnection/);
   assert.match(ada,/Live reconnect is silent/);
-  assert.match(ada,/"1008"/);
+  // 1008 is classified as requiring user action (no auto-retry) in
+  // spark_live_config.py, and ada.py stops the loop when that is true.
+  assert.match(liveConfig,/"1008"/);
+  assert.match(ada,/live_error_requires_user_action\(e\)/);
 });

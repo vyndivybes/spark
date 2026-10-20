@@ -1,5 +1,42 @@
 # SPARK — Immersive AI Workstation
 
+## Connected projects and reviewed PC tasks
+
+Publish selected Spark notes and current task states from **Home / Knowledge →
+Publish / refresh VAYU snapshot**, then open **Spark project data** in VAYU.
+Jarvis answers now offer **Prepare report task**, with editable PC steps and
+approval of the exact plan before execution. The cockpit toolbar stays on one
+row with reachable window controls. See [the upgrade guide](docs/workspace-upgrade.md).
+
+## VAOS Jarvis
+
+Open **Experience Deck → VAOS Jarvis** to sign in to your VAOS founder session
+and ask advisory questions. Voice supports “Ask Jarvis, …”. The connection
+preserves VAOS authentication, evidence holds and business authority checks.
+See [VAOS Jarvis](docs/vaos-jarvis.md).
+
+## PC autonomy
+
+**Settings → PC autonomy** enables PC-wide files, program launches and PowerShell
+commands for the active session under your Windows account. Turn it off to
+revoke subsequent actions. Reconnect voice after enabling. File-tool overwrites
+have local backups; command output and file reads can reach the selected AI
+provider. See [PC autonomy](docs/pc-autonomy.md) for storage and verification.
+
+## VAYU productivity workspace
+
+The Experience Deck groups VAYU, Neural Atlas and HOLO Deck under one
+**VAYU Workspace** card. Choose **Open workspace** for actions and analytics,
+**Neural Atlas · notes graph** for linked Spark notes, or
+**HOLO Deck · hand interaction** for gesture-based notes and 3D objects.
+Their engines and data remain distinct; this is a shared entry point.
+
+Open **Experience Deck → VAYU Workspace** for the bundled Founder Desk,
+separate Personal/Business registers, analytics imports, and ten neural
+visualization modes. Actions persist under Electron's user-data folder.
+This first stage uses VAYU's knowledge snapshot and manual imports;
+Spark project data is not synchronized yet. See [integration details](docs/vayu-integration.md).
+
 ## Local browser view on Windows
 
 WEB_AGENT_VIEW now starts its own local Playwright Chromium session when opened.

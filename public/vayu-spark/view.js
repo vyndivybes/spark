@@ -1,0 +1,18 @@
+(()=>{'use strict';const $=id=>document.getElementById(id);let snapshot=null;
+const el=(tag,text)=>{const n=document.createElement(tag);n.textContent=String(text??'');return n;};
+const svg=(tag,attributes)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attributes))n.setAttribute(k,String(v));return n;};
+async function request(url){const r=await fetch(url,{cache:'no-store'});const data=await r.json();if(!r.ok)throw Error(data.error||'Snapshot unavailable.');return data;}
+function renderTasks(){const q=$('filter').value.toLowerCase();$('rows').replaceChildren();for(const task of (snapshot?.tasks||[]).filter(x=>[x.title,x.status,x.kind].join(' ').toLowerCase().includes(q))){const row=el('tr','');for(const value of [task.title,task.status,task.kind,task.due||'Not recorded'])row.append(el('td',value));$('rows').append(row);}}
+function render(){
+ $('stats').replaceChildren();for(const [value,label] of [[snapshot.documents.length,'Published notes'],[snapshot.tasks.length,'Recorded tasks'],[snapshot.tasks.filter(x=>x.status==='done'||x.status==='completed').length,'Completed tasks']]){const card=el('p',label);card.prepend(el('strong',value));$('stats').append(card);}
+ $('status').textContent=snapshot.project+' · Snapshot published '+new Date(snapshot.publishedAt).toLocaleString();
+ const nodes=snapshot.nodes.slice(0,40),positions=new Map();nodes.forEach((node,i)=>positions.set(node.id,i===0?[450,250]:[450+340*Math.cos((i-1)*2*Math.PI/Math.max(1,nodes.length-1)),250+195*Math.sin((i-1)*2*Math.PI/Math.max(1,nodes.length-1))]));$('network').replaceChildren();
+ for(const edge of snapshot.edges){const a=positions.get(edge.source),b=positions.get(edge.target);if(a&&b)$('network').append(svg('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1]}));}
+ for(const node of nodes){const [x,y]=positions.get(node.id),group=svg('g',{tabindex:0,role:'button','aria-label':node.title});group.append(svg('circle',{cx:x,cy:y,r:node.type==='project'?22:12}));const text=svg('text',{x,y:y+30,'text-anchor':'middle'});text.textContent=node.title.slice(0,32);group.append(text);const inspect=()=>{$('inspector').textContent=node.title+'\n\n'+node.summary;};group.addEventListener('click',inspect);group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')inspect();});$('network').append(group);}
+ $('inspector').textContent=snapshot.scope;renderTasks();
+}
+async function loadProject(){if(!$('project').value)return;try{snapshot=await request('/api/spark-project?project='+encodeURIComponent($('project').value));render();}catch(e){snapshot=null;$('stats').replaceChildren();$('network').replaceChildren();$('rows').replaceChildren();$('inspector').textContent='';$('status').textContent=e.message;}}
+async function refresh(){try{const selected=$('project').value,{projects}=await request('/api/spark-projects');$('project').replaceChildren();for(const project of projects){const option=el('option',project.project);option.value=project.project;$('project').append(option);}if(projects.some(x=>x.project===selected))$('project').value=selected;if(!projects.length){snapshot=null;$('stats').replaceChildren();$('network').replaceChildren();$('rows').replaceChildren();$('inspector').textContent='';$('status').textContent='No published project snapshots. Publish one from Spark Home.';return;}await loadProject();}catch(e){$('status').textContent=e.message;}}
+$('refresh').onclick=refresh;$('project').onchange=loadProject;$('filter').oninput=renderTasks;
+for(const mode of ['graph','tasks'])$(mode+'Tab').onclick=()=>{for(const key of ['graph','tasks']){$(key).hidden=key!==mode;$(key+'Tab').setAttribute('aria-pressed',String(key===mode));}};
+refresh();})();

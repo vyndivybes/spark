@@ -54,12 +54,26 @@ from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
 from spark_workspace_auth import workspace_client_allowed
+from spark_pc_access import PcAccess
+from spark_jarvis import JarvisClient
+from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
 from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
 spark_workspace = SparkWorkspace(_SPARK_WORKSPACE_ROOT)
 spark_evolution = Evolution(spark_workspace)
 spark_workbench = Workbench(spark_workspace)
+pc_tasks=PcTasks(_SPARK_WORKSPACE_ROOT/'pc-tasks')
+
+def _graphify_registered():
+    # Read-only probe: is the Graphify MCP service host-configured for the
+    # query_spark_graph voice tool? Never touches the graph or spawns a process.
+    try:
+        config = spark_workbench.integrations.catalog()
+    except Exception:
+        return False
+    entry = config.get('graphify') if isinstance(config, dict) else None
+    return bool(isinstance(entry, dict) and 'query_graph' in entry.get('read_tools', []))
 
 @app.on_event("startup")
 async def start_intelligence_scheduler():
@@ -111,6 +125,7 @@ AUDIO_TRANSPORT = select_transport(os.environ.get("SPARK_AUDIO_TRANSPORT"))
 SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
+    "pc_autonomy_enabled": False,
     "face_auth_enabled": False, # Default OFF as requested
     "tool_permissions": {
         "generate_cad": True,
@@ -157,6 +172,30 @@ def save_settings():
 # Load on startup
 load_settings()
 
+
+def session_pc_access(sid, data):
+    trusted = workspace_client_allowed(sio.get_environ(sid),
+        data.get('workspace_token') if isinstance(data, dict) else None,
+        os.environ.get('SPARK_WORKSPACE_TOKEN'))
+    return PcAccess(_SPARK_WORKSPACE_ROOT / 'pc-access', enabled=lambda: bool(
+        trusted and SETTINGS.get('pc_autonomy_enabled') is True
+        and audio_loop is not None and getattr(audio_loop, 'owner_sid', None) == sid
+        and not audio_loop.stop_event.is_set()
+        and sio.manager.is_connected(sid, '/')
+        and (not SETTINGS.get('face_auth_enabled', False)
+             or (authenticator and authenticator.authenticated))))
+
+
+def session_jarvis_access(sid, data):
+    trusted = workspace_client_allowed(sio.get_environ(sid),
+        data.get('workspace_token') if isinstance(data, dict) else None,
+        os.environ.get('SPARK_WORKSPACE_TOKEN'))
+    return JarvisClient(enabled=lambda: bool(trusted
+        and audio_loop is not None and getattr(audio_loop, 'owner_sid', None) == sid
+        and not audio_loop.stop_event.is_set() and sio.manager.is_connected(sid, '/')
+        and (not SETTINGS.get('face_auth_enabled', False)
+             or (authenticator and authenticator.authenticated))))
+
 # The browser view works independently of Live audio and cloud API credentials.
 browser_sessions = register_browser_sessions(sio, lambda sid: bool(
     sio.manager.is_connected(sid, '/')
@@ -195,10 +234,15 @@ async def status():
             "gemini_configured": ada.client is not None,
             "groq_configured": bool(os.environ.get("GROQ_API_KEY")),
             "ai_provider": cloud_provider(),
+            "pc_autonomy_enabled": SETTINGS.get('pc_autonomy_enabled') is True,
+            "jarvis_bridge_configured": JarvisClient(enabled=lambda: False).configured(),
+            "pc_autonomy_session_authorized": bool(audio_loop and getattr(audio_loop, 'pc_access', None)
+                                                   and audio_loop.pc_access.enabled()),
             "live_model": groq_model() if cloud_provider() == "groq" else ada.MODEL,
             "live_profile": "groq_voice" if cloud_provider() == "groq" else live_profile(),
             "audio_transport": AUDIO_TRANSPORT,
             "groq_vision_available": os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1",
+            "graphify_ready": _graphify_registered(),
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **({"live_state":live_state,
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
@@ -247,6 +291,10 @@ async def workspace_action(sid, data):
         payload = data.get("payload") if isinstance(data, dict) else None
         if isinstance(action, str) and action in EVOLUTION_ACTIONS:
             result = await spark_evolution.execute(action, project, payload)
+        elif action in ('pc_task_prepare','pc_task_run','pc_task_history'):
+            spark_workspace.skills._file(project)
+            try:result=await pc_tasks.execute(action,project,payload,getattr(audio_loop,'pc_access',None))
+            except ValueError as error:raise WorkbenchError(str(error)) from None
         elif isinstance(action, str) and action in WORKBENCH_ACTIONS:
             result = await spark_workbench.execute(action, project, payload)
         else:
@@ -384,6 +432,42 @@ async def start_groq_audio(sid, data=None):
             return "Authenticate to SPARK before using saved preferences or reminders."
         project = workspace_project_by_sid.get(sid, "default")
         try:
+
+            if command.get("action") == "graphify_voice_query":
+                import re
+                question = command.get("payload", {}).get("question")
+                if not isinstance(question, str) or not 1 <= len(question) <= 220:
+                    return "Invalid architecture question."
+                response = await spark_workbench.execute(
+                    "mcp_call", project, {
+                        "server": "graphify",
+                        "name": "query_graph",
+                        "arguments": {
+                            "question": question,
+                            "mode": "bfs",
+                            "depth": 2,
+                            "token_budget": 1200
+                        }
+                    }
+                )
+                if response.get("isError"):
+                    return "Graphify could not complete the architecture query."
+                evidence = "\n".join(
+                    item.get("text", "")
+                    for item in response.get("content", [])
+                    if item.get("type") == "text"
+                )
+                paths = list(dict.fromkeys(
+                    re.findall(r"\bsrc=([^\s\]]+)", evidence)
+                ))
+                paths = [p for p in paths if p.lower() not in ("loc=l1",)]
+                if not paths:
+                    return "Graphify found no matching source files for that question."
+                return (
+                    "Graphify found related SPARK files: "
+                    + "; ".join(paths[:7])
+                    + ". These are graph associations, not verified change impacts."
+                )
             result = await spark_workbench.execute(command["action"], project, command["payload"])
             if command['action']=='agent_snapshot':
                 counts={}
@@ -436,6 +520,8 @@ async def start_groq_audio(sid, data=None):
             on_live_status=on_live_status,
         )
         audio_loop.owner_sid=sid
+        audio_loop.pc_access=session_pc_access(sid, data)
+        audio_loop.jarvis_access=session_jarvis_access(sid, data)
         audio_loop.set_paused(True)
         live_state='connecting'
         live_message='Starting Groq cloud hands-free speech.'
@@ -542,6 +628,85 @@ async def start_audio(sid, data=None):
         print(f"Sending Browser data to frontend: {len(data.get('log', ''))} chars logs")
         asyncio.create_task(sio.emit('browser_frame', data))
         
+
+    async def on_graphify_query(question):
+        import re
+        if (
+            audio_loop is None
+            or getattr(audio_loop, "owner_sid", None) != sid
+            or getattr(audio_loop, "session", None) is None
+            or not sio.manager.is_connected(sid, "/")
+            or (
+                SETTINGS.get("face_auth_enabled", False)
+                and not (authenticator and authenticator.authenticated)
+            )
+        ):
+            return "Graphify denied: no authorized voice session."
+
+        if not isinstance(question, str) or not 1 <= len(question) <= 220:
+            return "Invalid graph question."
+
+        # Normalize common speech-recognition variations.
+        question = re.sub(
+            r"jarvis\s+client", "JarvisClient", question, flags=re.I
+        )
+        question = re.sub(
+            r"gro[kg]\s+voice\s+loop",
+            "GroqVoiceLoop", question, flags=re.I
+        )
+
+        try:
+            project = workspace_project_by_sid.get(sid, "default")
+            response = await asyncio.wait_for(
+                spark_workbench.execute(
+                    "mcp_call", project, {
+                        "server": "graphify",
+                        "name": "query_graph",
+                        "arguments": {
+                            "question": question,
+                            "mode": "bfs",
+                            "depth": 2,
+                            "token_budget": 1600
+                        }
+                    }
+                ),
+                timeout=20
+            )
+
+            if response.get("isError"):
+                return "Graphify returned an error."
+
+            nodes = []
+            for item in response.get("content", []):
+                if item.get("type") != "text":
+                    continue
+                for line in item.get("text", "").splitlines():
+                    match = re.match(
+                        r"^NODE (.+?) \[src=(.*?) loc=",
+                        line
+                    )
+                    if match and match.group(2):
+                        entry = (
+                            match.group(1)[:80] +
+                            " (" + match.group(2)[:120] + ")"
+                        )
+                        if entry not in nodes:
+                            nodes.append(entry)
+
+            if not nodes:
+                return "Graphify found no matching source nodes."
+
+            print("[SPARK] Graphify MCP query PASS")
+            return (
+                "Graphify verified these related nodes and source files: "
+                + "; ".join(nodes[:9])
+                + ". These are graph associations, not independently "
+                  "verified dependency directions or change impacts."
+            )[:1100]
+
+        except Exception:
+            return "Graphify MCP unavailable or timed out."
+
     # Callback to send Transcription data to frontend
     def on_transcription(data):
         # data = {"sender": "User"|"ADA", "text": "..."}
@@ -593,11 +758,14 @@ async def start_audio(sid, data=None):
         asyncio.create_task(sio.emit('mic_safety', payload))
 
     # Initialize SPARK Live. A running socket is not proof of provider connection.
+    session_loop = None
     def on_live_status(payload):
         global live_state, live_message
+        if audio_loop is not session_loop:
+            return
         live_state = payload.get("state", "error")
         live_message = payload.get("message", "")
-        asyncio.create_task(sio.emit('ai_status', payload))
+        asyncio.create_task(sio.emit('ai_status', payload, room=sid))
 
     try:
         print(f"Initializing AudioLoop with device_index={device_index}")
@@ -606,6 +774,7 @@ async def start_audio(sid, data=None):
             on_audio_data=on_audio_data,
             on_browser_audio=on_browser_audio if AUDIO_TRANSPORT == "browser_aec" else None,
             on_web_sources=on_web_sources,
+            on_graphify_query=on_graphify_query,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,
@@ -624,8 +793,11 @@ async def start_audio(sid, data=None):
             kasa_agent=kasa_agent
         )
         print("AudioLoop initialized successfully.")
+        session_loop = audio_loop
 
         audio_loop.owner_sid = sid  # Approval ownership even in native fallback.
+        audio_loop.pc_access = session_pc_access(sid, data)
+        audio_loop.jarvis_access = session_jarvis_access(sid, data)
         audio_loop.browser_ready = False
 
         # Apply current permissions
@@ -651,6 +823,8 @@ async def start_audio(sid, data=None):
         # Add a done callback to catch silent failures in the loop
         def handle_loop_exit(task):
             global live_state, live_message, audio_loop, loop_task
+            if task is not loop_task:
+                return
             try:
                 task.result()
             except asyncio.CancelledError:
@@ -903,6 +1077,11 @@ async def shutdown(sid, data=None):
 
 @sio.event
 async def user_input(sid, data):
+    if (not isinstance(data, dict) or not audio_loop
+            or getattr(audio_loop, 'owner_sid', None) != sid
+            or (SETTINGS.get('face_auth_enabled', False)
+                and not (authenticator and authenticator.authenticated))):
+        return
     text = data.get('text')
     print(f"[SPARK] Received typed input ({len(text or '')} characters)")
     
@@ -1103,6 +1282,10 @@ async def save_memory(sid, data):
 
 @sio.event
 async def upload_memory(sid, data):
+    if (not audio_loop or getattr(audio_loop, 'owner_sid', None) != sid
+            or (SETTINGS.get('face_auth_enabled', False)
+                and not (authenticator and authenticator.authenticated))):
+        return
     print(f"Received memory upload request")
     try:
         memory_text = data.get('memory', '')
@@ -1487,8 +1670,19 @@ async def get_settings(sid):
 
 @sio.event
 async def update_settings(sid, data):
+    if not isinstance(data, dict):
+        return
+    if 'pc_autonomy_enabled' in data:
+        if (type(data['pc_autonomy_enabled']) is not bool or not workspace_client_allowed(
+                sio.get_environ(sid), data.get('workspace_token'),
+                os.environ.get('SPARK_WORKSPACE_TOKEN'))
+                or (SETTINGS.get('face_auth_enabled', False)
+                    and not (authenticator and authenticator.authenticated))):
+            await sio.emit('error', {'msg': 'Change PC autonomy from the authenticated Spark cockpit.'}, room=sid)
+            return
+        SETTINGS['pc_autonomy_enabled'] = data['pc_autonomy_enabled']
     # Generic update
-    print(f"Updating settings: {data}")
+    print('Updating settings keys:', sorted(k for k in data if k != 'workspace_token'))
     
     # Handle specific keys if needed
     if "tool_permissions" in data:

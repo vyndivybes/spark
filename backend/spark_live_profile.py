@@ -55,10 +55,16 @@ def select_live_config(profile, full_config):
         output = select_live_config("cinematic", full_config)
         output["system_instruction"] = output["system_instruction"].replace(
             "No tools are provided in cinematic voice mode.",
-            "You may call only the declared read-only system-status tool and "
+            "You may call the read-only system-status and SPARK graph tools, plus the "
             "approval-gated application launcher. Never claim an action "
             "succeeded until the tool returns success. If approval is denied "
             "or times out, explain this briefly and continue listening."
+        )
+        output["system_instruction"] += (
+            " When asked about SPARK code architecture, Jarvis, "
+            "module dependencies or Graphify, call query_spark_graph. "
+            "Use returned evidence and filenames. If the tool fails, "
+            "say so. Never invent a graph lookup."
         )
         output["tools"] = [{"function_declarations": CINEMATIC_FUNCTIONS}]
         return output

@@ -62,6 +62,47 @@ test('SPARK identity and launch controls are present in the desktop shell',()=>{
   assert.match(app,/spark:open-experience/);
 });
 
+test('VAYU uses a bounded local launch and user-data storage',()=>{
+  const root=path.resolve(__dirname,'..');
+  const userData=path.join(os.tmpdir(),'spark-vayu-test-data');
+  const plan=getExperiencePlan('vayu',{root,userData,python:'configured-python'});
+  assert.equal(plan.url,'http://127.0.0.1:4891');
+  assert.equal(plan.page,'/VAYU-Knowledge-Sphere-Live.html');
+  assert.equal(plan.steps[0].command,'configured-python');
+  assert.equal(plan.steps[0].shell,false);
+  assert.equal(plan.steps[0].env.SPARK_VAYU_EXPORTS_DIR,path.join(userData,'vayu-exports'));
+  const connected=getExperiencePlan('vayu',{root,userData,vayuExportsDir:path.join(userData,'published-projects')});
+  assert.equal(connected.steps[0].env.SPARK_VAYU_EXPORTS_DIR,path.join(userData,'published-projects'));
+  assert.deepEqual(plan.steps[0].args,[path.join(root,'scripts','vayu_launcher.py'),'--port','4891','--data-dir',path.join(userData,'vayu-workspace')]);
+});
+
+test('VAYU manager starts the real server, reuses its window and stops on close',
+  {skip:process.env.SPARK_TEST_VAYU_LAUNCH!=='1'},async()=>{
+  const {EventEmitter}=require('node:events');
+  const {createExperienceManager}=require('../electron/experience-manager.cjs');
+  const userData=fs.mkdtempSync(path.join(os.tmpdir(),'spark-vayu-launch-'));
+  let window;
+  class LocalWindow extends EventEmitter{
+    constructor(options){super();this.options=options;this.dead=false;this.webContents=new EventEmitter();this.webContents.setWindowOpenHandler=()=>{};window=this;}
+    isDestroyed(){return this.dead;}
+    focus(){this.focused=true;}
+    async loadURL(url){this.url=url;const response=await fetch(url);assert.equal(response.status,200);}
+    close(){this.dead=true;this.emit('closed');}
+  }
+  const manager=createExperienceManager({root:path.resolve(__dirname,'..'),userData,
+    python:process.env.SPARK_PYTHON||'python',BrowserWindow:LocalWindow});
+  try{
+    assert.equal((await manager.open('vayu')).reused,false);
+    assert.equal(window.options.webPreferences.nodeIntegration,false);
+    assert.equal(window.options.webPreferences.sandbox,true);
+    assert.match(window.url,/VAYU-Knowledge-Sphere-Live\.html$/);
+    assert.equal((await manager.open('vayu')).reused,true);
+    assert.equal(window.focused,true);
+    window.close();
+    await assert.rejects(fetch('http://127.0.0.1:4891/api/workspace?space=business'));
+  }finally{manager.stopAll();fs.rmSync(userData,{recursive:true,force:true});}
+});
+
 test('both original HOLO gestures and Brain Map use selected SPARK vault after publish',()=>{
   const x=fixture();try{
     const vault=path.join(x.data,'workspace','holo-notes');

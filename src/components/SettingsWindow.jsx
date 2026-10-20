@@ -38,6 +38,7 @@ const SettingsWindow = ({
 }) => {
     const [permissions, setPermissions] = useState({});
     const [faceAuthEnabled, setFaceAuthEnabled] = useState(false);
+    const [pcAutonomy, setPcAutonomy] = useState(false);
 
     useEffect(() => {
         // Request initial permissions
@@ -47,6 +48,7 @@ const SettingsWindow = ({
         const handleSettings = (settings) => {
             console.log("Received settings:", settings);
             if (settings) {
+                setPcAutonomy(settings.pc_autonomy_enabled === true);
                 if (settings.tool_permissions) setPermissions(settings.tool_permissions);
                 if (typeof settings.face_auth_enabled !== 'undefined') {
                     setFaceAuthEnabled(settings.face_auth_enabled);
@@ -89,7 +91,7 @@ const SettingsWindow = ({
     };
 
     return (
-        <div className="absolute top-20 right-10 bg-black/90 border border-cyan-500/50 p-4 rounded-lg z-50 w-80 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+        <div className="absolute top-20 right-10 bg-black/90 border border-cyan-500/50 p-4 rounded-lg z-50 w-80 max-h-[calc(100vh-6rem)] overflow-y-auto backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.2)]">
             <div className="flex justify-between items-center mb-4 border-b border-cyan-900/50 pb-2">
                 <h2 className="text-cyan-400 font-bold text-sm uppercase tracking-wider">Settings</h2>
                 <button onClick={onClose} className="text-cyan-600 hover:text-cyan-400">
@@ -195,6 +197,16 @@ const SettingsWindow = ({
             </div>
 
             {/* Tool Permissions Section */}
+            <div className="mb-6 rounded border border-amber-500/40 p-3">
+                <label className="flex items-center justify-between gap-3 text-sm text-amber-200">
+                    PC autonomy
+                    <input type="checkbox" checked={pcAutonomy} onChange={event=>socket.emit('update_settings', {
+                        pc_autonomy_enabled:event.target.checked,workspace_token:socket.workspaceToken
+                    })}/>
+                </label>
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">Read and modify PC files, launch programs, and run terminal commands as your Windows account without repeated approval. File contents and command output can reach your active AI provider.</p>
+                <p className="mt-2 text-xs text-slate-400">File-tool overwrites are backed up. Terminal changes are not. Reconnect voice after enabling; disabling blocks subsequent PC actions immediately.</p>
+            </div>
             <div className="mb-6">
                 <h3 className="text-cyan-400 font-bold mb-3 text-xs uppercase tracking-wider opacity-80">Tool Confirmations</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from spark_intelligence.policy import CircuitBreaker
 from spark_rea import ReaClient, ReaError
 from spark_productivity import WorkbenchError
+from spark_jarvis import JarvisClient, JARVIS_TOOL
 
 ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack')
 
@@ -20,6 +21,7 @@ class Integrations:
         self.breakers = {}
         self.audit = []
         self.audit_dir=Path(audit_dir) if audit_dir is not None else None
+        self.jarvis=JarvisClient(enabled=lambda: True)
 
     def _audit_db(self):
         self.audit_dir.mkdir(parents=True,exist_ok=True)
@@ -72,12 +74,26 @@ class Integrations:
     def list(self):
         config=self.catalog()
         configured=[{"name": name, "transport": item.get('transport','stdio'), "configured": True, "read_tools": item.get("read_tools",[]), "health": self.breakers[name].status() if name in self.breakers else {"state":"unprobed"}} for name,item in config.items()]
+        if 'vaos-jarvis' not in config and self.jarvis.configured():
+            configured.append({'name':'vaos-jarvis','transport':'electron-session','configured':True,
+                'state':'session-managed','read_tools':['ask_vaos_jarvis'],
+                'setup':'Sign in from Experience Deck → VAOS Jarvis. Each question verifies the VAOS founder session.'})
+        names={item['name'] for item in configured}
         return configured+[{'name':name,'configured':False,'state':'unconnected','read_tools':[],
                            'setup':'Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger.'}
-                          for name in ADAPTERS if name not in config]
+                          for name in ADAPTERS if name not in names]
 
     async def execute(self, server, action, args):
         config = self.catalog()
+        if server=='vaos-jarvis' and server not in config and self.jarvis.configured():
+            if action=='mcp_discover':
+                return [{'name':JARVIS_TOOL['name'],'description':JARVIS_TOOL['description'],
+                         'inputSchema':JARVIS_TOOL['parameters']}]
+            if action!='mcp_call' or args.get('name')!='ask_vaos_jarvis' or not isinstance(args.get('arguments'),dict) or set(args['arguments'])!={'question'}:
+                raise WorkbenchError('Select the Jarvis advisory question tool with a question argument.')
+            result=await self.jarvis.ask(args['arguments']['question'])
+            self._record({'server':server,'action':action,'tool':'ask_vaos_jarvis','ok':result.get('ok') is True})
+            return {'content':[{'type':'text','text':json.dumps(result)}],'isError':result.get('ok') is not True}
         if not isinstance(server, str) or server not in config:
             raise WorkbenchError("Select a host-configured MCP service.")
         if action not in ('mcp_discover','mcp_call'):

@@ -30,6 +30,24 @@ CINEMATIC_FUNCTIONS = [
             },
             "required": ["app"]
         }
+    },
+    {
+        "name": "query_spark_graph",
+        "description": (
+            "Query the local Graphify knowledge graph for SPARK "
+            "architecture, source modules and code relationships. "
+            "Use this tool before answering architecture questions."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "question": {
+                    "type": "STRING",
+                    "description": "SPARK architecture question"
+                }
+            },
+            "required": ["question"]
+        }
     }
 ]
 _ALLOWED = frozenset(x["name"] for x in CINEMATIC_FUNCTIONS)

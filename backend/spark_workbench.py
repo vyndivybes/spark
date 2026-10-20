@@ -8,6 +8,7 @@ from spark_robotics import simulate, route
 from spark_integrations import Integrations
 from spark_intelligence.service import Intelligence, ACTION_KEYS as INTELLIGENCE_ACTIONS
 from spark_intelligence.runtime import PolicyError
+from spark_vayu_data import VayuExports
 
 ACTION_KEYS = {
     **INTELLIGENCE_ACTIONS,
@@ -34,6 +35,8 @@ ACTION_KEYS = {
     "mcp_restart": {"server", "approved"},
     "mcp_audit": set(),
     "analyze_snapshot": {"image", "question"},
+    "publish_vayu_snapshot":set(),
+    "unpublish_vayu_snapshot":set(),
 }
 
 
@@ -43,6 +46,7 @@ class Workbench:
         self.office = Office(self.productivity)
         self.integrations = integrations or Integrations(audit_dir=workspace.skills.root.parent/'integrations')
         self.intelligence = Intelligence(workspace,integrations=self.integrations)
+        self.vayu = VayuExports(workspace,self.productivity,None)
 
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
@@ -50,6 +54,14 @@ class Workbench:
         if not isinstance(project, str) or len(project) > 60:
             raise WorkbenchError("Invalid project identifier.")
         self.productivity.skills._file(project)
+        if action in ('publish_vayu_snapshot','unpublish_vayu_snapshot'):
+            try:
+                if action=='unpublish_vayu_snapshot':return await asyncio.to_thread(self.vayu.revoke,project)
+                # Runtime SQLite is owned by the event-loop thread. Capture its
+                # project rows here before doing snapshot file work off-thread.
+                jobs=self.intelligence._runtime().jobs(project)
+                return await asyncio.to_thread(self.vayu.publish,project,jobs)
+            except ValueError as error:raise WorkbenchError(str(error)) from None
         if action in INTELLIGENCE_ACTIONS:
             if os.environ.get('SPARK_INTELLIGENCE_ENABLED','1')=='0':
                 raise WorkbenchError('Optional intelligence module is disabled on this host.')

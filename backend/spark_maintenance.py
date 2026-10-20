@@ -49,7 +49,7 @@ class Maintenance:
                 or not path.is_file() or path.is_symlink() or path.parent.is_symlink()
                 or not path.resolve().is_relative_to(self.root)):
             raise MaintenanceError("Only existing backend Python source files can be repaired.")
-        if path.name in {"spark_maintenance.py", "spark_rea.py", "server.py", "spark_evolution.py"}:
+        if path.name in {"spark_maintenance.py", "spark_rea.py", "server.py", "spark_evolution.py", "spark_repo_upgrade.py"}:
             raise MaintenanceError("Recovery and authorization code requires a reviewed manual upgrade.")
         return path
 
@@ -110,7 +110,7 @@ class Maintenance:
             raise MaintenanceError('Linked candidate storage is prohibited.')
         return path
 
-    def stage(self, changes):
+    def stage(self, changes, *, provenance=None):
         if not isinstance(changes,list) or not 1<=len(changes)<=4:
             raise MaintenanceError('Select one to four replacements.')
         seen=set()
@@ -128,6 +128,8 @@ class Maintenance:
             except SyntaxError:
                 raise MaintenanceError('Candidate has invalid Python syntax.') from None
         record={'id':secrets.token_hex(12),'status':'staged','changes':changes}
+        if provenance is not None:
+            record['provenance'] = provenance
         atomic_write(self._candidate_path(record['id']),json.dumps(record).encode())
         return record
 

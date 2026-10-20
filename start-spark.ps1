@@ -44,6 +44,21 @@ function Find-SupportedPython {
     throw 'SPARK needs Python 3.11-3.13 (3.12 recommended). Install Python 3.12 for Windows, then rerun this script. Your Python 3.14 installation remains unchanged.'
 }
 
+function Get-GraphifyMcpServers {
+    # Register the bundled Graphify knowledge-graph MCP server as a
+    # host-configured read-only service. SPARK's backend never accepts
+    # executable paths from a socket; this is the only place it is set.
+    $graphifyMcp = Join-Path $PSScriptRoot '.venv\Scripts\graphify-mcp.exe'
+    $graphPath = Join-Path $PSScriptRoot 'graphify-out\graph.json'
+    if (-not (Test-Path -LiteralPath $graphifyMcp)) { return $null }
+    $entry = @{ graphify = @{
+        command = $graphifyMcp
+        args    = @('--graph', $graphPath)
+        read_tools = @('query_graph')
+    } }
+    return ($entry | ConvertTo-Json -Depth 6 -Compress)
+}
+
 $venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path $venvPython)) {
     $hostPython = Find-SupportedPython
@@ -127,6 +142,23 @@ if (-not (Test-Path '.\node_modules\electron')) {
     Write-Host 'Installing SPARK Node dependencies...' -ForegroundColor Cyan
     & npm.cmd ci --no-fund
     if ($LASTEXITCODE -ne 0) { throw 'SPARK Node dependency installation failed.' }
+}
+
+# Graphify architecture graph: build once if missing so the query_spark_graph
+# voice tool has a real graph to answer from. Rebuild is opt-in (see README).
+if (-not (Test-Path '.\graphify-out\graph.json')) {
+    Write-Host 'Building SPARK Graphify architecture graph (first run)...' -ForegroundColor Cyan
+    & $venvPython -m graphify update . --code-only 2>&1 | ForEach-Object { Write-Host "[graphify] $_" }
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path '.\graphify-out\graph.json')) {
+        Write-Warning 'Graphify graph build failed. query_spark_graph will report "MCP unavailable" until it is rebuilt.'
+    }
+}
+$mcpServers = Get-GraphifyMcpServers
+if ($mcpServers) {
+    $env:SPARK_MCP_SERVERS = $mcpServers
+    Write-Host 'Graphify MCP registered (read-only: query_graph).' -ForegroundColor Cyan
+} else {
+    Write-Warning 'Graphify MCP executable not found in .venv; architecture queries will be unavailable.'
 }
 
 Write-Host 'Starting SPARK cockpit with original ADA, HOLO and Brain Map experiences.' -ForegroundColor Green
