@@ -204,3 +204,30 @@ application versions or recovering damaged data, close the backend and copy
 `%LOCALAPPDATA%\SPARK\workspace` to a private backup. Do not publish that folder.
 Git source rollback does not delete or downgrade user databases. No production
 merge, deployment, credential change or automatic updater is added here.
+
+## Autonomous evolution engine (SAEE)
+
+`backend/spark_saee.py` is the orchestration layer over the engines above. It
+adds a capability registry, an advisory planner and a durable evolution ledger;
+it does not add a new authority. Every source-changing step still runs through
+the staged repository/repair engines and their existing approvals.
+
+Discovery (`saee_discover`) matches a natural-language upgrade request against a
+local inventory of capabilities that are actually present, reports genuine gaps
+honestly (for example automatic deployment, weight training and file
+organization have no engine), and returns a risk assessment plus a plan whose
+steps name existing engine actions. It executes nothing; `executed` is always
+false. A request with no matching engine is reported as `medium` risk needing a
+new design, never as covered.
+
+The ledger records attempts (one row per pipeline stage), deduplicated error
+signatures with any verified repair, repairs and before/after benchmarks across
+the master-prompt pipeline (`request → inspect → plan → risk_check → isolate →
+develop → test → security_check → benchmark → release_gate → deploy → verify →
+monitor`). `saee_failures` lists signatures with no verified repair. Records are
+project-isolated JSON under `%LOCALAPPDATA%\SPARK\workspace\saee` written with
+the same atomic write used by maintenance, and linked storage directories are
+rejected. These actions are exposed to the authorized workspace session through
+the existing evolution dispatch; no shell, merge, deploy or credential action is
+ever automatic. Capability presence and test coverage come from the local
+inventory and are not an independent security audit.

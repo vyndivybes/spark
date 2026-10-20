@@ -7,6 +7,7 @@ from arkus_skill_forge import check_spec, SkillError
 from spark_maintenance import Maintenance, MaintenanceError, digest
 from spark_rea import ReaClient, ReaError
 from spark_repo_upgrade import RepositoryUpgrades, snapshot
+from spark_saee import AutonomousEvolutionEngine, SAEEError
 
 
 ACTION_KEYS = {
@@ -25,6 +26,14 @@ ACTION_KEYS = {
     "upgrade_skill": {"spec", "base_id"},
     "rea_discover": set(),
     "rea_call": {"name", "arguments"},
+    # SAEE core: advisory discovery plus its own local registry and ledger.
+    "saee_registry": set(),
+    "saee_discover": {"request"},
+    "saee_ledger": set(),
+    "saee_failures": set(),
+    "saee_record_attempt": {"request_id", "stage", "outcome", "evidence"},
+    "saee_record_error_signature": {"signature", "repair", "verified"},
+    "saee_record_benchmark": {"name", "before", "after"},
 }
 
 
@@ -51,7 +60,37 @@ class Evolution:
         self.generator = generator or generate_json
         self.repositories = RepositoryUpgrades(self.maintenance, self.generator)
         self.rea = rea or ReaClient()
+        self.saee = AutonomousEvolutionEngine(workspace, evolution=self)
         self.lock = asyncio.Lock()
+
+    async def _saee(self, action, project, payload):
+        # Advisory registry/ledger only. These actions never stage, activate or
+        # deploy source; that still flows through the maintenance/repo gates.
+        saee = self.saee
+        try:
+            if action == "saee_registry":
+                return await asyncio.to_thread(saee.registry, project)
+            if action == "saee_discover":
+                return await asyncio.to_thread(saee.discover, project, payload["request"])
+            if action == "saee_ledger":
+                return await asyncio.to_thread(saee.ledger, project)
+            if action == "saee_failures":
+                return await asyncio.to_thread(saee.failures, project)
+            if action == "saee_record_attempt":
+                return await asyncio.to_thread(
+                    saee.record_attempt, project, payload["request_id"],
+                    payload["stage"], payload["outcome"], payload["evidence"])
+            if action == "saee_record_error_signature":
+                return await asyncio.to_thread(
+                    saee.record_error_signature, project, payload["signature"],
+                    payload["repair"], payload["verified"])
+            if action == "saee_record_benchmark":
+                return await asyncio.to_thread(
+                    saee.record_benchmark, project, payload["name"],
+                    payload["before"], payload["after"])
+        except SAEEError as error:
+            raise MaintenanceError(str(error)) from None
+        raise MaintenanceError("Unknown SAEE action.")
 
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
@@ -60,6 +99,8 @@ class Evolution:
         self.workspace.skills._file(project)
         if action.startswith("rea_"):
             return await self.rea.request(action, payload)
+        if action.startswith("saee_"):
+            return await self._saee(action, project, payload)
         async with self.lock:
             await asyncio.to_thread(self.maintenance.recover)
             if action == 'list_repository_analyses':
