@@ -7,9 +7,9 @@ const net = require('node:net');
 const http = require('node:http');
 const {spawn,spawnSync} = require('node:child_process');
 
-const KNOWN = Object.freeze({holo:4890,brain:4710,vayu:4891});
+const KNOWN = Object.freeze({holo:4890,brain:4710,vayu:4891,graphify:4720,graphiti:4721,hermes:4722});
 
-function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExportsDir}={}){
+function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExportsDir}={}) {
   if(!Object.prototype.hasOwnProperty.call(KNOWN,name))throw new Error('Unknown SPARK experience.');
   if(!root||!userData||typeof python!=='string'||!python.trim())throw new Error('SPARK experience paths are unavailable.');
   const vendor=path.join(root,'vendor');
@@ -21,6 +21,33 @@ function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExpo
       page:'/VAYU-Knowledge-Sphere-Live.html',steps:[
         {command:python,args:[wrapper,'--port',String(KNOWN.vayu),'--data-dir',path.join(userData,'vayu-workspace')],cwd:folder,shell:false,once:false,
           env:{SPARK_VAYU_EXPORTS_DIR:vayuExportsDir||path.join(userData,'vayu-exports')}}
+      ]};
+  }
+  if(name==='graphify'){
+    const wrapper=path.join(root,'scripts','spark_knowledge_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK knowledge dashboard is missing.');
+    return {name,port:KNOWN.graphify,url:'http://127.0.0.1:'+KNOWN.graphify,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--mode','graphify','--port',String(KNOWN.graphify),'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env}}
+      ]};
+  }
+  if(name==='graphiti'){
+    const wrapper=path.join(root,'scripts','spark_knowledge_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK knowledge dashboard is missing.');
+    return {name,port:KNOWN.graphiti,url:'http://127.0.0.1:'+KNOWN.graphiti,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--mode','graphiti','--port',String(KNOWN.graphiti),'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env}}
+      ]};
+  }
+  if(name==='hermes'){
+    const wrapper=path.join(root,'scripts','spark_knowledge_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK knowledge dashboard is missing.');
+    return {name,port:KNOWN.hermes,url:'http://127.0.0.1:'+KNOWN.hermes,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--mode','hermes','--port',String(KNOWN.hermes),'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env}}
       ]};
   }
   const folder=path.join(vendor,name==='holo'?'holo-gestures':'brain-map');
