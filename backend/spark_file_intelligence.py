@@ -28,6 +28,7 @@ class FileIntelligenceError(ValueError):
 
 INTELLIGENCE_ACTIONS = {
     "files_intelligence_scan": ({"directory"}, {"large_mb", "old_days", "near_dup"}),
+    "files_search": ({"directory", "query"}, set()),
 }
 
 MAX_ENTRIES = 20000
@@ -101,6 +102,110 @@ def _jaccard(left, right):
     return intersection / union if union else 0.0
 
 
+# --- natural-language filesystem search (read-only) ---------------------
+_QUERY_STOPWORDS = frozenset({
+    "files", "file", "find", "all", "my", "in", "the", "show", "me", "list",
+    "of", "with", "that", "are", "any", "less", "more", "than", "from",
+    "over", "bigger", "larger", "smaller", "older", "newer", "modified",
+    "and", "or", "no", "not", "is", "was", "please", "search", "sort",
+})
+
+_UNIT_DAYS = {"day": 1, "days": 1, "week": 7, "weeks": 7,
+              "month": 30, "months": 30, "year": 365, "years": 365}
+_SIZE_BYTES = {"kb": 1024, "mb": 1024 ** 2, "gb": 1024 ** 3,
+               "byte": 1, "bytes": 1}
+
+_EXTENSION_WORDS = {
+    "pdf": ".pdf", "text": ".txt", "excel": ".xlsx", "xlsx": ".xlsx",
+    "spreadsheet": ".xlsx", "word": ".docx", "docx": ".docx", "doc": ".doc",
+    "csv": ".csv", "image": ".png", "png": ".png", "jpg": ".jpg",
+    "jpeg": ".jpg", "photo": ".jpg", "python": ".py", "json": ".json",
+    "markdown": ".md", "log": ".log", "zip": ".zip", "archive": ".zip",
+    "exe": ".exe", "msi": ".msi", "powerpoint": ".pptx", "pptx": ".pptx",
+}
+
+
+def parse_query(text):
+    """Heuristic NL query parser. Returns the machine-readable search intent.
+
+    Understands: size thresholds ("larger than 50 mb"), age ("older than
+    3 months", "newer than a week"), extensions (".pdf", "pdf files",
+    "excel files"), and free keywords (stopwords dropped). Unknown text is
+    treated as keywords. Nothing here executes anything.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise FileIntelligenceError("Enter a natural-language search query.")
+    lowered = text.lower()
+    result = {"keywords": [], "extensions": [], "min_size_bytes": None,
+              "max_age_days": None, "age_direction": None}
+
+    size = re.search(r"(?:over|larger|bigger|greater)\s+than\s+(\d+(?:\.\d+)?)"
+                     r"\s*(kib|mib|gib|gb|mb|kb|bytes|byte)?", lowered)
+    if size:
+        magnitude = float(size.group(1))
+        unit = (size.group(2) or "mb").lower()
+        if unit == "mib":
+            unit = "mb"
+        elif unit == "gib":
+            unit = "gb"
+        elif unit == "kib":
+            unit = "kb"
+        result["min_size_bytes"] = magnitude * _SIZE_BYTES[unit]
+    else:
+        plain = re.search(r"(\d+(?:\.\d+)?)\s*(gb|mb|kb)\b", lowered)
+        if plain:
+            result["min_size_bytes"] = float(plain.group(1)) * _SIZE_BYTES[plain.group(2)]
+
+    age = re.search(r"older than\s+(?:a\s+)?(?:(\d+|one|two|three|four|five)\s+)?"
+                    r"(day|days|week|weeks|month|months|year|years)", lowered)
+    newer = re.search(r"newer than\s+(?:a\s+)?(?:(\d+|one|two|three|four|five)\s+)?"
+                      r"(day|days|week|weeks|month|months|year|years)", lowered)
+    last = re.search(r"last\s+(?:(\d+|one|two|three|four|five)\s*)?"
+                     r"(day|days|week|weeks|month|months|year|years)", lowered)
+    words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+
+    def _value(raw):
+        return words.get(raw) or int(raw)
+
+    if age:
+        result["max_age_days"] = (_value(age.group(1)) if age.group(1) else 1) * _UNIT_DAYS[age.group(2)]
+        result["age_direction"] = "older"
+    elif newer:
+        result["max_age_days"] = (_value(newer.group(1)) if newer.group(1) else 1) \
+            * _UNIT_DAYS[newer.group(2)]
+        result["age_direction"] = "newer"
+    elif last:
+        result["max_age_days"] = (_value(last.group(1)) if last.group(1) else 1) \
+            * _UNIT_DAYS[last.group(2)]
+        result["age_direction"] = "newer"
+
+    for dot, ext in re.findall(r"(\.)?([a-z0-9]{2,5})\b", lowered):
+        token = ext
+        if not dot and token not in _EXTENSION_WORDS:
+            continue
+        mapped = (token if dot else _EXTENSION_WORDS[token])
+        candidate = "." + mapped if not mapped.startswith(".") else mapped
+        if candidate in NEAR_DUP_EXTENSIONS or candidate in {".pdf", ".docx", ".xlsx",
+                                                             ".csv", ".png", ".jpg", ".zip", ".exe"}:
+            if candidate not in result["extensions"]:
+                result["extensions"].append(candidate)
+
+    consumed = " ".join(piece.group(0) for piece in (size, age, newer, last) if piece)
+    consumed += " " + " ".join(ext.lstrip(".") for ext in result["extensions"])
+    remaining = re.sub(r"[.\d]+", " ", lowered)
+    for token in re.findall(r"[a-z0-9]+", remaining):
+        if token in _QUERY_STOPWORDS or token in _EXTENSION_WORDS \
+                or token in _UNIT_DAYS or token in words:
+            continue
+        if token and (consumed and token not in consumed and len(token) >= 2):
+            result["keywords"].append(token)
+    result["keywords"] = list(dict.fromkeys(result["keywords"]))[:12]
+    if not result["keywords"] and not result["extensions"] \
+            and result["min_size_bytes"] is None and result["max_age_days"] is None:
+        raise FileIntelligenceError("Query had no recognisable filters or keywords.")
+    return result
+
+
 class FileIntelligence:
     def __init__(self, root=None):
         self._allowed_root = Path(root).resolve() if root else None
@@ -117,7 +222,7 @@ class FileIntelligence:
             raise FileIntelligenceError("That directory is outside the allowed root.")
         if path.is_symlink() or not path.is_dir():
             raise FileIntelligenceError("That is not an existing, non-linked directory.")
-        if path == path.anchor or path == Path.home():
+        if path == Path(path.anchor) or path == Path.home():
             raise FileIntelligenceError("Refusing to scan a whole drive or the home folder.")
         return path
 
@@ -357,6 +462,52 @@ class FileIntelligence:
         report.update(self._recommendations(report))
         return report
 
+    # --- natural-language search (read-only) -----------------------------
+    def search(self, directory, query):
+        folder = self._directory(directory)
+        intent = parse_query(query)
+        files, truncated = self._walk(folder)
+        now = time.time()
+        results = []
+        for path in files:
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            if intent["extensions"] and path.suffix.lower() not in intent["extensions"]:
+                continue
+            if intent["min_size_bytes"] is not None and stat.st_size < intent["min_size_bytes"]:
+                continue
+            if intent["max_age_days"] is not None:
+                age_days = (now - stat.st_mtime) / 86400
+                if intent["age_direction"] == "older" and age_days < intent["max_age_days"]:
+                    continue
+                if intent["age_direction"] == "newer" and age_days > intent["max_age_days"]:
+                    continue
+            casefold_name = path.name.casefold()
+            casefold_dir = str(path.parent).casefold()
+            score = 0
+            for keyword in intent["keywords"]:
+                if keyword in casefold_name:
+                    score += 3
+                elif keyword in casefold_dir:
+                    score += 1
+            if intent["keywords"] and score == 0:
+                continue
+            results.append({
+                "path": str(path), "size": stat.st_size, "modified": stat.st_mtime,
+                "score": score,
+            })
+        results.sort(key=lambda item: (-item["score"], -item["size"], item["path"]))
+        return {
+            "directory": str(folder), "query": query, "intent": intent,
+            "file_count": len(files), "truncated": truncated,
+            "results": results[:100],
+            "note": ("Read-only search over names, paths, sizes and dates. Keywords "
+                     "match by substring; refine the query if results are noisy. "
+                     "Nothing is opened, indexed or modified."),
+        }
+
     def execute(self, action, payload):
         if action not in INTELLIGENCE_ACTIONS or not isinstance(payload, dict):
             raise FileIntelligenceError("Invalid file intelligence request.")
@@ -364,5 +515,7 @@ class FileIntelligence:
         keys = set(payload)
         if not required <= keys or not keys <= (required | optional):
             raise FileIntelligenceError("Invalid file intelligence request.")
+        if action == "files_search":
+            return self.search(payload["directory"], payload["query"])
         return self.scan(payload["directory"], payload.get("large_mb", 100),
                          payload.get("old_days", 365), near_dup=payload.get("near_dup"))

@@ -132,9 +132,6 @@ KNOWN_GAPS = (
     {"id": "recursive_file_organization",
      "name": "Recursive / Scheduled File Organization",
      "reason": "Only single-directory, top-level, approval-gated moves exist; no recursion or scheduling."},
-    {"id": "filesystem_natural_language_search",
-     "name": "Natural-Language Filesystem Search",
-     "reason": "NL search covers indexed documents and memories only; no NL query over raw filesystem metadata."},
 )
 
 _PROJECT = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")

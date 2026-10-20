@@ -284,10 +284,19 @@ action only needs a trusted session — it is read-only.
 Acting on findings is a separate, approved, journalled operation: moves go
 through the file organizer (`organize_*`) and any other change through the PC
 access path. This module never deletes anything, and no automatic cleanup is
-performed. Natural-language search over raw filesystem metadata and recursive
-organization are not implemented and are listed as honest SAEE gaps
-(`filesystem_natural_language_search`, `recursive_file_organization`; the
-near-duplicate gap is closed by the opt-in shingle detector).
+performed. Recursive organization remains an honest SAEE gap
+(`recursive_file_organization`); the near-duplicate and natural-language-search
+gaps are now closed.
+
+Natural-language filesystem search (`files_search` action) parses a query into a
+machine-readable intent — size thresholds ("larger than 50 mb", "90 bytes"),
+age ("older than 3 months", "newer than a week"), extensions (".pdf",
+"excel files", "csv") — and free keywords (stopwords dropped). It runs the same
+guarded, bounded walk over the approved directory, filters by the parsed intent,
+scores substring matches on the name (3) and parent path (1), and returns at
+most 100 results with their scores and the parsed intent. Read-only: nothing is
+indexed to disk, opened, or modified, and whole-drive/home targets are refused.
+An empty result is not an error; a query with no recognisable signal is rejected.
 
 ## Security scanning (read-only)
 

@@ -162,5 +162,69 @@ class FileIntelligenceTests(unittest.TestCase):
                                {"directory": str(self.docs), "near_dup": "yes"})
 
 
+class FileSearchTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        (self.root / "budget Q1.csv").write_text("a" * 100)
+        (self.root / "budget2020.csv").write_text("b" * 50)
+        (self.root / "readme.txt").write_text("read it now " * 20)
+        (self.root / "photos").mkdir()
+        (self.root / "photos" / "trip.jpg").write_text("c")
+        self.intel = FileIntelligence()
+        import time as _time
+        _old = _time.time() - 120 * 86400
+        os.utime(self.root / "budget2020.csv", (_old, _old))
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_keyword_and_extension_search(self):
+        result = self.intel.execute("files_search",
+                                    {"directory": str(self.root), "query": "budget csv"})
+        names = [Path(item["path"]).name for item in result["results"]]
+        self.assertEqual(names, ["budget Q1.csv", "budget2020.csv"])
+        self.assertTrue(all(item["score"] >= 3 for item in result["results"]))
+
+    def test_size_filter(self):
+        result = self.intel.execute("files_search",
+                                    {"directory": str(self.root),
+                                     "query": "larger than 90 bytes text"})
+        names = [Path(item["path"]).name for item in result["results"]]
+        self.assertEqual(names, ["readme.txt"])
+
+    def test_age_filter_older_and_newer(self):
+        older = [Path(item["path"]).name for item in self.intel.execute(
+            "files_search", {"directory": str(self.root),
+                             "query": "older than 30 days csv"})["results"]]
+        self.assertEqual(older, ["budget2020.csv"])
+        newer = [Path(item["path"]).name for item in self.intel.execute(
+            "files_search", {"directory": str(self.root),
+                             "query": "newer than 30 days csv"})["results"]]
+        self.assertEqual(newer, ["budget Q1.csv"])
+
+    def test_no_match_returns_empty_not_error(self):
+        result = self.intel.execute("files_search",
+                                    {"directory": str(self.root), "query": "missing zebra"})
+        self.assertEqual(result["results"], [])
+        self.assertIn("note", result)
+
+    def test_noise_only_query_rejected(self):
+        with self.assertRaises(FileIntelligenceError):
+            self.intel.execute("files_search",
+                               {"directory": str(self.root), "query": "the of and"})
+
+    def test_intent_is_returned(self):
+        result = self.intel.execute("files_search",
+                                    {"directory": str(self.root), "query": "budget csv"})
+        self.assertEqual(result["intent"]["extensions"], [".csv"])
+        self.assertIn("budget", result["intent"]["keywords"])
+
+    def test_directory_guards_still_apply(self):
+        drive = Path(self.root.anchor)
+        with self.assertRaises(FileIntelligenceError):
+            self.intel.execute("files_search", {"directory": str(drive), "query": "csv"})
+
+
 if __name__ == "__main__":
     unittest.main()
