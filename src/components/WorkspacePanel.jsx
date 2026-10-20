@@ -2,6 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import EvolutionPanel from './EvolutionPanel';
 import WorkbenchPanel from './WorkbenchPanel';
 const IntelligenceConsole=React.lazy(()=>import('./IntelligenceConsole'));
+const SparkScreens=React.lazy(()=>import('./SparkScreens'));
 
 const buttonStyle = 'rounded-lg border border-cyan-600/50 bg-cyan-950/50 px-3 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-800/60 disabled:opacity-40';
 const panelStyle = 'rounded-xl border border-cyan-500/20 bg-black/40 p-3';
@@ -131,6 +132,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             </div>
             <div className="mt-3 flex flex-wrap gap-2" role="tablist">
                 <button type="button" role="tab" aria-selected={tab==='home'} className={buttonStyle} onClick={()=>setTab('home')}>Home</button>
+                <button type="button" role="tab" aria-selected={tab==='screens'} className={buttonStyle} onClick={()=>setTab('screens')}>Command Center</button>
                 <button type="button" role="tab" aria-selected={tab==='knowledge'} className={buttonStyle} onClick={()=>setTab('knowledge')}>Document knowledge</button>
                 <button type="button" role="tab" aria-selected={tab==='skills'} className={buttonStyle} onClick={()=>setTab('skills')}>Skill Forge</button>
                 <button type="button" role="tab" aria-selected={tab==='evolution'} className={buttonStyle} onClick={()=>setTab('evolution')}>Recovery &amp; REA</button>
@@ -143,10 +145,11 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('unpublish_vayu_snapshot')}>Remove VAYU snapshot</button>
                 <span className="text-xs text-slate-400">Shares published notes and task states for this project only.</span>
             </div>
-            {tab==='home' ? <div className="mt-4 space-y-4">
+            {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
                 <div><h3 className="text-2xl font-semibold">Your project starts here</h3><p className="mt-1 text-slate-300">Bring in knowledge, run reviewed agents, and inspect Spark's health.</p></div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
+                        ['Command Center','The ten SPARK operating screens, one per capability.',()=>setTab('screens')],
                         ['Document knowledge','Import and search project documents.',()=>setTab('knowledge')],
                         ['Agents','Create, approve, and run a plan. Inspect saved results.',()=>openIntelligence('Agents')],
                         ['Memory','Save and retrieve project context.',()=>openIntelligence('Memory')],
