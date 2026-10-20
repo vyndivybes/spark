@@ -17,7 +17,7 @@ test('spark operating screens render the ten ninth-section pages offline without
     loaded._compile(fs.readFileSync(target,'utf8'),target);
     const Component=loaded.exports.default;
     const html=renderToStaticMarkup(React.createElement(Component,{socket:{connected:false},project:'general'}));
-    for(const page of ['Jarvis Command Center','Autonomous Missions','Capabilities &amp; Skills','Self-Upgrade Studio','Repository Intelligence','Memory &amp; Knowledge','Windows PC Manager','System Health','Security &amp; Approvals','Upgrade History']) assert.ok(html.includes(page),page);
+    for(const page of ['Jarvis Command Center','Autonomous Missions','Capabilities &amp; Skills','Self-Upgrade Studio','Repository Intelligence','Memory &amp; Knowledge','Windows PC Manager','System Health','Security &amp; Approvals','Upgrade History','System Connectivity']) assert.ok(html.includes(page),page);
     assert.ok(html.includes('Backend offline'));
     assert.ok(html.includes('aria-label="Spark operating screens"'));
     assert.ok(!html.includes('Working…'));
@@ -26,7 +26,7 @@ test('spark operating screens render the ten ninth-section pages offline without
 
 test('spark operating screens bundle includes the approved workspace actions only through user interactions',()=>{
   const source=fs.readFileSync(path.join(__dirname,'../src/components/SparkScreens.jsx'),'utf8');
-  for(const action of ['self_heal_diagnose','security_scan','files_intelligence_scan','files_search','disk_forecast','import_repository','saee_registry','workforce_roles','profile_import_cost','profile_compare'])
+  for(const action of ['self_heal_diagnose','security_scan','files_intelligence_scan','files_search','disk_forecast','import_repository','saee_registry','workforce_roles','profile_import_cost','profile_compare','connectivity_report'])
     assert.ok(source.includes(`'${action}'`),action);
   assert.ok(!source.includes('approved:true')||source.includes('window.confirm'),'activation and testing approvals require a confirmation dialog');
 });

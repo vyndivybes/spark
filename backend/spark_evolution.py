@@ -17,6 +17,8 @@ from spark_profiler import (
     ProfileRecorder, ProfilerError, compare, import_cost, resource_delta,
 )
 from spark_workforce import WorkforceError, check_assignment, roles_summary
+from spark_connectivity import Connectivity, ConnectivityError
+from spark_integrations import Integrations
 
 
 ACTION_KEYS = {
@@ -56,6 +58,8 @@ ACTION_KEYS = {
     "saee_record_attempt": {"request_id", "stage", "outcome", "evidence"},
     "saee_record_error_signature": {"signature", "repair", "verified"},
     "saee_record_benchmark": {"name", "before", "after"},
+    # A10 system connectivity classification (read-only).
+    "connectivity_report": {"deep"},
 }
 
 
@@ -128,6 +132,14 @@ class Evolution:
             candidates[relative] = target.read_text(encoding="utf-8-sig")
         return scan_sources(candidates)
 
+    async def _connectivity(self, deep):
+        integrations = Integrations(audit_dir=self.workspace.skills.root.parent / 'integrations')
+        connectivity = Connectivity(root=self.maintenance.root, integrations=integrations)
+        try:
+            return await connectivity.report(deep=deep)
+        except (ConnectivityError, ValueError) as error:
+            raise MaintenanceError(str(error)) from None
+
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
             raise MaintenanceError("Invalid evolution action or arguments.")
@@ -165,6 +177,11 @@ class Evolution:
             except WorkforceError as error:
                 raise MaintenanceError(str(error)) from None
             return await self.execute(inner_action, project, inner_payload)
+        if action == "connectivity_report":
+            deep = payload["deep"]
+            if not isinstance(deep, bool):
+                raise MaintenanceError("Specify whether to run the live service probes.")
+            return await self._connectivity(deep)
         if action == "import_repository":
             return await asyncio.to_thread(import_evidence, payload["url"],
                                            selected=payload["reference_paths"])

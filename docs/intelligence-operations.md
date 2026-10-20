@@ -413,3 +413,36 @@ Safety rules:
 
 
 
+
+
+## System connectivity classification (old section 10, read-only)
+
+`backend/spark_connectivity.py` classifies every integration the master prompt
+names - Graphify, Graphiti, Hermes, REA, Obsidian, VAOS, VYNDI OS, VEDM, GitHub,
+Google Drive, Gmail, the LLM providers and the voice/multimodal stack - into the
+six required labels: `verified operational`, `partially operational`,
+`installed but disconnected`, `not installed`, `failed verification` and
+`unknown`.
+
+Static evidence (default report, no processes or network):
+
+* Registration under the host `SPARK_MCP_SERVERS` value; an invalid value marks
+  the affected entries `unknown` instead of guessing.
+* Successful MCP audit calls within the last 7 days lift a registered service to
+  `partially operational`. Nothing is claimed `verified operational` without a
+  live probe.
+* Local install markers (`graphify-mcp.exe` plus the architecture graph, the
+  optional `.venv-graphiti`/`.venv-hermes` environments) separate
+  `installed but disconnected` from `not installed`.
+* Credential presence for Groq and Gemini drives the provider entries; keys are
+  only ever described as configured or missing, never echoed.
+* Obsidian reads the configured vault location; a present vault is
+  `partially operational` because searches verify themselves when invoked.
+
+The probed report (`deep: true`) runs bounded `mcp_discover` round trips for
+each registered MCP service through the existing `Integrations` execute path, so
+circuit breakers and the audit trail apply unchanged. Success moves the entry to
+`verified operational`; failure marks it `failed verification` with a truncated
+message and keeps everything read-only. Probe counts are returned with the
+report. From the Command Center UI, probes are opt-in behind a confirmation
+checkbox.

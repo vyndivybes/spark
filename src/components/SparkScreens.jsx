@@ -8,7 +8,16 @@ const card = 'rounded-xl border border-cyan-500/20 bg-slate-950/70 p-4 space-y-3
 
 const PAGES = ['Jarvis Command Center', 'Autonomous Missions', 'Capabilities & Skills', 'Self-Upgrade Studio',
     'Repository Intelligence', 'Memory & Knowledge', 'Windows PC Manager', 'System Health',
-    'Security & Approvals', 'Upgrade History'];
+    'Security & Approvals', 'Upgrade History', 'System Connectivity'];
+
+const STATE_STYLE = {
+    'verified operational': 'text-emerald-300 border-emerald-700/60 bg-emerald-950/30',
+    'partially operational': 'text-cyan-300 border-cyan-700/60 bg-cyan-950/30',
+    'installed but disconnected': 'text-amber-200 border-amber-700/60 bg-amber-950/30',
+    'not installed': 'text-slate-300 border-slate-700/60 bg-slate-950/40',
+    'failed verification': 'text-rose-300 border-rose-700/60 bg-rose-950/30',
+    'unknown': 'text-amber-200 border-amber-700/60 bg-amber-950/30',
+};
 
 function Details({value, label = 'Inspect full result'}) {
     return <details className="text-sm"><summary className="cursor-pointer text-cyan-200">{label}</summary>
@@ -62,6 +71,8 @@ export default function SparkScreens({socket, project, onCockpit}) {
     const [scan, setScan] = useState(null);
     const [profile, setProfile] = useState(null);
     const [agentJobs, setAgentJobs] = useState([]);
+    const [connectivity, setConnectivity] = useState(null);
+    const [probeLive, setProbeLive] = useState(false);
 
     const [repository, setRepository] = useState('');
     const [repoGoal, setRepoGoal] = useState('');
@@ -129,6 +140,7 @@ export default function SparkScreens({socket, project, onCockpit}) {
                 case 'list_repairs': setRepairs(Array.isArray(r) ? r : []); break;
                 case 'list_repair_candidates': setCandidates(Array.isArray(r) ? r : []); break;
                 case 'agent_snapshot': setAgentJobs((r && r.jobs) || []); break;
+                case 'connectivity_report': setConnectivity(r); break;
                 case 'test_repair_candidate': case 'activate_repair_candidate': case 'stage_repository_upgrade': case 'heal_sources':
                     setCandidates(current => [r, ...current.filter(c => c && c.id !== r.id)]); break;
                 case 'rollback_repair': setRepairs(current => current.map(item => item.id === r.id ? {...item, status: 'rolled_back'} : item)); break;
@@ -502,6 +514,29 @@ export default function SparkScreens({socket, project, onCockpit}) {
                     <button type="button" className={button} disabled={busy} onClick={() => refresh('list_repair_candidates')}>Refresh candidates</button>
                     {candidates.map(candidate => <CandidateCard key={candidate.id} candidate={candidate} repairs={repairs}
                         busy={busy} onTest={testCandidate} onActivate={activateCandidate}/>)}
+                </div>
+            </>}
+
+            {page === 'System Connectivity' && <>
+                <div className={card}>
+                    <h4 className="font-semibold">Existing system connectivity</h4>
+                    <p className="text-sm text-slate-300">Every external service is classified from registration, audit history, install markers and credential presence. A probed report runs live discovery of each registered MCP service. No secrets are shown.</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={probeLive} onChange={e => setProbeLive(e.target.checked)}/>Live probes</label>
+                        <button type="button" className={button} disabled={busy}
+                            onClick={() => {if (probeLive && !window.confirm('Live discovery starts each registered MCP service locally. Continue?'))return; refresh('connectivity_report', {deep: probeLive}, 300000);}}>
+                            Classify connectivity</button>
+                    </div>
+                    {connectivity && <>
+                        <ul className="text-sm">
+                            {connectivity.entries?.map(entry => <li key={entry.name} className="flex flex-wrap items-start gap-2 border-t border-white/10 py-2">
+                                <strong className="min-w-56 text-cyan-200">{entry.name}</strong>
+                                <span className={'rounded border px-2 py-0.5 text-xs ' + (STATE_STYLE[entry.state] || '')}>{entry.state}</span>
+                                <span className="min-w-0 flex-1 break-words text-xs text-slate-400">{entry.evidence}{entry.probe?.tools != null ? ` · tools: ${entry.probe.tools}` : ''}{entry.probe?.error ? ` · error: ${entry.probe.error}` : ''}</span>
+                            </li>)}
+                        </ul>
+                        <p className="text-xs text-slate-400">{connectivity.probed ? `${connectivity.probed} service(s) probed live. ` : ''}{connectivity.note}</p>
+                    </>}
                 </div>
             </>}
 
