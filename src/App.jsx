@@ -394,7 +394,7 @@ function App() {
         socket.on('status', (data) => {
             addMessage('System', data.msg);
             // Update status bar based on backend messages
-            if (data.msg === 'A.D.A Stopped') {
+            if (data.msg === 'SPARK Stopped') {
                 setStatus('Connected');
             }
         });
