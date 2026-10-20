@@ -69,7 +69,7 @@ class LiveConfigTests(unittest.TestCase):
 
 class LiveRecoveryTests(unittest.IsolatedAsyncioTestCase):
     async def run_failure(self,error):
-        tree=ast.parse((Path(__file__).resolve().parents[1]/'backend/ada.py').read_text(encoding='utf-8'))
+        tree=ast.parse((Path(__file__).resolve().parents[1]/'backend/spark.py').read_text(encoding='utf-8'))
         audio=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='AudioLoop')
         method=next(node for node in audio.body if isinstance(node,ast.AsyncFunctionDef) and node.name=='run')
         calls=[];statuses=[]
@@ -82,7 +82,7 @@ class LiveRecoveryTests(unittest.IsolatedAsyncioTestCase):
             'MODEL':'test','config':{},'live_profile':lambda:'cinematic',
             'pc_live_config':lambda config,enabled:config,'jarvis_live_config':lambda config,enabled:config,
             'live_error_message':live_error_message,'live_error_requires_user_action':live_error_requires_user_action}
-        exec(compile(ast.Module(body=[method],type_ignores=[]),'ada.py','exec'),scope)
+        exec(compile(ast.Module(body=[method],type_ignores=[]),'spark.py','exec'),scope)
         loop=SimpleNamespace(stop_event=asyncio.Event(),pc_access=None,jarvis_access=None,on_live_status=statuses.append)
         from unittest.mock import AsyncMock
         with patch('asyncio.sleep',new=AsyncMock()):

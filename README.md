@@ -166,7 +166,7 @@ Gemini Live knowledge tool declarations are **not** part of this release.
 All on-device audio, local file availability, and Windows UI acceptance
 must still be tested on the user's computer.
 
-**Licensing boundaries:** ADA V2 and HOLO Gestures are MIT licensed and
+**Licensing boundaries:** SPARK and HOLO Gestures are MIT licensed and
 are already integrated as source/submodules. Brahma AI Evo's current
 personal-only, no-distribution license does **not** permit copying into
 SPARK. O.L.L.I.E has no repository LICENSE in the inspected checkout;
@@ -241,7 +241,7 @@ interpret shared frames during active conversation. Device-level acceptance
 still requires a Windows webcam and working Gemini Live session.
 
 
-SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
+SPARK combines its **MIT-licensed engine** (see upstream attribution in THIRD_PARTY_NOTICES.md) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
 ## ARKUS-inspired Focus Mode + SPARK Resource Advisories
 
@@ -309,7 +309,7 @@ requires running SPARK on your actual PC.
 ## Workbench: repository comparison and new desktop tools
 
 The [source comparison](docs/repository-feature-audit.md) records the exact
-ADA V2, Brahma AI Evo and O.L.L.I.E revisions inspected, features already in
+SPARK, Brahma AI Evo and O.L.L.I.E revisions inspected, features already in
 Spark, new original implementations, and remaining gaps. No restricted Brahma
 or unlicensed O.L.L.I.E source, assets, robot models or prompts are included.
 
@@ -906,7 +906,7 @@ Developer notes: Live model names are restricted to documented compatible option
 
 ## Windows backend startup repair (October 2026)
 
-Use `start-spark.ps1` to create an isolated `.venv` with a compatible Python interpreter, test its essential module imports, and install the narrower `requirements-runtime.txt` set if needed. **Python 3.12 is recommended** for Windows audio and MediaPipe wheels. Python 3.14 is not yet qualified for this ADA-derived backend. When only Python 3.14 is installed, the launcher prints an explicit Python 3.12 requirement rather than repeatedly failing on `ModuleNotFoundError: socketio`. Do not uninstall or change the Python 3.14 interpreter used by ARKUS.
+Use `start-spark.ps1` to create an isolated `.venv` with a compatible Python interpreter, test its essential module imports, and install the narrower `requirements-runtime.txt` set if needed. **Python 3.12 is recommended** for Windows audio and MediaPipe wheels. Python 3.14 is not yet qualified for this SPARK-derived backend. When only Python 3.14 is installed, the launcher prints an explicit Python 3.12 requirement rather than repeatedly failing on `ModuleNotFoundError: socketio`. Do not uninstall or change the Python 3.14 interpreter used by ARKUS.
 
 ```powershell
 cd "$HOME\\spark"
@@ -916,9 +916,9 @@ powershell -ExecutionPolicy Bypass -File .\\start-spark.ps1
 
 If Python 3.12 is missing, install it alongside 3.14 and rerun the same command. The new venv remains isolated inside `spark/.venv` (ignored by Git). On shutdown, Electron terminating normally now reports success rather than `vite exited with code 1`; dead Python process IDs are not sent to `taskkill`.
 
-**Scope:** this runtime set supports core ADA imports and voice/camera/smart-home packages but does not install the optional `build123d` CAD kernel or download Playwright browsers or 3D printer slicers. Those integrations require separate installation and physical acceptance. Gemini requires `GEMINI_API_KEY` set privately in `backend/.env` before Live activation; absence of a key no longer blocks GUI startup. A successful offline preflight does not demonstrate a functioning real Gemini call, microphone, printer or camera.
+**Scope:** this runtime set supports core SPARK imports and voice/camera/smart-home packages but does not install the optional `build123d` CAD kernel or download Playwright browsers or 3D printer slicers. Those integrations require separate installation and physical acceptance. Gemini requires `GEMINI_API_KEY` set privately in `backend/.env` before Live activation; absence of a key no longer blocks GUI startup. A successful offline preflight does not demonstrate a functioning real Gemini call, microphone, printer or camera.
 
-NPM security audit warnings remain separate from this startup fix; do not run `npm audit fix --force` indiscriminately on ADA's older Electron/Vite dependency graph.
+NPM security audit warnings remain separate from this startup fix; do not run `npm audit fix --force` indiscriminately on SPARK's older Electron/Vite dependency graph.
 
 ## SPARK setup — Windows 11
 
@@ -938,19 +938,19 @@ npm run setup:experiences
 npm run dev
 ```
 
-Requires Git, Node.js 22+, and a Python interpreter on PATH (or use `SPARK_PYTHON`). The original ADA V2 backend separately requires the open-source packages in `requirements.txt` and its own local configuration. If those Python packages are missing, the SPARK UI will still open and its HOLO/Brain experiences can be launched; core AI/CAD/printing functions will remain disconnected until their dependencies are installed and configured. Installing all upstream Python dependencies can require considerable disk space and compatible Python wheels; the launch script does **not** silently install them. To launch both original experiences, click **EXPERIENCE DECK** in the SPARK top toolbar, then **HOLO DECK** or **NEURAL ATLAS**. The applications launch on `127.0.0.1:4890` and `127.0.0.1:4710` respectively in separate, sandboxed Electron windows. HOLO uses its self-hosted MediaPipe model, Three.js and original GLB scans; Brain Map uses its original Markdown `[[wikilinks]]`, physics layout, search, and replay. Both launch **only when the user clicks**; no camera or microphone activates automatically.
+Requires Git, Node.js 22+, and a Python interpreter on PATH (or use `SPARK_PYTHON`). The original SPARK backend separately requires the open-source packages in `requirements.txt` and its own local configuration. If those Python packages are missing, the SPARK UI will still open and its HOLO/Brain experiences can be launched; core AI/CAD/printing functions will remain disconnected until their dependencies are installed and configured. Installing all upstream Python dependencies can require considerable disk space and compatible Python wheels; the launch script does **not** silently install them. To launch both original experiences, click **EXPERIENCE DECK** in the SPARK top toolbar, then **HOLO DECK** or **NEURAL ATLAS**. The applications launch on `127.0.0.1:4890` and `127.0.0.1:4710` respectively in separate, sandboxed Electron windows. HOLO uses its self-hosted MediaPipe model, Three.js and original GLB scans; Brain Map uses its original Markdown `[[wikilinks]]`, physics layout, search, and replay. Both launch **only when the user clicks**; no camera or microphone activates automatically.
 
-By default the original example notes bundled with HOLO are used, ensuring both experiences have visible content. For Brain Map, set `SPARK_NOTES_DIR` to an **existing local Markdown folder** before launching SPARK; for HOLO, edit the upstream `vendor/holo-gestures/holo.json` `folder` field on your own PC. These two independent apps do not yet synchronize ADA's project memory.
+By default the original example notes bundled with HOLO are used, ensuring both experiences have visible content. For Brain Map, set `SPARK_NOTES_DIR` to an **existing local Markdown folder** before launching SPARK; for HOLO, edit the upstream `vendor/holo-gestures/holo.json` `folder` field on your own PC. These two independent apps do not yet synchronize SPARK's project memory.
 
-To use a separately installed Python interpreter, set `SPARK_PYTHON` before launch. Neither checkout includes a Gemini API credential; continue keeping secrets in private local configuration. Existing CAD/printer/Kasa tools remain ADA V2 functionality and require actual hardware acceptance. Run `npm test` for the local experience path tests and `npm run build` for Vite production output. An installer EXE is **not yet built** by this repository.
+To use a separately installed Python interpreter, set `SPARK_PYTHON` before launch. Neither checkout includes a Gemini API credential; continue keeping secrets in private local configuration. Existing CAD/printer/Kasa tools remain SPARK functionality and require actual hardware acceptance. Run `npm test` for the local experience path tests and `npm run build` for Vite production output. An installer EXE is **not yet built** by this repository.
 
 ### Third-party rights and boundaries
 
-The two experiences are Git submodules pinned to reviewed Git commit IDs, not copied snapshots with altered ownership. `npm run setup:experiences` downloads their original repos. The existing ADA V2 implementation is MIT-licensed. See [third-party notices](THIRD_PARTY_NOTICES.md). Brahma AI Evo prohibits code mirroring or redistribution (including private GitHub hosting), so it is **not copied**. O.L.L.I.E lacks a redistribution licence; its source is **not copied**. SPARK does not grant blanket remote OS, network, account or hardware access merely because an assistant requests it.
+The two experiences are Git submodules pinned to reviewed Git commit IDs, not copied snapshots with altered ownership. `npm run setup:experiences` downloads their original repos. The existing SPARK implementation is MIT-licensed. See [third-party notices](THIRD_PARTY_NOTICES.md). Brahma AI Evo prohibits code mirroring or redistribution (including private GitHub hosting), so it is **not copied**. O.L.L.I.E lacks a redistribution licence; its source is **not copied**. SPARK does not grant blanket remote OS, network, account or hardware access merely because an assistant requests it.
 
 ---
 
-## Original ADA V2 engine documentation (retained for attribution)
+## Engine setup and usage
 
 ![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue?logo=python)
 ![React](https://img.shields.io/badge/React-18.2-61DAFB?logo=react)
@@ -960,7 +960,7 @@ The two experiences are Git submodules pinned to reviewed Git commit IDs, not co
 
 > **A.D.A** = **A**dvanced **D**esign **A**ssistant
 
-ADA V2 is a sophisticated AI assistant designed for multimodal interaction. It combines Google's Gemini 2.5 Native Audio with computer vision, gesture control, and 3D CAD generation in a Electron desktop application.
+SPARK is a sophisticated AI assistant designed for multimodal interaction. It combines Google's Gemini 2.5 Native Audio with computer vision, gesture control, and 3D CAD generation in a Electron desktop application.
 
 ---
 
@@ -979,7 +979,7 @@ ADA V2 is a sophisticated AI assistant designed for multimodal interaction. It c
 
 ### 🖐️ Gesture Control Details
 
-ADA's "Minority Report" interface uses your webcam to detect hand gestures:
+SPARK's "Minority Report" interface uses your webcam to detect hand gestures:
 
 | Gesture | Action |
 |---------|--------|
@@ -1004,7 +1004,7 @@ graph TB
     
     subgraph Backend ["Backend (Python 3.11 + FastAPI)"]
         SERVER[server.py<br/>Socket.IO Server]
-        ADA[ada.py<br/>Gemini Live API]
+        SPARK[spark.py<br/>Gemini Live API]
         WEB[web_agent.py<br/>Playwright Browser]
         CAD[cad_agent.py<br/>CAD + build123d]
         PRINTER[printer_agent.py<br/>3D Printing + OrcaSlicer]
@@ -1015,10 +1015,10 @@ graph TB
     
     UI --> SOCKET_C
     SOCKET_C <--> SERVER
-    SERVER --> ADA
-    ADA --> WEB
-    ADA --> CAD
-    ADA --> KASA
+    SERVER --> SPARK
+    SPARK --> WEB
+    SPARK --> CAD
+    SPARK --> KASA
     SERVER --> AUTH
     SERVER --> PM
     SERVER --> PRINTER
@@ -1035,10 +1035,10 @@ graph TB
 
 ```bash
 # 1. Clone and enter
-git clone https://github.com/nazirlouis/ada_v2.git && cd ada_v2
+git clone https://github.com/vyndivybes/spark.git && cd spark
 
 # 2. Create Python environment (Python 3.11)
-conda create -n ada_v2 python=3.11 -y && conda activate ada_v2
+conda create -n spark python=3.11 -y && conda activate spark
 brew install portaudio  # macOS only (for PyAudio)
 pip install -r requirements.txt
 playwright install chromium
@@ -1050,7 +1050,7 @@ npm install
 echo "GEMINI_API_KEY=your_key_here" > .env
 
 # 5. Run!
-conda activate ada_v2 && npm run dev
+conda activate spark && npm run dev
 ```
 
 </details>
@@ -1078,14 +1078,14 @@ If you have never coded before, follow these steps first!
 1. Open your terminal (or Command Prompt on Windows).
 2. Type this command and hit Enter:
    ```bash
-   git clone https://github.com/nazirlouis/ada_v2.git
+   git clone https://github.com/vyndivybes/spark.git
    ```
-3. This creates a folder named `ada_v2`.
+3. This creates a folder named `spark`.
 
 **Step 5: Open in VS Code**
 1. Open VS Code.
 2. Go to **File > Open Folder**.
-3. Select the `ada_v2` folder you just downloaded.
+3. Select the `spark` folder you just downloaded.
 4. Open the internal terminal: Press `Ctrl + ~` (tilde) or go to **Terminal > New Terminal**.
 
 ---
@@ -1108,8 +1108,8 @@ brew install portaudio
 Create a single Python 3.11 environment:
 
 ```bash
-conda create -n ada_v2 python=3.11
-conda activate ada_v2
+conda create -n spark python=3.11
+conda activate spark
 
 # Install all dependencies
 pip install -r requirements.txt
@@ -1130,11 +1130,11 @@ npm install
 ```
 
 ### 4. 🔐 Face Authentication Setup
-To use the secure voice features, ADA needs to know what you look like.
+To use the secure voice features, SPARK needs to know what you look like.
 
 1. Take a clear photo of your face (or use an existing one).
 2. Rename the file to `reference.jpg`.
-3. Drag and drop this file into the `ada_v2/backend` folder.
+3. Drag and drop this file into the `spark/backend` folder.
 4. (Optional) You can toggle this feature on/off in `settings.json` by changing `"face_auth_enabled": true/false`.
 
 ---
@@ -1154,7 +1154,7 @@ The system creates a `settings.json` file on first run. You can modify this to c
 ---
 
 ### 5. 🖨️ 3D Printer Setup
-ADA V2 can slice STL files and send them directly to your 3D printer.
+SPARK can slice STL files and send them directly to your 3D printer.
 
 **Supported Hardware:**
 - **Klipper/Moonraker** (Creality K1, Voron, etc.)
@@ -1162,26 +1162,26 @@ ADA V2 can slice STL files and send them directly to your 3D printer.
 - **PrusaLink** (Experimental)
 
 **Step 1: Install Slicer**
-ADA uses **OrcaSlicer** (recommended) or PrusaSlicer to generate G-code.
+SPARK uses **OrcaSlicer** (recommended) or PrusaSlicer to generate G-code.
 1. Download and install [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer).
 2. Run it once to ensure profiles are created.
-3. ADA automatically detects the installation path.
+3. SPARK automatically detects the installation path.
 
 **Step 2: Connect Printer**
 1. Ensure your printer and computer are on the **same Wi-Fi network**.
-2. Open the **Printer Window** in ADA (Cube icon).
-3. ADA automatically scans for printers using mDNS.
+2. Open the **Printer Window** in SPARK (Cube icon).
+3. SPARK automatically scans for printers using mDNS.
 4. **Manual Connection**: If your printer isn't found, use the "Add Printer" button and enter the IP address (e.g., `192.168.1.50`).
 
 ---
 
 ### 6. 🔑 Gemini API Key Setup
-ADA uses Google's Gemini API for voice and intelligence. You need a free API key.
+SPARK uses Google's Gemini API for voice and intelligence. You need a free API key.
 
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey).
 2. Sign in with your Google account.
 3. Click **"Create API Key"** and copy the generated key.
-4. Create a file named `.env` in the `ada_v2` folder (same level as `README.md`).
+4. Create a file named `.env` in the `spark` folder (same level as `README.md`).
 5. Add this line to the file:
    ```
    GEMINI_API_KEY=your_api_key_here
@@ -1192,14 +1192,14 @@ ADA uses Google's Gemini API for voice and intelligence. You need a free API key
 
 ---
 
-## 🚀 Running ADA V2
+## 🚀 Running SPARK
 
-You have two options to run the app. Ensure your `ada_v2` environment is active!
+You have two options to run the app. Ensure your `spark` environment is active!
 
 ### Option 1: The "Easy" Way (Single Terminal)
 The app is smart enough to start the backend for you.
-1. Open your terminal in the `ada_v2` folder.
-2. Activate your environment: `conda activate ada_v2`
+1. Open your terminal in the `spark` folder.
+2. Activate your environment: `conda activate spark`
 3. Run:
    ```bash
    npm run dev
@@ -1211,7 +1211,7 @@ Use this if you want to see the Python logs (recommended for debugging).
 
 **Terminal 1 (Backend):**
 ```bash
-conda activate ada_v2
+conda activate spark
 python backend/server.py
 ```
 
@@ -1225,7 +1225,7 @@ npm run dev
 
 ## ✅ First Flight Checklist (Things to Test)
 
-1. **Voice Check**: Say "Hello Ada". She should respond.
+1. **Voice Check**: Say "Hello Spark". She should respond.
 2. **Vision Check**: Look at the camera. If Face Auth is on, the lock screen should unlock.
 3. **CAD Check**: Open the CAD window and say "Create a cube". Watch the logs.
 4. **Web Check**: Open the Browser window and say "Go to Google".
@@ -1252,9 +1252,9 @@ npm run dev
 - **Note**: The agent will auto-scroll, click, and type. Do not interfere with the browser window while it runs.
 
 ### 🖨️ Printing & Slicing
-- **Auto-Discovery**: ADA automatically finds printers on your network.
+- **Auto-Discovery**: SPARK automatically finds printers on your network.
 - **Slicing**: Click "Slice & Print" on any generated 3D model.
-- **Profiles**: ADA intelligently selects the correct OrcaSlicer profile based on your printer's name (e.g., "Creality K1").
+- **Profiles**: SPARK intelligently selects the correct OrcaSlicer profile based on your printer's name (e.g., "Creality K1").
 
 ---
 
@@ -1274,7 +1274,7 @@ npm run dev
 **Symptoms**: Backend crashes on startup with "API key not found".
 
 **Solution**:
-1. Make sure your `.env` file is in the root `ada_v2` folder (not inside `backend/`).
+1. Make sure your `.env` file is in the root `spark` folder (not inside `backend/`).
 2. Verify the format is exactly: `GEMINI_API_KEY=your_key` (no quotes, no spaces).
 3. Restart the backend after editing the file.
 
@@ -1284,7 +1284,7 @@ npm run dev
 **Symptoms**: `websockets.exceptions.ConnectionClosedError: 1011 (internal error)`.
 
 **Solution**:
-This is a server-side issue from the Gemini API. Simply reconnect by clicking the connect button or saying "Hello Ada" again. If it persists, check your internet connection or try again later.
+This is a server-side issue from the Gemini API. Simply reconnect by clicking the connect button or saying "Hello Spark" again. If it persists, check your internet connection or try again later.
 
 ---
 
@@ -1297,9 +1297,9 @@ This is a server-side issue from the Gemini API. Simply reconnect by clicking th
 ## 📂 Project Structure
 
 ```
-ada_v2/
+spark/
 ├── backend/                    # Python server & AI logic
-│   ├── ada.py                  # Gemini Live API integration
+│   ├── spark.py                  # Gemini Live API integration
 │   ├── server.py               # FastAPI + Socket.IO server
 │   ├── cad_agent.py            # CAD generation orchestrator
 │   ├── printer_agent.py        # 3D printer discovery & slicing

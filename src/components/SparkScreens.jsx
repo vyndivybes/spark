@@ -47,8 +47,8 @@ function CandidateCard({candidate, repairs, busy, onTest, onActivate}) {
     </article>;
 }
 
-export default function SparkScreens({socket, project, onCockpit}) {
-    const [page, setPage] = useState('Jarvis Command Center');
+export default function SparkScreens({socket, project, onCockpit, initialPage='Jarvis Command Center', compactNavigation=false}) {
+    const [page, setPage] = useState(PAGES.includes(initialPage) ? initialPage : 'Jarvis Command Center');
     const [notice, setNotice] = useState(socket?.connected ? 'Ready. Every operation here stays read-only until you approve it.' : 'Backend offline. Connect and authenticate to SPARK.');
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState(null);
@@ -220,23 +220,23 @@ export default function SparkScreens({socket, project, onCockpit}) {
     const showResult = result && resultPage === page;
     const awaitingApproval = agentJobs.filter(job => job.state === 'awaiting_approval').length;
 
-    return <div className="mt-4 grid min-h-[28rem] gap-4 md:grid-cols-[11rem_minmax(0,1fr)]">
-        <nav aria-label="Spark operating screens" className="flex flex-wrap content-start gap-2 md:flex-col">
+    return <div className={compactNavigation ? 'cc-operating-page min-h-[28rem]' : 'mt-4 grid min-h-[28rem] gap-4 md:grid-cols-[11rem_minmax(0,1fr)]'}>
+        <nav aria-label="Spark operating screens" hidden={compactNavigation} className={compactNavigation ? 'hidden' : 'flex flex-wrap content-start gap-2 md:flex-col'}>
             {PAGES.map(name => <button key={name} className={`${button} text-left ${page === name ? 'bg-cyan-900/70' : ''}`}
                 aria-current={page === name ? 'page' : undefined} onClick={() => setPage(name)}>{name}</button>)}
         </nav>
         <main className="min-w-0 space-y-4">
-            <div className="flex items-center justify-between"><h3 className="text-xl font-semibold text-cyan-100">{page}</h3>
-                <span className="text-xs text-slate-400">Project: {project}</span></div>
+            {!compactNavigation && <div className="flex items-center justify-between"><h3 className="text-xl font-semibold text-cyan-100">{page}</h3>
+                <span className="text-xs text-slate-400">Project: {project}</span></div>}
             <p role="status" className="rounded-lg bg-cyan-950/40 p-3 text-sm text-cyan-100">{notice}</p>
 
             {page === 'Autonomous Missions' &&
                 <React.Suspense fallback={<p role="status">Loading mission controls…</p>}>
-                    <IntelligenceConsole socket={socket} project={project} initialPage="Agents"/></React.Suspense>}
+                    <IntelligenceConsole socket={socket} project={project} initialPage="Agents" compactNavigation={compactNavigation}/></React.Suspense>}
 
             {page === 'Memory & Knowledge' &&
                 <React.Suspense fallback={<p role="status">Loading memory controls…</p>}>
-                    <IntelligenceConsole socket={socket} project={project} initialPage="Memory"/></React.Suspense>}
+                    <IntelligenceConsole socket={socket} project={project} initialPage="Memory" compactNavigation={compactNavigation}/></React.Suspense>}
 
             {page === 'Jarvis Command Center' && <>
                 <div className={card}>

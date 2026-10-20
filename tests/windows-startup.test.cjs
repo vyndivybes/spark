@@ -18,7 +18,7 @@ test('backend uses its own Python environment and checks core imports first',()=
  assert.match(script,/runtime_preflight\.py/);
 });
 
-test('Python runtime manifest includes the modules imported by ADA backend',()=>{
+test('Python runtime manifest includes the modules imported by SPARK backend',()=>{
  const manifest=read('requirements-runtime.txt');
  for(const requirement of ['python-socketio','uvicorn','fastapi','google-genai','opencv-python','pyaudio','pillow','mss','python-dotenv','python-kasa','mediapipe','aiohttp','zeroconf','playwright']){
   assert.match(manifest,new RegExp('^'+requirement+'(?:[=<>!~ ].*)?$', 'im'),requirement);
@@ -27,9 +27,9 @@ test('Python runtime manifest includes the modules imported by ADA backend',()=>
 
 test('no account key is required just to import the backend modules',()=>{
  const web=read('backend/web_agent.py');
- const ada=read('backend/ada.py');
+ const spark=read('backend/spark.py');
  assert.doesNotMatch(web,/if not API_KEY:\s*raise ValueError/);
- assert.match(ada,/client\s*=\s*genai\.Client\([^\n]+\)\s+if\s+os\.getenv\(['\"]GEMINI_API_KEY/);
+ assert.match(spark,/client\s*=\s*genai\.Client\([^\n]+\)\s+if\s+os\.getenv\(['\"]GEMINI_API_KEY/);
 });
 
 test('dead Python processes are not killed a second time and OS commands do not use shells',()=>{
@@ -56,9 +56,9 @@ test('launcher accepts a selected allowlisted free-tier Gemini Live model',()=>{
 
 test('explicit voice profile selects proven minimal Live config without discarding full mode',()=>{
  const launcher=read('start-spark.ps1');
- const ada=read('backend/ada.py');
+ const spark=read('backend/spark.py');
  assert.match(launcher,/\[ValidateSet\('full',\s*'voice',\s*'cinematic',\s*'cinematic_tools',\s*'cinematic_search'\)\]/);
  assert.match(launcher,/\[string\]\$LiveProfile\s*=\s*'cinematic'/);
  assert.match(launcher,/\$env:SPARK_LIVE_PROFILE\s*=\s*\$LiveProfile/);
- assert.match(ada,/select_live_config\(live_profile\(\),\s*config\)/);
+ assert.match(spark,/select_live_config\(live_profile\(\),\s*config\)/);
 });

@@ -20,7 +20,7 @@ from pathlib import Path
 
 
 
-# Ensure we can import ada
+# Ensure we can import spark
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Recover source transactions before importing modules a patch may have changed.
@@ -28,7 +28,7 @@ from spark_maintenance import Maintenance, MaintenanceError
 _SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
 Maintenance(Path(__file__).resolve().parents[1], _SPARK_WORKSPACE_ROOT).recover()
 
-import ada
+import spark
 from spark_live_config import live_status, live_status_report
 from spark_live_profile import live_profile
 from spark_audio_meter import AudioMeter
@@ -385,14 +385,14 @@ async def startup_event():
 @app.get("/status")
 async def status():
     return {"status": "running", "service": "SPARK Core",
-            "gemini_configured": ada.client is not None,
+            "gemini_configured": spark.client is not None,
             "groq_configured": bool(os.environ.get("GROQ_API_KEY")),
             "ai_provider": cloud_provider(),
             "pc_autonomy_enabled": SETTINGS.get('pc_autonomy_enabled') is True,
             "jarvis_bridge_configured": JarvisClient(enabled=lambda: False).configured(),
             "pc_autonomy_session_authorized": bool(audio_loop and getattr(audio_loop, 'pc_access', None)
                                                    and audio_loop.pc_access.enabled()),
-            "live_model": groq_model() if cloud_provider() == "groq" else ada.MODEL,
+            "live_model": groq_model() if cloud_provider() == "groq" else spark.MODEL,
             "live_profile": "groq_voice" if cloud_provider() == "groq" else live_profile(),
             "audio_transport": AUDIO_TRANSPORT,
             "groq_vision_available": os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1",
@@ -496,7 +496,7 @@ async def connect(sid, environ):
             'state': 'idle', 'model': groq_model(),
             'message': 'Groq is selected. Start hands-free voice to connect.'}, room=sid)
     else:
-        await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL), room=sid)
+        await sio.emit('ai_status', live_status(spark.client is not None, spark.MODEL), room=sid)
 
     global authenticator
     
@@ -720,10 +720,10 @@ async def start_audio(sid, data=None):
         await start_groq_audio(sid, data)
         return
 
-    if ada.client is None:
+    if spark.client is None:
         live_state = "setup_required"
         live_message = "Configure the SPARK Gemini key."
-        await sio.emit('ai_status', live_status(False, ada.MODEL), room=sid)
+        await sio.emit('ai_status', live_status(False, spark.MODEL), room=sid)
         return
 
     request_transport = data.get("transport") if isinstance(data, dict) else None
@@ -814,7 +814,7 @@ async def start_audio(sid, data=None):
     # Callback to send CAD status to frontend
     def on_cad_status(status):
         # status can be: 
-        # - a string like "generating" (from ada.py handle_cad_request)
+        # - a string like "generating" (from spark.py handle_cad_request)
         # - a dict with {status, attempt, max_attempts, error} (from CadAgent)
         if isinstance(status, dict):
             print(f"Sending CAD Status: {status.get('status')} (attempt {status.get('attempt')}/{status.get('max_attempts')})")
@@ -861,7 +861,7 @@ async def start_audio(sid, data=None):
 
     try:
         print(f"Initializing AudioLoop with device_index={device_index}")
-        audio_loop = ada.AudioLoop(
+        audio_loop = spark.AudioLoop(
             video_mode="none", 
             on_audio_data=on_audio_data,
             on_browser_audio=on_browser_audio if AUDIO_TRANSPORT == "browser_aec" else None,
@@ -911,7 +911,7 @@ async def start_audio(sid, data=None):
         live_state = "connecting"
         live_message = "Connecting to Gemini Live..."
         await sio.emit('ai_status', {
-            'state': 'connecting', 'model': ada.MODEL,
+            'state': 'connecting', 'model': spark.MODEL,
             'message': 'Opening SPARK Gemini Live session...'})
         print("Creating asyncio task for AudioLoop.run()")
         loop_task = asyncio.create_task(audio_loop.run())
@@ -930,7 +930,7 @@ async def start_audio(sid, data=None):
                 live_state = "error"
                 live_message = "Gemini Live connection or audio session failed."
                 asyncio.create_task(sio.emit('ai_status', {
-                    'state': 'error', 'model': ada.MODEL,
+                    'state': 'error', 'model': spark.MODEL,
                     'message': 'SPARK Live audio loop stopped unexpectedly.'}))
             finally:
                 if loop_task is task:
@@ -956,13 +956,13 @@ async def start_audio(sid, data=None):
         asyncio.create_task(monitor_printers_loop())
         
     except Exception as e:
-        print(f"CRITICAL ERROR STARTING ADA: {e}")
+        print(f"CRITICAL ERROR STARTING SPARK: {e}")
         import traceback
         traceback.print_exc()
         live_state = "error"
         live_message = "Gemini Live connection or audio session failed."
         await sio.emit('ai_status', {
-            'state': 'error', 'model': ada.MODEL,
+            'state': 'error', 'model': spark.MODEL,
             'message': 'SPARK Core could not start its audio engine. Check the backend terminal.'})
         audio_loop = None # Ensure we can try again
 
@@ -1018,7 +1018,7 @@ async def stop_audio(sid):
         print("Stopping Audio Loop")
         audio_loop = None
         live_state = 'idle'
-        await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL))
+        await sio.emit('ai_status', live_status(spark.client is not None, spark.MODEL))
         await sio.emit('status', {'msg': 'A.D.A Stopped'})
 
 @sio.event
@@ -1115,7 +1115,7 @@ async def resume_audio(sid):
     else:
         await sio.emit('ai_status', {
             'state': live_state if live_state in ('error', 'setup_required') else 'disconnected',
-            'model': ada.MODEL,
+            'model': spark.MODEL,
             'message': 'SPARK Live is not connected. Check Gemini key, model and microphone.'}, room=sid)
 
 @sio.event
@@ -1215,7 +1215,7 @@ async def user_input(sid, data):
                     import base64
                     frame = base64.b64decode(frame)
                 await audio_loop.session.send_realtime_input(
-                    video=ada.types.Blob(data=frame, mime_type="image/jpeg"))
+                    video=spark.types.Blob(data=frame, mime_type="image/jpeg"))
             await audio_loop.session.send_client_content(
                 turns={"role": "user", "parts": [{"text": text}]}, turn_complete=True)
         except Exception:

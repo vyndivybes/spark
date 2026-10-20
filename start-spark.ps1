@@ -253,7 +253,7 @@ if ($mcpServers) {
     Write-Warning 'No MCP service could be registered; architecture, temporal graph and Hermes queries will be unavailable.'
 }
 
-Write-Host 'Starting SPARK cockpit with original ADA, HOLO and Brain Map experiences.' -ForegroundColor Green
+Write-Host 'Starting SPARK cockpit with original SPARK, HOLO and Brain Map experiences.' -ForegroundColor Green
 & npm.cmd run dev
 if ($LASTEXITCODE -ne 0) { throw 'SPARK launch failed. Check the first backend error above.' }
 Write-Host 'SPARK window closed normally.' -ForegroundColor Green

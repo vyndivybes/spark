@@ -21,7 +21,7 @@ test('session exporter honors sources but rejects unsafe links and bounds conten
  const {formatTranscript}=await import(pathToFileURL(path.join(__dirname,'../src/utils/sessionTools.mjs')));
  const report=formatTranscript([
    {sender:'You',time:'02:10',text:'Explain what you see'},
-   {sender:'ADA',time:'02:11',text:'A working assistant.'},
+   {sender:'SPARK',time:'02:11',text:'A working assistant.'},
    {sender:'Search Sources',text:'Research results',
       sources:[{title:'Nasa',url:'https://www.nasa.gov/'},
                {title:'Bad',url:'javascript:alert(1)'},

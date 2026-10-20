@@ -7,9 +7,12 @@ const app=read('src/App.jsx'), panel=read('src/components/WorkspacePanel.jsx');
 const server=read('backend/server.py'), api=read('backend/spark_workspace.py');
 
 test('actual ARKUS workspace is mounted in the SPARK cockpit, not a mockup',()=>{
-  assert.match(app,/import WorkspacePanel from '.\/components\/WorkspacePanel'/);
-  assert.match(app,/HOME \/ KNOWLEDGE/);
-  assert.match(app,/<WorkspacePanel socket=\{socket\} visible=\{showWorkspace\}/);
+  const command=read('src/components/CommandCenter.jsx');
+  assert.match(app,/import CommandCenter from '.\/components\/CommandCenter'/);
+  assert.match(app,/DASHBOARD/);
+  assert.match(app,/showWorkspace && <CommandCenter socket=\{socket\}/);
+  assert.match(command,/import WorkspacePanel from '.\/WorkspacePanel'/);
+  assert.match(command,/<WorkspacePanel key=\{page\} socket=\{socket\} visible project=\{project\}/);
   for(const action of ['import_document','search_documents','list_documents','remove_document',
                         'propose_skill','test_skill','activate_skill','run_skill','revise_skill','rollback_skill']){
     assert.ok(api.includes('"'+action+'"'),action+' action must be implemented');

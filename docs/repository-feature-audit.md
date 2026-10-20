@@ -20,7 +20,7 @@ They do not assert full parity with another application or its advertised claims
 
 | Source capability | Source evidence | Spark status |
 |---|---|---|
-| Native voice and interruption | `backend/ada.py` | Present; Spark also has an explicit Groq path. |
+| Native voice and interruption | `backend/spark.py` | Present; Spark also has an explicit Groq path. |
 | CAD generation, refinement and STL preview | `backend/cad_agent.py`, `src/` CAD components | Present. |
 | Slicing and Moonraker/OctoPrint printing | `backend/printer_agent.py` | Present; physical printer acceptance depends on the user's equipment. |
 | Browser agent | `backend/web_agent.py` | Present, with additional scoped browser sessions. |

@@ -24,11 +24,11 @@ test('renderer uses actual Chromium echoCancellation and speaker playback for AE
   assert.match(src,/browser_audio/);
 });
 test('browser mode bypasses native PyAudio input and speaker paths and manual turn lock',()=>{
-  const ada=read('backend/ada.py');
+  const spark=read('backend/spark.py');
   const backend=read('backend/server.py');
   const app=read('src/App.jsx');
-  assert.match(ada,/if not self\.browser_audio:/);
-  assert.match(ada,/on_browser_audio/);
+  assert.match(spark,/if not self\.browser_audio:/);
+  assert.match(spark,/on_browser_audio/);
   assert.match(backend,/async def browser_mic_pcm/);
   assert.match(backend,/async def browser_audio_ready/);
   assert.match(backend,/owner_sid/);

@@ -9,7 +9,7 @@ venv/
 .venv-*/
 env/
 
-# ADA Specific Local Data
+# SPARK Specific Local Data
 backend/reference.jpg
 backend/settings.json
 backend/last_cad_generation.json

@@ -8,7 +8,7 @@ const card='rounded-xl border border-cyan-500/20 bg-slate-950/70 p-4 space-y-3';
 const initialPlan=JSON.stringify([{action:'get_system_status',args:{},depends:[]}],null,2);
 function Details({value,label='Inspect record'}){return <details className="text-sm"><summary className="cursor-pointer text-cyan-200">{label}</summary><pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-300">{JSON.stringify(value,null,2)}</pre></details>;}
 
-export default function IntelligenceConsole({socket,project,initialPage='Agents'}){
+export default function IntelligenceConsole({socket,project,initialPage='Agents',compactNavigation=false}){
     const [page,setPage]=useState(()=>pages.includes(initialPage)?initialPage:'Agents');
     const [notice,setNotice]=useState(socket?.connected?'Ready. Operations stay in the selected project.':'Backend offline. Connect and authenticate to SPARK.');
     const [busy,setBusy]=useState(false);
@@ -83,12 +83,12 @@ export default function IntelligenceConsole({socket,project,initialPage='Agents'
         const blob=new Blob([JSON.stringify(result,null,2)],{type:'application/json'});
         const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`spark-${project}-evidence.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
-    return <div className="mt-4 grid min-h-[28rem] gap-4 md:grid-cols-[11rem_minmax(0,1fr)]">
-        <nav aria-label="Intelligence pages" className="flex flex-wrap content-start gap-2 md:flex-col">
+    return <div className={compactNavigation ? "min-h-[28rem]" : "mt-4 grid min-h-[28rem] gap-4 md:grid-cols-[11rem_minmax(0,1fr)]"}>
+        {!compactNavigation && <nav aria-label="Intelligence pages" className="flex flex-wrap content-start gap-2 md:flex-col">
             {pages.map(name=><button key={name} className={`${button} text-left ${page===name?'bg-cyan-900/70':''}`} aria-current={page===name?'page':undefined} onClick={()=>setPage(name)}>{name}</button>)}
-        </nav>
+        </nav>}
         <main className="min-w-0 space-y-4">
-            <div className="flex items-center justify-between"><h3 className="text-xl font-semibold text-cyan-100">{page}</h3><span className="text-xs text-slate-400">Project: {project}</span></div>
+            {!compactNavigation && <div className="flex items-center justify-between"><h3 className="text-xl font-semibold text-cyan-100">{page}</h3><span className="text-xs text-slate-400">Project: {project}</span></div>}
             <p role="status" className="rounded-lg bg-cyan-950/40 p-3 text-sm text-cyan-100">{notice}</p>
             {['Agents','Autonomy'].includes(page)&&<>
                 <div className={card}>{refreshJobs}<input className={input} aria-label="Filter workloads" placeholder="Filter by title or state" value={filter} onChange={e=>setFilter(e.target.value)}/>
