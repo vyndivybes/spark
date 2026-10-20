@@ -16,6 +16,7 @@ from spark_self_healing import (
 from spark_profiler import (
     ProfileRecorder, ProfilerError, compare, import_cost, resource_delta,
 )
+from spark_workforce import WorkforceError, check_assignment, roles_summary
 
 
 ACTION_KEYS = {
@@ -39,6 +40,9 @@ ACTION_KEYS = {
     "profile_import_cost": {"module", "repeats"},
     "profile_compare": {"name", "before", "after", "tolerance"},
     "import_repository": {"url", "reference_paths"},
+    # §6 specialist agent workforce: role-scoped task routing (read-only listing).
+    "workforce_roles": set(),
+    "workforce_assign": {"role", "action", "payload"},
     # §3E environmental self-diagnosis (read-only) and disk forecasting.
     "self_heal_diagnose": {"deep"},
     "self_heal_recover": set(),
@@ -152,6 +156,15 @@ class Evolution:
         if action == "profile_compare":
             return compare(payload["name"], payload["before"], payload["after"],
                            tolerance=payload["tolerance"])
+        if action == "workforce_roles":
+            return roles_summary()
+        if action == "workforce_assign":
+            try:
+                inner_action, inner_payload = check_assignment(
+                    payload["role"], payload["action"], payload["payload"])
+            except WorkforceError as error:
+                raise MaintenanceError(str(error)) from None
+            return await self.execute(inner_action, project, inner_payload)
         if action == "import_repository":
             return await asyncio.to_thread(import_evidence, payload["url"],
                                            selected=payload["reference_paths"])

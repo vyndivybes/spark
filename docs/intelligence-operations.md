@@ -381,5 +381,35 @@ through the maintenance and repository approval gates. Exposed as the read-only
 actions `profile_import_cost` (`module`, `repeats`) and `profile_compare`
 (`name`, `before`, `after`, `tolerance`).
 
+## Specialist agent workforce (§6, shared task interface)
+
+`backend/spark_workforce.py` turns the master prompt's specialist agents into
+**logical roles executed by the shared dispatcher** — no new model instance and
+no second trust path. Roles are governance, not execution: each role declares an
+allowlist of existing engine actions, and `workforce_assign`
+(`role`, `action`, `payload`) routes the inner action through the evolution
+dispatcher only after the role check, so payload validation, approval gates and
+journalling are inherited unchanged.
+
+Roles: `planner` (SAEE discovery/registry), `researcher` (read-only repository
+analysis, imports, MCP/REA discovery), `architect`, `developer` (staged
+candidates, heal), `tester` (run approved candidate tests), `security_auditor`
+(secrets + diagnostics), `repair_agent` (diagnose/rollback/self-heal),
+`performance_engineer`, `system_monitor`, `release_manager` (activation review
+and rollback).
+
+Safety rules:
+
+* Out-of-scope and unknown roles are refused.
+* **No self-approval**: an inner `approved: true` is rejected; real approvals use
+  the trusted route (direct, authenticated session actions).
+* No nesting: `workforce_assign`/`workforce_roles` cannot be routed by a role.
+* Titles whose engines route elsewhere (memory via the intelligence service, MCP
+  via voice tools, files via the organizer) are deliberately absent rather than
+  given a second path.
+
+`workforce_roles` lists the registry read-only.
+
+
 
 
