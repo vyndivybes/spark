@@ -61,6 +61,7 @@ class Maintenance:
             raise MaintenanceError('SPARK_REPAIR_TEST_TIMEOUT must be 60–600 seconds.') from None
         for source in (root / "backend").glob("*.py"):
             ast.parse(source.read_text(encoding="utf-8-sig"), filename=source.name)
+        self._security_check(root)
         result = subprocess.run(
             [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_spark*.py"],
             cwd=root, capture_output=True, timeout=timeout, text=True, encoding="utf-8", errors="replace",
@@ -68,6 +69,19 @@ class Maintenance:
                  "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8":"1"})
         if result.returncode:
             raise MaintenanceError("Regression suite failed; candidate was not retained.")
+
+    def _security_check(self, root):
+        # Heuristic secret scan over every backend source. A candidate that would
+        # introduce a credential never reaches the release gate. Not a proof of
+        # absence; see spark_security_scan.
+        from spark_security_scan import scan_secrets
+        for source in (root / "backend").glob("*.py"):
+            if source.is_symlink():
+                continue
+            findings = scan_secrets(source.read_text(encoding="utf-8-sig"), "backend/" + source.name)
+            if findings:
+                raise MaintenanceError(
+                    "Security check failed: a possible secret was found in " + source.name + ".")
 
     def detect(self):
         findings = []

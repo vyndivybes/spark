@@ -281,3 +281,28 @@ through the file organizer (`organize_*`) and any other change through the PC
 access path. This module never deletes anything, and no automatic cleanup is
 performed. Near-duplicate/semantic matching and natural-language search over raw
 filesystem metadata are not implemented and are listed as honest SAEE gaps.
+
+## Security scanning (read-only)
+
+`backend/spark_security_scan.py` is the `security_check` stage made real. It runs
+two heuristic layers over text without importing or executing it:
+
+* `scan_secrets` — high-confidence token shapes (AWS, GitHub, Google, Slack,
+  OpenAI, Stripe, JWTs, private-key blocks, `password=`/`api_key=` assignments)
+  plus a Shannon-entropy check on long literals, with obvious placeholders
+  (`changeme`, `example`, `test…`) filtered out.
+* `scan_code` — AST checks for `eval`/`exec`/`os.system`/`shell=True`/
+  `pickle.loads` and regex checks for hard-coded private IPs and `verify=False`.
+
+`scan_sources` returns findings plus a verdict: **any secret blocks**, code
+findings are advisory. This is wired into `Maintenance._validate`, so every
+staged repair candidate is scanned before it can be tested or activated — a
+credential can never reach the release gate. Findings never include the full
+secret, only a redacted prefix, and the verdict carries a stable `signature` for
+the ledger. The read-only `security_scan` action (one to sixteen `backend/*.py`
+paths) exposes it on demand.
+
+This is a heuristic linter, not a proof: it cannot certify the absence of secrets
+or vulnerabilities, and it does not run antivirus or a full SCA. It reduces risk
+and says so.
+

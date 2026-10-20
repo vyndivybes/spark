@@ -8,6 +8,7 @@ from spark_maintenance import Maintenance, MaintenanceError, digest
 from spark_rea import ReaClient, ReaError
 from spark_repo_upgrade import RepositoryUpgrades, snapshot
 from spark_saee import AutonomousEvolutionEngine, SAEEError
+from spark_security_scan import scan_sources, scan_secrets, scan_code
 
 
 ACTION_KEYS = {
@@ -26,6 +27,7 @@ ACTION_KEYS = {
     "upgrade_skill": {"spec", "base_id"},
     "rea_discover": set(),
     "rea_call": {"name", "arguments"},
+    "security_scan": {"paths"},
     # SAEE core: advisory discovery plus its own local registry and ledger.
     "saee_registry": set(),
     "saee_inventory": set(),
@@ -95,6 +97,18 @@ class Evolution:
             raise MaintenanceError(str(error)) from None
         raise MaintenanceError("Unknown SAEE action.")
 
+    def _security_scan(self, paths):
+        # Read-only heuristic scan of named backend sources. No execution.
+        if not isinstance(paths, list) or not 1 <= len(paths) <= 16 \
+                or any(not isinstance(item, str) for item in paths):
+            raise MaintenanceError("Select one to sixteen backend source paths.")
+        root = self.maintenance.root
+        candidates = {}
+        for relative in paths:
+            target = self.maintenance._target(relative)
+            candidates[relative] = target.read_text(encoding="utf-8-sig")
+        return scan_sources(candidates)
+
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
             raise MaintenanceError("Invalid evolution action or arguments.")
@@ -104,6 +118,8 @@ class Evolution:
             return await self.rea.request(action, payload)
         if action.startswith("saee_"):
             return await self._saee(action, project, payload)
+        if action == "security_scan":
+            return await asyncio.to_thread(self._security_scan, payload["paths"])
         async with self.lock:
             await asyncio.to_thread(self.maintenance.recover)
             if action == 'list_repository_analyses':
