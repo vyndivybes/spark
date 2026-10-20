@@ -147,3 +147,26 @@ The local working tree intentionally retains three unrelated modified files:
 `src/components/PrinterWindow.jsx`, plus the two pre-existing `.bak` files.
 These are not in the PR. No task-owned implementation remains uncommitted after
 handover; the exact final documentation revision is available with `git rev-parse HEAD`.
+
+
+## Deliverables index (old section 12)
+
+Every required deliverable exists in this repository today; the Master-Update
+session added the Windows Management Agent evidence and connectivity
+classification on top of them.
+
+| Deliverable | Where it lives | Verified by |
+|---|---|---|
+| Autonomous Evolution Engine | `backend/spark_evolution.py`, `backend/spark_saee.py` | `tests/test_spark_evolution.py`, `tests/test_spark_saee.py` |
+| Repository inspection and compatibility | `backend/spark_repo_import.py`, `backend/spark_repo_upgrade.py` | `tests/test_spark_repo_import.py`, `tests/test_spark_repo_upgrade.py` |
+| Autonomous code-development workflow | staged candidates + approval gates (`spark_maintenance.py`, `spark_repo_upgrade.py`) | `tests/test_spark_evolution.py`, `tests/test_spark_repo_upgrade.py` |
+| Integration and capability registry | `backend/spark_integrations.py`, `backend/spark_saee.py`, `backend/spark_connectivity.py` | `tests/test_spark_workbench.py`, `tests/test_spark_connectivity.py` |
+| Safe Windows Management Agent | `backend/spark_pc_inventory.py`, `backend/spark_file_intelligence.py`, `backend/spark_file_organizer.py` | `tests/test_spark_pc_inventory.py`, file-intelligence and organizer suites |
+| Self-diagnosis and repair framework | `backend/spark_self_healing.py`, `backend/spark_maintenance.py` | `tests/test_spark_self_healing.py` |
+| Resource monitoring | `backend/spark_host_vitals.py`, `backend/spark_profiler.py` | `tests/test_spark_host_vitals.py`, `tests/test_spark_profiler.py` |
+| Upgrade approval policies | stage → test → activate gates, `window.confirm` dialogs, workforce no-self-approval | evolution and workforce tests |
+| Test and regression pipeline | `tests/` Python + UI suites; CI `verify-spark.yml` | repository CI runs |
+| Rollback and recovery mechanism | maintenance recovery, `rollback_repair`, repair journal | self-healing and evolution tests |
+| Dedicated SPARK management views | `src/components/SparkScreens.jsx` (Command Center), cockpit panels | offline `esbuild` render tests |
+| Technical documentation | `docs/*.md`, the JSON capability manifest | documentation review |
+| Operational and security runbooks | `docs/intelligence-operations.md` (procedures + recovery), security scanning runbook material | documentation review |

@@ -446,3 +446,26 @@ circuit breakers and the audit trail apply unchanged. Success moves the entry to
 message and keeps everything read-only. Probe counts are returned with the
 report. From the Command Center UI, probes are opt-in behind a confirmation
 checkbox.
+
+
+## Windows management-agent inventories (old section 5)
+
+`backend/spark_pc_inventory.py` supplies the missing Windows Management Agent
+evidence, strictly read-only. Startup entries come from the native registry API
+(`HKCU`/`HKLM` Run and RunOnce in both registry views, plus the user and common
+Startup folders); the running-process list comes from one fixed, bounded
+PowerShell `Get-Process` call - no elevation, no writes, no background polling.
+
+A pure advisory layer combines host vitals, both inventories and the disk
+forecast into PC-optimization findings: RAM or disk pressure, resource-heavy
+processes and startup load. A protected-process list (csrss, lsass, services,
+Explorer, Defender and friends) marks system and security software as
+leave-alone; only user-closable applications are suggested, and every finding
+states that SPARK closes nothing by itself. Findings are evidentiary text, so
+the user acts through the owning application or an explicitly confirmed action
+elsewhere.
+
+`pc_startup_inventory`, `pc_process_inventory` and `pc_advisory` are registered
+in the evolution dispatcher with empty payloads, so the Command Center's
+Windows PC Manager screen can pull each inventory separately without a model
+call or any state change.
