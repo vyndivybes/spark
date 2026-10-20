@@ -61,6 +61,7 @@ from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
 from spark_voice_answers import (
     HERMES_KIND_TOOLS, payload_or_message, spoken_facts, spoken_graphify,
     spoken_hermes, spoken_timeline)
+from spark_obsidian_integration import obsidian
 from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
@@ -198,6 +199,28 @@ async def hermes_experience(sid, kind):
     return spoken_hermes(payload, kind)
 
 
+async def obsidian_search(sid, query):
+    """Search the user's local Obsidian vault for notes matching a query."""
+    if not obsidian.status()["enabled"]:
+        return "Obsidian vault is not configured."
+    results = obsidian.search(query, limit=5)
+    if not results:
+        return f"No Obsidian notes match '{query}'."
+    names = ", ".join(r["name"] for r in results)
+    return f"Found {len(results)} Obsidian notes: {names}."
+
+
+async def obsidian_read(sid, path):
+    """Read the contents of a named Obsidian note."""
+    if not obsidian.status()["enabled"]:
+        return "Obsidian vault is not configured."
+    try:
+        text = obsidian.read(path)
+    except Exception as e:
+        return f"Could not read Obsidian note '{path}': {e}"
+    return text[:2000]
+
+
 # Voice intents that resolve to an MCP read tool: action -> (handler, argument
 # name, accepted length bound). The bound is enforced by the caller so no handler
 # has to remember its own.
@@ -206,6 +229,8 @@ MCP_VOICE_INTENTS = {
     "graphiti_voice_query": (graphiti_voice_query, "question", 220),
     "graphiti_entity_history": (graphiti_entity_history, "entity", 120),
     "hermes_experience": (hermes_experience, "kind", 20),
+    "obsidian_search": (obsidian_search, "query", 120),
+    "obsidian_read": (obsidian_read, "path", 200),
 }
 
 # --- SHUTDOWN HANDLER ---
@@ -361,6 +386,7 @@ async def status():
             "graphify_ready": _graphify_registered(),
             "graphiti_ready": _graphiti_registered(),
             "hermes_ready": _hermes_registered(),
+            "obsidian_ready": obsidian.status()["enabled"],
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **({"live_state":live_state,
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
@@ -736,6 +762,9 @@ async def start_audio(sid, data=None):
     async def on_hermes_query(kind):
         return await hermes_experience(sid, kind)
 
+    async def on_obsidian_search(query):
+        return await obsidian_search(sid, query)
+
     # Callback to send Transcription data to frontend
     def on_transcription(data):
         # data = {"sender": "User"|"SPARK", "text": "..."}
@@ -807,6 +836,7 @@ async def start_audio(sid, data=None):
             on_graphiti_query=on_graphiti_query,
             on_graphiti_entity=on_graphiti_entity,
             on_hermes_query=on_hermes_query,
+            on_obsidian_search=on_obsidian_search,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,

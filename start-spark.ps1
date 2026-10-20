@@ -12,6 +12,8 @@ param(
     [switch]$EnableGroqVision,
     [switch]$EnableGraphiti,
     [switch]$EnableHermes,
+    [switch]$EnableObsidian,
+    [string]$ObsidianVault,
     [ValidateSet('browser_aec', 'native')]
     [string]$AudioTransport = 'browser_aec',
     [ValidateSet('gemini', 'groq')]
@@ -230,6 +232,16 @@ $mcpServers = Get-SparkMcpServers -GraphitiPython $graphitiPython -HermesPython 
 # launch, and default to off.
 $env:SPARK_ENABLE_GRAPHITI = if ($graphitiPython) { '1' } else { '0' }
 $env:SPARK_ENABLE_HERMES = if ($hermesPython) { '1' } else { '0' }
+$env:SPARK_ENABLE_OBSIDIAN = if ($EnableObsidian) { '1' } else { '0' }
+if ($EnableObsidian) {
+    if ($ObsidianVault) { $env:SPARK_OBSIDIAN_VAULT = $ObsidianVault }
+    $vaultPath = if ($env:SPARK_OBSIDIAN_VAULT) { $env:SPARK_OBSIDIAN_VAULT } else { Join-Path $HOME 'Documents\Obsidian Vault' }
+    if (Test-Path -LiteralPath $vaultPath) {
+        Write-Host "Obsidian ready: vault at $vaultPath (read-only)." -ForegroundColor Cyan
+    } else {
+        Write-Warning "Obsidian enabled but no vault found at $vaultPath. Pass -ObsidianVault '<path>' or set SPARK_OBSIDIAN_VAULT."
+    }
+}
 if ($mcpServers) {
     $env:SPARK_MCP_SERVERS = $mcpServers
     $registered = @()

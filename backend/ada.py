@@ -240,6 +240,9 @@ MCP_VOICE_TOOLS = {
     "ask_hermes_experience": {
         "argument": "kind", "choices": ("skills", "memories", "status"),
         "label": "Hermes", "callback": "on_hermes_query", "timeout": 45},
+    "search_obsidian_notes": {
+        "argument": "query", "minimum": 1, "maximum": 120,
+        "label": "Obsidian", "callback": "on_obsidian_search", "timeout": 30},
 }
 MCP_VOICE_BUDGET = 3
 MCP_VOICE_WINDOW = 60
@@ -247,7 +250,7 @@ MCP_VOICE_WINDOW = 60
 class AudioLoop:
     pc_access = None
     jarvis_access = None
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None, on_graphiti_query=None, on_graphiti_entity=None, on_hermes_query=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None, on_graphiti_query=None, on_graphiti_entity=None, on_hermes_query=None, on_obsidian_search=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -268,6 +271,7 @@ class AudioLoop:
         self.on_graphiti_query = on_graphiti_query
         self.on_graphiti_entity = on_graphiti_entity
         self.on_hermes_query = on_hermes_query
+        self.on_obsidian_search = on_obsidian_search
         # Per-tool call timestamps and per-(tool, argument) answers, both bounded
         # to MCP_VOICE_WINDOW seconds.
         self._mcp_calls = {}
@@ -419,7 +423,10 @@ class AudioLoop:
         If the model already called query_spark_graph for this turn, skip: the
         tool response is authoritative and avoids a duplicate spoken answer.
         """
-        if self._graphify_dispatched or self.on_graphify_query is None:
+        if self._graphify_dispatched:
+            return
+        if (self.on_graphify_query is None and self.on_graphiti_query is None
+                and self.on_obsidian_search is None):
             return
         if self._graphify_tool_used:
             self._graphify_dispatched = True
@@ -506,6 +513,32 @@ class AudioLoop:
                             "in one or two spoken sentences using ONLY this Graphiti "
                             "timeline. Report superseded facts as superseded. Say "
                             "plainly if nothing was found.\n\n" + answer[:1800]
+                        )
+                    }]},
+                    turn_complete=True,
+                )
+            except Exception:
+                pass
+            return
+        if command.get("action") == "obsidian_search" and self.on_obsidian_search:
+            self._graphify_dispatched = True
+            self._graphiti_dispatched = True
+            query = command["payload"]["query"]
+            try:
+                answer = await asyncio.wait_for(
+                    self.on_obsidian_search(query), timeout=30
+                )
+            except Exception:
+                return
+            if not isinstance(answer, str) or not answer.strip():
+                return
+            try:
+                await session.send_client_content(
+                    turns={"role": "user", "parts": [{
+                        "text": (
+                            "The user searched their local Obsidian vault. Summarise "
+                            "the result in one spoken sentence using ONLY this evidence.\n\n"
+                            + answer[:1800]
                         )
                     }]},
                     turn_complete=True,
@@ -922,10 +955,12 @@ class AudioLoop:
                                 self.on_web_sources({"sources": sources})
                         if getattr(response.server_content, "turn_complete", False):
                             self._grounding_signature = None
-                            # Deterministic Graphify routing, off the receive
-                            # loop so a slow MCP query never blocks streaming.
+                            # Deterministic Graphify/Graphiti/Obsidian routing, off
+                            # the receive loop so a slow query never blocks streaming.
                             if (self._user_utterance and not self._graphify_dispatched
-                                    and self.on_graphify_query is not None):
+                                    and (self.on_graphify_query is not None
+                                         or self.on_graphiti_query is not None
+                                         or self.on_obsidian_search is not None)):
                                 asyncio.create_task(
                                     self.maybe_dispatch_graphify(self.session))
 

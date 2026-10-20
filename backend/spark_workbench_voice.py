@@ -29,6 +29,16 @@ def parse_workbench_command(value, now=None):
     if re.fullmatch(r"(?:is|check|show) (?:the )?hermes(?: agent)? (?:available|installed|ready|status)", value, re.I):
         return {"action": "hermes_experience", "payload": {"kind": "status"}}
 
+    # Obsidian: explicit note lookups against the user's local vault.
+    obsidian_search = re.fullmatch(
+        r"(?:search|find|look up) (?:my )?obsidian (?:notes?|vault) for (.{2,120})", value, re.I)
+    if obsidian_search:
+        return {"action": "obsidian_search", "payload": {"query": obsidian_search[1].strip()}}
+    obsidian_open = re.fullmatch(
+        r"(?:open|read) (?:my )?obsidian note (?:called |named |titled )?(.{2,200})", value, re.I)
+    if obsidian_open:
+        return {"action": "obsidian_read", "payload": {"path": obsidian_open[1].strip()}}
+
     # Graphiti answers questions about the user's own recorded history, so it is
     # matched before the Graphify context heuristic: "what changed in the
     # printer project" would otherwise be swept up by the word "project".
