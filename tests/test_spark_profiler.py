@@ -184,6 +184,8 @@ class FrontendProbeTests(unittest.TestCase):
             with self.assertRaises(MaintenanceError):
                 asyncio.run(engine.execute(
                     "profile_frontend", "general", {"section": "X", "repeats": 1}))
+            if not (Path(__file__).resolve().parents[1] / "node_modules" / "esbuild").exists():
+                self.skipTest("esbuild is a repository dev dependency; absent here.")
             report = asyncio.run(engine.execute(
                 "profile_frontend", "general", {"section": "SparkScreens", "repeats": 1}))
             self.assertEqual(report["repeats"], 1)
