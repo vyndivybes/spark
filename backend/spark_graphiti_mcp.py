@@ -13,6 +13,7 @@ to its own Kuzu database and ingest manifest. It never mutates SPARK state.
 """
 import argparse
 import hashlib
+import importlib.util
 import os
 import re
 import sqlite3
@@ -32,11 +33,40 @@ MAX_FACT_CHARS = 600
 MAX_QUERY_CHARS = 400
 MAX_ENTITY_CHARS = 120
 MAX_GROUP_EDGES = 400
+GRAPH_BUFFER_BYTES = 128 * 1024 * 1024
 PROJECT = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
 
 
 class GraphitiUnavailable(RuntimeError):
     """Raised for any condition the caller should report as a plain sentence."""
+
+
+def bounded_kuzu_driver(path):
+    """Adapt pinned graphiti-core 0.31.x without Kuzu's 80%-of-RAM default.
+
+    Only construction differs from upstream KuzuDriver. Its schema, operations
+    and query implementation remain upstream's Apache-2.0 implementation.
+    """
+    import kuzu
+    from graphiti_core.driver import kuzu_driver as upstream
+
+    class BoundedDriver(upstream.KuzuDriver):
+        def __init__(self):
+            self._database = ''
+            self.db = kuzu.Database(str(path), buffer_pool_size=GRAPH_BUFFER_BYTES,
+                                    max_num_threads=2, max_db_size=2 * 1024**3)
+            self.setup_schema()
+            self.client = kuzu.AsyncConnection(self.db, max_concurrent_queries=1)
+            for attribute, operation in (
+                ('entity_node', 'EntityNode'), ('entity_edge', 'EntityEdge'),
+                ('episode_node', 'EpisodeNode'), ('episodic_edge', 'EpisodicEdge'),
+                ('community_node', 'CommunityNode'), ('community_edge', 'CommunityEdge'),
+                ('has_episode_edge', 'HasEpisodeEdge'), ('next_episode_edge', 'NextEpisodeEdge'),
+                ('saga_node', 'SagaNode'), ('search', 'Search'), ('graph', 'GraphMaintenance'),
+            ):
+                setattr(self, f'_{attribute}_ops', getattr(upstream, f'Kuzu{operation}Operations')())
+
+    return BoundedDriver()
 
 
 def _project(value):
@@ -94,7 +124,7 @@ class TemporalGraph:
         with warnings.catch_warnings():
             # Kuzu is deprecated upstream; the message is noise on every start.
             warnings.simplefilter('ignore', DeprecationWarning)
-            driver = KuzuDriver(db=str(self.directory/'graph.kuzu'))
+            driver = bounded_kuzu_driver(self.directory/'graph.kuzu')
         # graphiti-core 0.31.1: KuzuDriver never assigns GraphDriver._database,
         # but _resolve_request_scope reads it for any non-None group_id. Kuzu has
         # no per-group databases (clone() is a no-op) and isolates by a group_id
@@ -253,12 +283,10 @@ class TemporalGraph:
 
     def status(self):
         configured = bool(os.environ.get('GROQ_API_KEY')) and bool(os.environ.get('GEMINI_API_KEY'))
-        installed = True
-        try:
-            import graphiti_core  # noqa: F401
-            import kuzu  # noqa: F401
-        except ImportError:
-            installed = False
+        # A readiness query must not import the full inference stack on the MCP
+        # event loop. Native graph initialization happens only for graph work.
+        installed = all(importlib.util.find_spec(name) is not None
+                        for name in ('graphiti_core', 'kuzu'))
         counts = {}
         for project_row in self._manifest.execute('SELECT project,count(*) FROM ingested GROUP BY project'):
             counts[project_row[0]] = project_row[1]
@@ -316,6 +344,10 @@ def _epoch(value):
 
 
 def main(argv=None):
+    # MCP transports inherit only a minimal environment. Load this checkout's
+    # private provider configuration in the sidecar, never in tool arguments.
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).with_name('.env'))
     parser = argparse.ArgumentParser(description='SPARK Graphiti temporal graph MCP service')
     parser.add_argument('--workspace', required=True, help='SPARK workspace root (read-only source of records)')
     parser.add_argument('--db', required=True, help='Directory for the Kuzu graph and ingest manifest')

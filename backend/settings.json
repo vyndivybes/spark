@@ -4,18 +4,18 @@
     "tool_permissions": {
         "generate_cad": true,
         "run_web_agent": true,
-        "write_file": false,
-        "read_directory": false,
-        "read_file": false,
-        "create_project": false,
-        "switch_project": false,
-        "list_projects": false,
-        "create_directory": false,
-        "iterate_cad": false,
-        "print_stl": false,
-        "discover_printers": false,
-        "control_light": false,
-        "list_smart_devices": false
+        "write_file": true,
+        "read_directory": true,
+        "read_file": true,
+        "create_project": true,
+        "switch_project": true,
+        "list_projects": true,
+        "create_directory": true,
+        "iterate_cad": true,
+        "print_stl": true,
+        "discover_printers": true,
+        "control_light": true,
+        "list_smart_devices": true
     },
     "printers": [
         {

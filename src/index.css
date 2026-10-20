@@ -1,4 +1,11 @@
 /* System sans-serif: readable offline and on modest Windows hardware. */
+/* -------------------------------------------------
+   Voice‑pulse colour control – driven by SpeechRecognition
+   ------------------------------------------------- */
+:root {
+  --accent-hue: 210deg; /* default blue (organisation) */
+  transition: --accent-hue 0.2s ease;
+}
 
 @tailwind base;
 @tailwind components;
