@@ -35,7 +35,7 @@ class SaeDiscoveryTests(unittest.TestCase):
         self.assertTrue(all(item["verified"] for item in registry["capabilities"]))
         gap_ids = {item["id"] for item in registry["gaps"]}
         self.assertIn("automatic_deployment", gap_ids)
-        self.assertIn("near_duplicate_detection", gap_ids)
+        self.assertIn("recursive_file_organization", gap_ids)
 
     def test_discovery_matches_existing_engine_and_is_advisory(self):
         result = self.saee.discover("general", "analyze this local repository and propose an upgrade")

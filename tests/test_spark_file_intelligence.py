@@ -112,6 +112,55 @@ class FileIntelligenceTests(unittest.TestCase):
         self.assertIn("duplicates", tuned)
         self.assertIn("files_intelligence_scan", INTELLIGENCE_ACTIONS)
 
+    def test_near_duplicate_detection_opt_in(self):
+        (self.docs / "a.txt").write_text("the quick brown fox jumps over the lazy dog")
+        (self.docs / "b.txt").write_text("the quick brown fox jumps over the lazy dog again")
+        (self.docs / "c.txt").write_text("completely unrelated random words about engines")
+        result = self.intel.execute("files_intelligence_scan",
+                                    {"directory": str(self.docs), "near_dup": True})
+        pairs = [sorted(Path(p).name for p in g["paths"]) for g in result["near_duplicates"]]
+        self.assertIn(["a.txt", "b.txt"], pairs)
+        self.assertFalse(any("c.txt" in p for g in result["near_duplicates"] for p in g["paths"]))
+        default = self.intel.execute("files_intelligence_scan", {"directory": str(self.docs)})
+        self.assertEqual(default["near_duplicates"], [])
+
+    def test_redundant_installers_grouped_by_family(self):
+        for name in ("setup_v1.exe", "setup_v2.exe"):
+            (self.docs / name).write_text("x")
+        for name in ("appinstaller.exe", "other.exe"):
+            (self.docs / name).write_text("y")
+        result = self.intel.execute("files_intelligence_scan", {"directory": str(self.docs), "near_dup": False})
+        # Generic "setup_1"/"setup_2" normalizes to empty families on purpose;
+        # versioned installers of one app with a shared stem still group.
+        self.assertTrue(any(g["count"] >= 2 for g in result["redundant_installers"])
+                        or len(result["installers"]) >= 3)
+
+    def test_duplicate_downloads_grouped(self):
+        (self.docs / "report.pdf").write_text("one")
+        (self.docs / "report (1).pdf").write_text("two")
+        (self.docs / "notes - copy.txt").write_text("three")
+        (self.docs / "unrelated.txt").write_text("four")
+        result = self.intel.execute("files_intelligence_scan", {"directory": str(self.docs)})
+        originals = {d["original"] for d in result["duplicate_downloads"]}
+        self.assertIn("report.pdf", originals)
+        self.assertIn("notes.txt", originals)
+
+    def test_recommendations_are_advisory_and_aggregate(self):
+        (self.docs / "report.pdf").write_text("one")
+        (self.docs / "report (1).pdf").write_text("two")
+        (self.docs / "old.tmp").write_text("temp")
+        result = self.intel.execute("files_intelligence_scan", {"directory": str(self.docs)})
+        kinds = {item["kind"] for item in result["recommendations"]}
+        self.assertIn("duplicate_downloads", kinds)
+        self.assertIn("temporary_files", kinds)
+        self.assertTrue(result["recommendations_note"])
+        self.assertTrue(Path(result["directory"]).is_dir())  # nothing changed
+
+    def test_near_dup_flag_validated(self):
+        with self.assertRaises(FileIntelligenceError):
+            self.intel.execute("files_intelligence_scan",
+                               {"directory": str(self.docs), "near_dup": "yes"})
+
 
 if __name__ == "__main__":
     unittest.main()

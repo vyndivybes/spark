@@ -265,9 +265,14 @@ SAEE rather than approximated.
 ## File intelligence (read-only)
 
 `backend/spark_file_intelligence.py` reports on an approved directory tree
-without changing anything: exact duplicates (SHA-256), large files, old files and
-temporary files, plus a `reclaimable_bytes` estimate. It shares the organizer's
-allowed root and refuses whole drives and the home folder as scan targets.
+without changing anything: exact duplicates (SHA-256), **near-duplicates**
+(opt-in shingle/Jaccard similarity over text-like files, size-bucketed so it
+stays far from O(n²)), large files, old files, temporary files, **redundant
+installers** (multiple versions of the same app family) and **duplicate
+downloads** (`report (1).pdf` / `notes - copy.txt` style copies), plus a
+`reclaimable_bytes` estimate and an aggregated advisory `recommendations` list.
+It shares the organizer's allowed root and refuses whole drives and the home
+folder as scan targets.
 
 Duplicate detection groups files by byte size first, so only files that share a
 size are ever hashed; a directory of unique-size files is effectively not read
@@ -279,8 +284,10 @@ action only needs a trusted session — it is read-only.
 Acting on findings is a separate, approved, journalled operation: moves go
 through the file organizer (`organize_*`) and any other change through the PC
 access path. This module never deletes anything, and no automatic cleanup is
-performed. Near-duplicate/semantic matching and natural-language search over raw
-filesystem metadata are not implemented and are listed as honest SAEE gaps.
+performed. Natural-language search over raw filesystem metadata and recursive
+organization are not implemented and are listed as honest SAEE gaps
+(`filesystem_natural_language_search`, `recursive_file_organization`; the
+near-duplicate gap is closed by the opt-in shingle detector).
 
 ## Security scanning (read-only)
 

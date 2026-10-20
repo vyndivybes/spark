@@ -27,7 +27,7 @@ class FileIntelligenceError(ValueError):
 
 
 INTELLIGENCE_ACTIONS = {
-    "files_intelligence_scan": ({"directory"}, {"large_mb", "old_days"}),
+    "files_intelligence_scan": ({"directory"}, {"large_mb", "old_days", "near_dup"}),
 }
 
 MAX_ENTRIES = 20000
@@ -48,6 +48,57 @@ def _is_temp(path):
     if path.suffix.lower() in TEMP_EXTENSIONS:
         return True
     return bool(re.match(r"^~\$", name))  # Office lock files
+
+
+# Installer packages we can recognize by extension. Advisory only.
+INSTALLER_EXTENSIONS = {".msi", ".msix", ".appx", ".msp", ".dmg", ".pkg",
+                        ".deb", ".rpm", ".apk", ".appimage"}
+INSTALLER_NAME_HINTS = ("setup", "installer", "install", "vcredist", "runtime")
+
+# Download-duplicate name patterns, e.g. "report (1).pdf", "report - copy.pdf".
+_DOWNLOAD_DUP = re.compile(r"(?i)(?:[ _-]+\(?\d+\)?|[ _-]+copy(?:\s*\(\d+\))?)$")
+
+# Text-like extensions worth fuzzy comparing. Binary formats are excluded.
+NEAR_DUP_EXTENSIONS = {".txt", ".md", ".csv", ".log", ".json", ".py", ".js",
+                       ".ts", ".tsx", ".jsx", ".html", ".css", ".xml", ".yaml",
+                       ".yml", ".ini", ".cfg", ".sql", ".rst"}
+
+
+def _is_installer(path):
+    if path.suffix.lower() in INSTALLER_EXTENSIONS:
+        return True
+    name = path.name.lower()
+    return path.suffix.lower() == ".exe" and any(hint in name for hint in INSTALLER_NAME_HINTS)
+
+
+def _installer_family(path):
+    """Normalize an installer name to a comparable family key (no version)."""
+    stem = path.stem.lower()
+    stem = re.sub(r"[_\-. ]?v?\d+(?:\.\d+)*", "", stem)
+    stem = re.sub(r"[_\-.]?(x64|x86|amd64|win32|win64|setup|installer|install)", "", stem)
+    return re.sub(r"[^a-z0-9]+", "", stem)
+
+
+def _download_key(path):
+    """Strip a download-duplicate suffix to reveal the original name."""
+    stem = path.stem
+    stripped = _DOWNLOAD_DUP.sub("", stem)
+    return (path.parent, (stripped or stem).casefold() + path.suffix.casefold())
+
+
+def _shingles(text, width=4):
+    tokens = re.findall(r"\w+", text.lower())
+    if len(tokens) < width:
+        return {" ".join(tokens)} if tokens else set()
+    return {" ".join(tokens[i:i + width]) for i in range(len(tokens) - width + 1)}
+
+
+def _jaccard(left, right):
+    if not left or not right:
+        return 0.0
+    intersection = len(left & right)
+    union = len(left | right)
+    return intersection / union if union else 0.0
 
 
 class FileIntelligence:
@@ -106,13 +157,122 @@ class FileIntelligence:
                 digest.update(chunk)
         return digest.hexdigest()
 
+    # --- PC optimization detectors (read-only) ---------------------------
+    def _near_duplicates(self, files, threshold=0.8, max_files=400):
+        """Fuzzy text similarity. Only text-like, same-size-bucket files compared.
+
+        Bucketing by size band keeps this far from O(n^2) on real folders; the
+        file budget caps worst-case work. Binary formats are skipped.
+        """
+        candidates = [p for p in files if p.suffix.lower() in NEAR_DUP_EXTENSIONS]
+        candidates = candidates[:max_files]
+        texts, sizes = {}, {}
+        for path in candidates:
+            try:
+                data = path.read_bytes()[:65536]
+            except OSError:
+                continue
+            try:
+                texts[path] = data.decode("utf-8-sig", errors="ignore")
+            except Exception:
+                continue
+            sizes[path] = len(data)
+        buckets = {}
+        for path in texts:
+            buckets.setdefault(round(sizes[path] ** 0.5), []).append(path)
+        groups = []
+        seen = set()
+        for paths in buckets.values():
+            signatures = {p: _shingles(texts[p]) for p in paths}
+            for i, left in enumerate(paths):
+                for right in paths[i + 1:]:
+                    if (left, right) in seen:
+                        continue
+                    seen.add((left, right))
+                    score = _jaccard(signatures[left], signatures[right])
+                    if score >= threshold:
+                        groups.append({
+                            "similarity": round(score, 3),
+                            "paths": [str(left), str(right)],
+                        })
+        groups.sort(key=lambda item: -item["similarity"])
+        return groups[:100]
+
+    def _redundant_installers(self, files):
+        """Installer packages, grouped by family, flagging multiple versions."""
+        installers = [p for p in files if _is_installer(p)]
+        families = {}
+        for path in installers:
+            families.setdefault(_installer_family(path), []).append(path)
+        redundant = []
+        for family, paths in families.items():
+            if len(paths) > 1 and family:
+                redundant.append({
+                    "family": family,
+                    "count": len(paths),
+                    "paths": [str(p) for p in sorted(paths, key=lambda p: str(p).casefold())],
+                })
+        redundant.sort(key=lambda item: -item["count"])
+        return {
+            "installers": [{"path": str(p), "size": self._size(p)} for p in installers],
+            "redundant": redundant,
+        }
+
+    def _size(self, path):
+        try:
+            return path.stat().st_size
+        except OSError:
+            return 0
+
+    def _duplicate_downloads(self, files):
+        """Files whose names carry a download-duplicate suffix, grouped by origin."""
+        groups = {}
+        for path in files:
+            if _DOWNLOAD_DUP.search(path.stem):
+                groups.setdefault(_download_key(path), []).append(path)
+        duplicates = []
+        for (_, key), paths in groups.items():
+            origin = key.rsplit("/", 1)[-1]
+            duplicates.append({"original": origin, "count": len(paths),
+                               "paths": [str(p) for p in sorted(paths, key=lambda p: str(p).casefold())]})
+        duplicates.sort(key=lambda item: -item["count"])
+        return duplicates
+
+    def _recommendations(self, report):
+        """Aggregate safe, read-only optimization recommendations. Changes nothing."""
+        recs = []
+        if report["duplicates"]:
+            recs.append({"kind": "exact_duplicates", "count": len(report["duplicates"]),
+                         "reclaimable_bytes": sum(d["size"] * (d["count"] - 1) for d in report["duplicates"]),
+                         "advice": "Review exact duplicates; keep one copy each."})
+        if report["near_duplicates"]:
+            recs.append({"kind": "near_duplicates", "count": len(report["near_duplicates"]),
+                         "advice": "Review similar documents; they may be revisions worth keeping."})
+        if report["duplicate_downloads"]:
+            recs.append({"kind": "duplicate_downloads", "count": len(report["duplicate_downloads"]),
+                         "advice": "Download duplicates look safe to remove after review."})
+        if report["redundant_installers"]:
+            recs.append({"kind": "redundant_installers", "count": len(report["redundant_installers"]),
+                         "advice": "Keep the newest installer only; older versions are redundant."})
+        if report["temp_files"]:
+            recs.append({"kind": "temporary_files", "count": len(report["temp_files"]),
+                         "reclaimable_bytes": sum(t["size"] for t in report["temp_files"]),
+                         "advice": "Temporary artifacts are usually safe to remove."})
+        if report["large_files"]:
+            recs.append({"kind": "large_files", "count": len(report["large_files"]),
+                         "advice": "Confirm large files are still needed; archive if not."})
+        return {"recommendations": recs,
+                "recommendations_note": "Advisory only. No file is moved, archived or deleted by this scan."}
+
     # --- scan (read-only) ------------------------------------------------
-    def scan(self, directory, large_mb=100, old_days=365):
+    def scan(self, directory, large_mb=100, old_days=365, near_dup=None):
         folder = self._directory(directory)
         if type(large_mb) not in (int, float) or not 1 <= large_mb <= 100_000:
             raise FileIntelligenceError("large_mb must be between 1 and 100000.")
         if type(old_days) not in (int, float) or not 1 <= old_days <= 3650:
             raise FileIntelligenceError("old_days must be between 1 and 3650.")
+        if near_dup is not None and not isinstance(near_dup, bool):
+            raise FileIntelligenceError("near_dup must be true or false.")
 
         files, truncated = self._walk(folder)
         now = time.time()
@@ -170,7 +330,11 @@ class FileIntelligence:
         old.sort(key=lambda item: item["modified"])
         temp.sort(key=lambda item: -item["size"])
 
-        return {
+        near_duplicates = self._near_duplicates(files) if near_dup else []
+        redundancy = self._redundant_installers(files)
+        duplicate_downloads = self._duplicate_downloads(files)
+
+        report = {
             "directory": str(folder),
             "scanned_at": now,
             "file_count": len(files),
@@ -178,14 +342,20 @@ class FileIntelligence:
             "truncated": truncated,
             "limits": {"max_entries": MAX_ENTRIES, "max_depth": MAX_DEPTH},
             "duplicates": duplicates,
+            "near_duplicates": near_duplicates,
             "large_files": large[:200],
             "old_files": old[:200],
             "temp_files": temp[:200],
+            "installers": redundancy["installers"][:200],
+            "redundant_installers": redundancy["redundant"],
+            "duplicate_downloads": duplicate_downloads,
             "reclaimable_bytes": sum(item["size"] * (item["count"] - 1) for item in duplicates)
                                 + sum(item["size"] for item in temp),
             "note": ("Read-only report. Nothing was moved or deleted. Acting on these "
                      "findings requires a separate approved, journalled operation."),
         }
+        report.update(self._recommendations(report))
+        return report
 
     def execute(self, action, payload):
         if action not in INTELLIGENCE_ACTIONS or not isinstance(payload, dict):
@@ -195,4 +365,4 @@ class FileIntelligence:
         if not required <= keys or not keys <= (required | optional):
             raise FileIntelligenceError("Invalid file intelligence request.")
         return self.scan(payload["directory"], payload.get("large_mb", 100),
-                         payload.get("old_days", 365))
+                         payload.get("old_days", 365), near_dup=payload.get("near_dup"))
