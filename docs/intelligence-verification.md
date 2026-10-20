@@ -132,21 +132,15 @@ Commits: `0f14866` persistent services; `ad553a6` guarded workbench/recovery/MCP
 
 ## Pull request and working tree
 
-Review: [draft PR #42](https://github.com/vyndivybes/spark/pull/42), branch
-`codex/openjarvis-intelligence`. This has not been merged or deployed.
+PR #42 was merged. The working tree is clean apart from documented local-only
+machine settings; `backend/spark_voice_answers.py` (imported by `server.py`) and
+the one-off Obsidian UI patch script are now tracked. CI dependency note: the
+offline intelligence suites import `google.genai` types directly, so
+`requirements-test.txt` pins it to the runtime range.
 
-The first clean GitHub Actions run passed Ubuntu intelligence and the broader
-JS/build job. Its Windows run exposed a test-only temporary-path alias mismatch:
-`test_post_application_failure_restores_backup` compared path spellings rather
-than filesystem identity. Commit `7003b39` uses `samefile` and asserts that both
-staged and live validation occurred. The seven targeted repair tests pass locally;
-CI is rerun on that revision. The production rollback path did not change.
-
-The local working tree intentionally retains three unrelated modified files:
-`backend/settings.json`, `backend/spark_groq_capabilities.py`, and
-`src/components/PrinterWindow.jsx`, plus the two pre-existing `.bak` files.
-These are not in the PR. No task-owned implementation remains uncommitted after
-handover; the exact final documentation revision is available with `git rev-parse HEAD`.
+PR #43 (read-only Jarvis bridge and bounded backend recovery) is tracked
+separately with passing checks. The evolution work after the Jarvis bridge is
+included on branch `codex/openjarvis-intelligence` and lands alongside it.
 
 
 ## Deliverables index (old section 12)
