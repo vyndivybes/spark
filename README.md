@@ -166,7 +166,7 @@ Gemini Live knowledge tool declarations are **not** part of this release.
 All on-device audio, local file availability, and Windows UI acceptance
 must still be tested on the user's computer.
 
-**Licensing boundaries:** ADA V2 and HOLO Gestures are MIT licensed and
+**Licensing boundaries:** The upstream assistant engine and HOLO Gestures are MIT licensed and
 are already integrated as source/submodules. Brahma AI Evo's current
 personal-only, no-distribution license does **not** permit copying into
 SPARK. O.L.L.I.E has no repository LICENSE in the inspected checkout;
@@ -241,7 +241,7 @@ interpret shared frames during active conversation. Device-level acceptance
 still requires a Windows webcam and working Gemini Live session.
 
 
-SPARK combines the **original ADA V2 engine** (MIT) with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
+SPARK combines the **MIT-licensed upstream assistant engine** with launchable, pinned, **original HOLO Gestures and Brain Map** experiences (also MIT), while retaining the upstream licences and attributions. The main interface is a premium React/Electron cockpit, not a static concept illustration.
 
 ## ARKUS-inspired Focus Mode + SPARK Resource Advisories
 
@@ -309,7 +309,7 @@ requires running SPARK on your actual PC.
 ## Workbench: repository comparison and new desktop tools
 
 The [source comparison](docs/repository-feature-audit.md) records the exact
-ADA V2, Brahma AI Evo and O.L.L.I.E revisions inspected, features already in
+upstream assistant, Brahma AI Evo and O.L.L.I.E revisions inspected, features already in
 Spark, new original implementations, and remaining gaps. No restricted Brahma
 or unlicensed O.L.L.I.E source, assets, robot models or prompts are included.
 
@@ -916,9 +916,9 @@ powershell -ExecutionPolicy Bypass -File .\\start-spark.ps1
 
 If Python 3.12 is missing, install it alongside 3.14 and rerun the same command. The new venv remains isolated inside `spark/.venv` (ignored by Git). On shutdown, Electron terminating normally now reports success rather than `vite exited with code 1`; dead Python process IDs are not sent to `taskkill`.
 
-**Scope:** this runtime set supports core ADA imports and voice/camera/smart-home packages but does not install the optional `build123d` CAD kernel or download Playwright browsers or 3D printer slicers. Those integrations require separate installation and physical acceptance. Gemini requires `GEMINI_API_KEY` set privately in `backend/.env` before Live activation; absence of a key no longer blocks GUI startup. A successful offline preflight does not demonstrate a functioning real Gemini call, microphone, printer or camera.
+**Scope:** this runtime set supports legacy engine imports and voice/camera/smart-home packages but does not install the optional `build123d` CAD kernel or download Playwright browsers or 3D printer slicers. Those integrations require separate installation and physical acceptance. Gemini requires `GEMINI_API_KEY` set privately in `backend/.env` before Live activation; absence of a key no longer blocks GUI startup. A successful offline preflight does not demonstrate a functioning real Gemini call, microphone, printer or camera.
 
-NPM security audit warnings remain separate from this startup fix; do not run `npm audit fix --force` indiscriminately on ADA's older Electron/Vite dependency graph.
+NPM security audit warnings remain separate from this startup fix; do not run `npm audit fix --force` indiscriminately on SPARK's older Electron/Vite dependency graph.
 
 ## SPARK setup — Windows 11
 
@@ -938,452 +938,112 @@ npm run setup:experiences
 npm run dev
 ```
 
-Requires Git, Node.js 22+, and a Python interpreter on PATH (or use `SPARK_PYTHON`). The original ADA V2 backend separately requires the open-source packages in `requirements.txt` and its own local configuration. If those Python packages are missing, the SPARK UI will still open and its HOLO/Brain experiences can be launched; core AI/CAD/printing functions will remain disconnected until their dependencies are installed and configured. Installing all upstream Python dependencies can require considerable disk space and compatible Python wheels; the launch script does **not** silently install them. To launch both original experiences, click **EXPERIENCE DECK** in the SPARK top toolbar, then **HOLO DECK** or **NEURAL ATLAS**. The applications launch on `127.0.0.1:4890` and `127.0.0.1:4710` respectively in separate, sandboxed Electron windows. HOLO uses its self-hosted MediaPipe model, Three.js and original GLB scans; Brain Map uses its original Markdown `[[wikilinks]]`, physics layout, search, and replay. Both launch **only when the user clicks**; no camera or microphone activates automatically.
+Requires Git, Node.js 22+, and a Python interpreter on PATH (or use `SPARK_PYTHON`). The SPARK backend separately requires the open-source packages in `requirements.txt` and its own local configuration. If those Python packages are missing, the SPARK UI will still open and its HOLO/Brain experiences can be launched; core AI/CAD/printing functions will remain disconnected until their dependencies are installed and configured. Installing all upstream Python dependencies can require considerable disk space and compatible Python wheels; the launch script does **not** silently install them. To launch both original experiences, click **EXPERIENCE DECK** in the SPARK top toolbar, then **HOLO DECK** or **NEURAL ATLAS**. The applications launch on `127.0.0.1:4890` and `127.0.0.1:4710` respectively in separate, sandboxed Electron windows. HOLO uses its self-hosted MediaPipe model, Three.js and original GLB scans; Brain Map uses its original Markdown `[[wikilinks]]`, physics layout, search, and replay. Both launch **only when the user clicks**; no camera or microphone activates automatically.
 
-By default the original example notes bundled with HOLO are used, ensuring both experiences have visible content. For Brain Map, set `SPARK_NOTES_DIR` to an **existing local Markdown folder** before launching SPARK; for HOLO, edit the upstream `vendor/holo-gestures/holo.json` `folder` field on your own PC. These two independent apps do not yet synchronize ADA's project memory.
+By default the original example notes bundled with HOLO are used, ensuring both experiences have visible content. For Brain Map, set `SPARK_NOTES_DIR` to an **existing local Markdown folder** before launching SPARK; for HOLO, edit the upstream `vendor/holo-gestures/holo.json` `folder` field on your own PC. These two independent apps do not yet synchronize SPARK project memory.
 
-To use a separately installed Python interpreter, set `SPARK_PYTHON` before launch. Neither checkout includes a Gemini API credential; continue keeping secrets in private local configuration. Existing CAD/printer/Kasa tools remain ADA V2 functionality and require actual hardware acceptance. Run `npm test` for the local experience path tests and `npm run build` for Vite production output. An installer EXE is **not yet built** by this repository.
+To use a separately installed Python interpreter, set `SPARK_PYTHON` before launch. Neither checkout includes a Gemini API credential; continue keeping secrets in private local configuration. Existing CAD/printer/Kasa tools remain SPARK functionality and require actual hardware acceptance. Run `npm test` for the local experience path tests and `npm run build` for Vite production output. An installer EXE is **not yet built** by this repository.
 
 ### Third-party rights and boundaries
 
-The two experiences are Git submodules pinned to reviewed Git commit IDs, not copied snapshots with altered ownership. `npm run setup:experiences` downloads their original repos. The existing ADA V2 implementation is MIT-licensed. See [third-party notices](THIRD_PARTY_NOTICES.md). Brahma AI Evo prohibits code mirroring or redistribution (including private GitHub hosting), so it is **not copied**. O.L.L.I.E lacks a redistribution licence; its source is **not copied**. SPARK does not grant blanket remote OS, network, account or hardware access merely because an assistant requests it.
+The two experiences are Git submodules pinned to reviewed Git commit IDs, not copied snapshots with altered ownership. `npm run setup:experiences` downloads their original repos. The upstream MIT-licensed assistant implementation is MIT-licensed. See [third-party notices](THIRD_PARTY_NOTICES.md). Brahma AI Evo prohibits code mirroring or redistribution (including private GitHub hosting), so it is **not copied**. O.L.L.I.E lacks a redistribution licence; its source is **not copied**. SPARK does not grant blanket remote OS, network, account or hardware access merely because an assistant requests it.
 
 ---
 
-## Original ADA V2 engine documentation (retained for attribution)
+## SPARK core engine — Windows developer guide
 
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue?logo=python)
-![React](https://img.shields.io/badge/React-18.2-61DAFB?logo=react)
-![Electron](https://img.shields.io/badge/Electron-28-47848F?logo=electron)
-![Gemini](https://img.shields.io/badge/Google%20Gemini-Native%20Audio-4285F4?logo=google)
-![License](https://img.shields.io/badge/License-MIT-green)
+SPARK is a multimodal React/Electron and Python assistant with live voice, camera/gesture interaction, parametric CAD, local browser controls, printer integration, smart-home interfaces, project memory, and VAYU/VAOS integrations. Optional capabilities require the corresponding dependencies and hardware. See [third-party notices](THIRD_PARTY_NOTICES.md) for upstream sources and retained licensing.
 
-> **A.D.A** = **A**dvanced **D**esign **A**ssistant
+### Quick start
 
-ADA V2 is a sophisticated AI assistant designed for multimodal interaction. It combines Google's Gemini 2.5 Native Audio with computer vision, gesture control, and 3D CAD generation in a Electron desktop application.
+From a Windows PowerShell terminal in the existing \`C:\Users\ASUS\spark\` checkout:
 
----
+\`\`\`powershell
+Set-Location "C:\Users\ASUS\spark"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-spark.ps1
+\`\`\`
 
-## 🌟 Capabilities at a Glance
+This is the recommended Windows launcher. It uses the local SPARK Python runtime and does not require creating or activating an old \`ada_v2\` Conda environment.
 
-| Feature | Description | Technology |
-|---------|-------------|------------|
-| **🗣️ Low-Latency Voice** | Real-time conversation with interrupt handling | Gemini 2.5 Native Audio |
-| **🧊 Parametric CAD** | Editable 3D model generation from voice prompts | `build123d` → STL |
-| **🖨️ 3D Printing** | Slicing and wireless print job submission | OrcaSlicer + Moonraker/OctoPrint |
-| **🖐️ Minority Report UI** | Gesture-controlled window manipulation | MediaPipe Hand Tracking |
-| **👁️ Face Authentication** | Secure local biometric login | MediaPipe Face Landmarker |
-| **🌐 Web Agent** | Autonomous browser automation | Playwright + Chromium |
-| **🏠 Smart Home** | Voice control for TP-Link Kasa devices | `python-kasa` |
-| **📁 Project Memory** | Persistent context across sessions | File-based JSON storage |
+For frontend development, after setting up the environment:
 
-### 🖐️ Gesture Control Details
-
-ADA's "Minority Report" interface uses your webcam to detect hand gestures:
-
-| Gesture | Action |
-|---------|--------|
-| 🤏 **Pinch** | Confirm action / click |
-| ✋ **Open Palm** | Release the window |
-| ✊ **Close Fist** | "Select" and grab a UI window to drag it |
-
-> **Tip**: Enable the video feed window to see the hand tracking overlay.
-
----
-
-## 🏗️ Architecture Overview
-
-```mermaid
-graph TB
-    subgraph Frontend ["Frontend (Electron + React)"]
-        UI[React UI]
-        THREE[Three.js 3D Viewer]
-        GESTURE[MediaPipe Gestures]
-        SOCKET_C[Socket.IO Client]
-    end
-    
-    subgraph Backend ["Backend (Python 3.11 + FastAPI)"]
-        SERVER[server.py<br/>Socket.IO Server]
-        ADA[ada.py<br/>Gemini Live API]
-        WEB[web_agent.py<br/>Playwright Browser]
-        CAD[cad_agent.py<br/>CAD + build123d]
-        PRINTER[printer_agent.py<br/>3D Printing + OrcaSlicer]
-        KASA[kasa_agent.py<br/>Smart Home]
-        AUTH[authenticator.py<br/>MediaPipe Face Auth]
-        PM[project_manager.py<br/>Project Context]
-    end
-    
-    UI --> SOCKET_C
-    SOCKET_C <--> SERVER
-    SERVER --> ADA
-    ADA --> WEB
-    ADA --> CAD
-    ADA --> KASA
-    SERVER --> AUTH
-    SERVER --> PM
-    SERVER --> PRINTER
-    CAD -->|STL file| THREE
-    CAD -->|STL file| PRINTER
-```
-
----
-
-## ⚡ TL;DR Quick Start (Experienced Developers)
-
-<details>
-<summary>Click to expand quick setup commands</summary>
-
-```bash
-# 1. Clone and enter
-git clone https://github.com/nazirlouis/ada_v2.git && cd ada_v2
-
-# 2. Create Python environment (Python 3.11)
-conda create -n ada_v2 python=3.11 -y && conda activate ada_v2
-brew install portaudio  # macOS only (for PyAudio)
-pip install -r requirements.txt
-playwright install chromium
-
-# 3. Setup frontend
-npm install
-
-# 4. Create .env file
-echo "GEMINI_API_KEY=your_key_here" > .env
-
-# 5. Run!
-conda activate ada_v2 && npm run dev
-```
-
-</details>
-
----
-
-## 🛠️ Installation Requirements
-
-### 🆕 Absolute Beginner Setup (Start Here)
-If you have never coded before, follow these steps first!
-
-**Step 1: Install Visual Studio Code (The Editor)**
-- Download and install [VS Code](https://code.visualstudio.com/). This is where you will write code and run commands.
-
-**Step 2: Install Anaconda (The Manager)**
-- Download [Miniconda](https://docs.conda.io/en/latest/miniconda.html) (a lightweight version of Anaconda).
-- This tool allows us to create isolated "playgrounds" (environments) for our code so different projects don't break each other.
-- **Windows Users**: During install, check "Add Anaconda to my PATH environment variable" (even if it says not recommended, it makes things easier for beginners).
-
-**Step 3: Install Git (The Downloader)**
-- **Windows**: Download [Git for Windows](https://git-scm.com/download/win).
-- **Mac**: Open the "Terminal" app (Cmd+Space, type Terminal) and type `git`. If not installed, it will ask to install developer tools—say yes.
-
-**Step 4: Get the Code**
-1. Open your terminal (or Command Prompt on Windows).
-2. Type this command and hit Enter:
-   ```bash
-   git clone https://github.com/nazirlouis/ada_v2.git
-   ```
-3. This creates a folder named `ada_v2`.
-
-**Step 5: Open in VS Code**
-1. Open VS Code.
-2. Go to **File > Open Folder**.
-3. Select the `ada_v2` folder you just downloaded.
-4. Open the internal terminal: Press `Ctrl + ~` (tilde) or go to **Terminal > New Terminal**.
-
----
-
-### ⚠️ Technical Prerequisites
-Once you have the basics above, continue here.
-
-### 1. System Dependencies
-
-**MacOS:**
-```bash
-# Audio Input/Output support (PyAudio)
-brew install portaudio
-```
-
-**Windows:**
-- No additional system dependencies required!
-
-### 2. Python Environment
-Create a single Python 3.11 environment:
-
-```bash
-conda create -n ada_v2 python=3.11
-conda activate ada_v2
-
-# Install all dependencies
-pip install -r requirements.txt
-
-# Install Playwright browsers
-playwright install chromium
-```
-
-### 3. Frontend Setup
-Requires **Node.js 18+** and **npm**. Download from [nodejs.org](https://nodejs.org/) if not installed.
-
-```bash
-# Verify Node is installed
-node --version  # Should show v18.x or higher
-
-# Install frontend dependencies
-npm install
-```
-
-### 4. 🔐 Face Authentication Setup
-To use the secure voice features, ADA needs to know what you look like.
-
-1. Take a clear photo of your face (or use an existing one).
-2. Rename the file to `reference.jpg`.
-3. Drag and drop this file into the `ada_v2/backend` folder.
-4. (Optional) You can toggle this feature on/off in `settings.json` by changing `"face_auth_enabled": true/false`.
-
----
-
-## ⚙️ Configuration (`settings.json`)
-
-The system creates a `settings.json` file on first run. You can modify this to change behavior:
-
-| Key | Type | Description |
-| :--- | :--- | :--- |
-| `face_auth_enabled` | `bool` | If `true`, blocks all AI interaction until your face is recognized via the camera. |
-| `tool_permissions` | `obj` | Controls manual approval for specific tools. |
-| `tool_permissions.generate_cad` | `bool` | If `true`, requires you to click "Confirm" on the UI before generating CAD. |
-| `tool_permissions.run_web_agent` | `bool` | If `true`, requires confirmation before opening the browser agent. |
-| `tool_permissions.write_file` | `bool` | **Critical**: Requires confirmation before the AI writes code/files to disk. |
-
----
-
-### 5. 🖨️ 3D Printer Setup
-ADA V2 can slice STL files and send them directly to your 3D printer.
-
-**Supported Hardware:**
-- **Klipper/Moonraker** (Creality K1, Voron, etc.)
-- **OctoPrint** instances
-- **PrusaLink** (Experimental)
-
-**Step 1: Install Slicer**
-ADA uses **OrcaSlicer** (recommended) or PrusaSlicer to generate G-code.
-1. Download and install [OrcaSlicer](https://github.com/SoftFever/OrcaSlicer).
-2. Run it once to ensure profiles are created.
-3. ADA automatically detects the installation path.
-
-**Step 2: Connect Printer**
-1. Ensure your printer and computer are on the **same Wi-Fi network**.
-2. Open the **Printer Window** in ADA (Cube icon).
-3. ADA automatically scans for printers using mDNS.
-4. **Manual Connection**: If your printer isn't found, use the "Add Printer" button and enter the IP address (e.g., `192.168.1.50`).
-
----
-
-### 6. 🔑 Gemini API Key Setup
-ADA uses Google's Gemini API for voice and intelligence. You need a free API key.
-
-1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey).
-2. Sign in with your Google account.
-3. Click **"Create API Key"** and copy the generated key.
-4. Create a file named `.env` in the `ada_v2` folder (same level as `README.md`).
-5. Add this line to the file:
-   ```
-   GEMINI_API_KEY=your_api_key_here
-   ```
-6. Replace `your_api_key_here` with the key you copied.
-
-> **Note**: Keep this key private! Never commit your `.env` file to Git.
-
----
-
-## 🚀 Running ADA V2
-
-You have two options to run the app. Ensure your `ada_v2` environment is active!
-
-### Option 1: The "Easy" Way (Single Terminal)
-The app is smart enough to start the backend for you.
-1. Open your terminal in the `ada_v2` folder.
-2. Activate your environment: `conda activate ada_v2`
-3. Run:
-   ```bash
-   npm run dev
-   ```
-4. The backend will start automatically in the background.
-
-### Option 2: The "Developer" Way (Two Terminals)
-Use this if you want to see the Python logs (recommended for debugging).
-
-**Terminal 1 (Backend):**
-```bash
-conda activate ada_v2
-python backend/server.py
-```
-
-**Terminal 2 (Frontend):**
-```bash
-# Environment doesn't matter here, but keep it simple
+\`\`\`powershell
+Set-Location "C:\Users\ASUS\spark"
+npm ci
 npm run dev
-```
+\`\`\`
 
----
+For backend-only debugging, open a separate PowerShell terminal:
 
-## ✅ First Flight Checklist (Things to Test)
+\`\`\`powershell
+Set-Location "C:\Users\ASUS\spark"
+.\.venv\Scripts\python.exe backend\server.py
+\`\`\`
 
-1. **Voice Check**: Say "Hello Ada". She should respond.
-2. **Vision Check**: Look at the camera. If Face Auth is on, the lock screen should unlock.
-3. **CAD Check**: Open the CAD window and say "Create a cube". Watch the logs.
-4. **Web Check**: Open the Browser window and say "Go to Google".
-5. **Smart Home**: If you have Kasa devices, say "Turn on the lights".
+Do not run the backend twice: Electron may already start it. When working in two terminals, confirm that only one Python backend is listening on the configured port.
 
----
+### First-flight checklist
 
-## ▶️ Commands & Tools Reference
+1. **Voice:** Connect the chosen configured provider, and test the SPARK voice interface and speaker/microphone path.
+2. **Vision:** Open the camera preview with permission; test face authentication if configured. Sharing images with an AI provider is opt-in.
+3. **CAD:** Open the CAD panel and create a test cube. The optional \`build123d\` dependency must be installed.
+4. **Browser:** Open WEB_AGENT_VIEW, navigate to a page, and test its local mouse and keyboard controls. Autonomous web actions depend on the enabled agent and provider.
+5. **Smart home:** Test a supported TP-Link Kasa device only if you own and configured one.
+6. **Printing:** Verify printer discovery and OrcaSlicer profile before authorizing any physical print.
 
-### 🗣️ Voice Commands
+### Example voice tasks
+
 - "Switch project to [Name]"
 - "Create a new project called [Name]"
-- "Turn on the [Room] light"
-- "Make the light [Color]"
+- "Create a 3D model of a hex bolt" (requires CAD dependencies)
+- "Go to Google" (only when the web agent and necessary permissions are active)
 - "Pause audio" / "Stop audio"
+- "Turn on the [Room] light" (requires a connected Kasa device)
 
-### 🧊 3D CAD
-- **Prompt**: "Create a 3D model of a hex bolt."
-- **Iterate**: "Make the head thinner." (Requires previous context)
-- **Files**: Saves to `projects/[ProjectName]/output.stl`.
+Commands are examples, not a promise that all optional integrations are enabled.
 
-### 🌐 Web Agent
-- **Prompt**: "Go to Amazon and find a USB-C cable under $10."
-- **Note**: The agent will auto-scroll, click, and type. Do not interfere with the browser window while it runs.
+### Project layout
 
-### 🖨️ Printing & Slicing
-- **Auto-Discovery**: ADA automatically finds printers on your network.
-- **Slicing**: Click "Slice & Print" on any generated 3D model.
-- **Profiles**: ADA intelligently selects the correct OrcaSlicer profile based on your printer's name (e.g., "Creality K1").
+\`\`\`text
+spark/
+├── backend/
+│   ├── ada.py                # Legacy internal Gemini Live implementation module
+│   ├── server.py             # Python API + Socket.IO
+│   ├── cad_agent.py          # CAD orchestration
+│   ├── printer_agent.py      # Discovery and slicing
+│   ├── web_agent.py          # Web automation
+│   ├── kasa_agent.py         # TP-Link Kasa integration
+│   └── project_manager.py    # Project context
+├── src/                      # React app and components
+├── electron/                 # Desktop process and IPC
+├── projects/                 # Local project data; do not commit
+├── scripts/                  # SPARK tools and launch helpers
+├── start-spark.ps1            # Recommended Windows launch
+├── package.json
+└── README.md
+\`\`\`
 
----
+The filename \`backend/ada.py\` is an **internal compatibility module**, not the product's name. Do not rename it without updating all imports and testing Python integration.
 
-## ❓ Troubleshooting FAQ
+### Troubleshooting
 
-### Camera not working / Permission denied (Mac)
-**Symptoms**: Error about camera access, or video feed shows black.
+**AI credentials:** Use only your configured provider and the documented local private configuration. Keep \`.env\` and API keys out of Git. Follow the startup diagnostics if a provider credential is missing.
 
-**Solution**:
-1. Go to **System Preferences > Privacy & Security > Camera**.
-2. Ensure your terminal app (e.g., Terminal, iTerm, VS Code) has camera access enabled.
-3. Restart the app after granting permission.
+**Microphone or camera:** Verify Windows privacy permissions, device selection, and whether the application is in a connected authenticated session.
 
----
+**WebSocket disconnect (1011):** Inspect backend logs, provider status, networking and free-tier quota before reconnecting. This error alone does not identify a single root cause.
 
-### `GEMINI_API_KEY` not found / Authentication Error
-**Symptoms**: Backend crashes on startup with "API key not found".
+**Printer/CAD/browser dependencies:** Their optional installations and drivers are not guaranteed by an ordinary npm install.
 
-**Solution**:
-1. Make sure your `.env` file is in the root `ada_v2` folder (not inside `backend/`).
-2. Verify the format is exactly: `GEMINI_API_KEY=your_key` (no quotes, no spaces).
-3. Restart the backend after editing the file.
+**Python environment:** Use the existing SPARK \`.venv\` and the project's launcher; do not create a second Conda environment unnecessarily.
 
----
+### Security and licensing
 
-### WebSocket connection errors (1011)
-**Symptoms**: `websockets.exceptions.ConnectionClosedError: 1011 (internal error)`.
-
-**Solution**:
-This is a server-side issue from the Gemini API. Simply reconnect by clicking the connect button or saying "Hello Ada" again. If it persists, check your internet connection or try again later.
-
----
-
-## 📸 What It Looks Like
-
-*Coming soon! Screenshots and demo videos will be added here.*
-
----
-
-## 📂 Project Structure
-
-```
-ada_v2/
-├── backend/                    # Python server & AI logic
-│   ├── ada.py                  # Gemini Live API integration
-│   ├── server.py               # FastAPI + Socket.IO server
-│   ├── cad_agent.py            # CAD generation orchestrator
-│   ├── printer_agent.py        # 3D printer discovery & slicing
-│   ├── web_agent.py            # Playwright browser automation
-│   ├── kasa_agent.py           # TP-Link smart home control
-│   ├── authenticator.py        # MediaPipe face auth logic
-│   ├── project_manager.py      # Project context management
-│   ├── tools.py                # Tool definitions for Gemini
-│   └── reference.jpg           # Your face photo (add this!)
-├── src/                        # React frontend
-│   ├── App.jsx                 # Main application component
-│   ├── components/             # UI components (11 files)
-│   └── index.css               # Global styles
-├── electron/                   # Electron main process
-│   └── main.js                 # Window & IPC setup
-├── projects/                   # User project data (auto-created)
-├── .env                        # API keys (create this!)
-├── requirements.txt            # Python dependencies
-├── package.json                # Node.js dependencies
-└── README.md                   # You are here!
-```
-
----
-
-## ⚠️ Known Limitations
-
-| Limitation | Details |
-|------------|---------|
-| **macOS & Windows** | Tested on macOS 14+ and Windows 10/11. Linux is untested. |
-| **Camera Required** | Face auth and gesture control need a working webcam. |
-| **Gemini API Quota** | Free tier has rate limits; heavy CAD iteration may hit limits. |
-| **Network Dependency** | Requires internet for Gemini API (no offline mode). |
-| **Single User** | Face auth recognizes one person (the `reference.jpg`). |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how:
-
-1. **Fork** the repository.
-2. **Create a branch**: `git checkout -b feature/amazing-feature`
-3. **Commit** your changes: `git commit -m 'Add amazing feature'`
-4. **Push** to the branch: `git push origin feature/amazing-feature`
-5. **Open a Pull Request** with a clear description.
-
-### Development Tips
-
-- Run the backend separately (`python backend/server.py`) to see Python logs.
-- Use `npm run dev` without Electron during frontend development (faster reload).
-- The `projects/` folder contains user data—don't commit it to Git.
-
----
-
-## 🔒 Security Considerations
-
-| Aspect | Implementation |
-|--------|----------------|
-| **API Keys** | Stored in `.env`, never committed to Git. |
-| **Face Data** | Processed locally, never uploaded. |
-| **Tool Confirmations** | Write/CAD/Web actions can require user approval. |
-| **No Cloud Storage** | All project data stays on your machine. |
-
-> [!WARNING]
-> Never share your `.env` file or `reference.jpg`. These contain sensitive credentials and biometric data.
-
----
-
-## 🙏 Acknowledgments
-
-- **[Google Gemini](https://deepmind.google/technologies/gemini/)** — Native Audio API for real-time voice
-- **[build123d](https://github.com/gumyr/build123d)** — Modern parametric CAD library
-- **[MediaPipe](https://developers.google.com/mediapipe)** — Hand tracking, gesture recognition, and face authentication
-- **[Playwright](https://playwright.dev/)** — Reliable browser automation
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+Keep \`.env\`, face-reference images and project records private. File writes, external navigation, code execution and device actions should remain subject to applicable permissions. All upstream copyright and licence notices are preserved in [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and retained upstream files. Rebranding does not transfer third-party authorship or rights.
 
 ---
 
 <p align="center">
-  <strong>Built with 🤖 by Nazir Louis</strong><br>
+  <strong>Built with 🤖 by shyam sundharf</strong><br>
   <em>Bridging AI, CAD, and Vision in a Single Interface</em>
 </p>
