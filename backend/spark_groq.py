@@ -8,6 +8,7 @@ import array
 import asyncio
 import base64
 import io
+import json
 import math
 import os
 import re
@@ -21,6 +22,8 @@ from spark_camera_frames import validate_camera_frame
 from spark_desktop import launch_allowed_app
 from spark_workspace_voice import knowledge_search_query
 from spark_workbench_voice import parse_workbench_command
+from spark_pc_access import PC_TOOL, PC_INSTRUCTION
+from spark_jarvis import jarvis_question
 
 CHAT_URL="https://api.groq.com/openai/v1/chat/completions"
 STT_URL="https://api.groq.com/openai/v1/audio/transcriptions"
@@ -188,6 +191,55 @@ class GroqClient:
         except (KeyError,TypeError,IndexError,ValueError):
             raise GroqUnavailable("Groq returned no usable text response.") from None
 
+    async def chat_autonomous(self, prompt, history, access, stopped):
+        messages = [{'role': 'system', 'content':
+            SYSTEM_PROMPT.replace('You have no arbitrary file, browser, shell, or unrestricted computer-control tools.', '')
+            .replace('A separate local approval gate can open only Notepad, Calculator or Paint for exact user commands; never claim unapproved actions completed.', '')
+            .replace('or claim you performed an action.', 'or claim actions without tool evidence.')
+            + PC_INSTRUCTION}]
+        messages += history[-6:]
+        messages.append({'role': 'user', 'content': prompt[:1200]})
+        steps = 0
+        while not stopped():
+            if not access.enabled():
+                return 'PC autonomy was disabled; no further PC actions will run.'
+            body = {'model': groq_model(), 'messages': messages, 'stream': False,
+                    'tools': [{'type': 'function', 'function': PC_TOOL}],
+                    'tool_choice': 'auto', 'parallel_tool_calls': False,
+                    'max_completion_tokens': 1600, 'reasoning_effort': 'low'}
+            result = await self._http(CHAT_URL, body=body)
+            try:
+                message = result['choices'][0]['message']
+                calls = message.get('tool_calls', [])
+                if not calls:
+                    content = message.get('content')
+                    if not isinstance(content, str) or not content.strip():
+                        raise ValueError()
+                    return content.strip()[:8000]
+                if not isinstance(calls, list) or len(calls) > 8:
+                    raise ValueError()
+                messages.append({'role': 'assistant', 'content': message.get('content'), 'tool_calls': calls})
+                for call in calls:
+                    if stopped():
+                        return 'PC task stopped.'
+                    if steps >= 8:
+                        return 'Stopped after eight PC actions in this turn. Ask me to continue if more work remains.'
+                    steps += 1
+                    function = call['function']
+                    if function['name'] != 'pc_action':
+                        output = {'ok': False, 'error': 'Unknown tool.'}
+                    else:
+                        try:
+                            arguments = json.loads(function['arguments'])
+                        except (TypeError, ValueError):
+                            arguments = None
+                        output = await asyncio.to_thread(access.execute, arguments)
+                    messages.append({'role': 'tool', 'tool_call_id': call['id'],
+                                     'content': json.dumps(output)})
+            except (KeyError, TypeError, IndexError, ValueError):
+                raise GroqUnavailable('Groq returned an invalid PC tool response.') from None
+        return 'PC task stopped.'
+
     async def vision(self,prompt,frame):
         """One explicitly requested JPEG; image is never placed in text history."""
         frame = validate_camera_frame(frame)
@@ -247,6 +299,8 @@ async def get_public_json(url):
 class GroqVoiceLoop:
     provider="groq"
     browser_audio=True
+    pc_access=None
+    jarvis_access=None
     def __init__(self,api=None,on_transcription=None,on_browser_audio=None,
                  on_web_sources=None,on_live_status=None,on_error=None,
                  audio_playback_wait=True,fetch_public=None,on_browser_tts=None,
@@ -282,6 +336,25 @@ class GroqVoiceLoop:
         self._silence_chunks=0
         self._history=[]
         self._lock=asyncio.Lock()
+
+    def seed_history(self, transcript):
+        """Load persisted conversation into the LLM history for continuity.
+
+        Accepts a compact 'User:'/'SPARK:' transcript and rebuilds the recent
+        OpenAI-style message list so Groq voice resumes mid-conversation like
+        Gemini Live does, instead of answering without context. Bounded to the
+        same six-message window the live turn loop keeps.
+        """
+        if not isinstance(transcript, str) or not transcript.strip():
+            return
+        messages = []
+        for line in transcript.splitlines():
+            line = line.strip()
+            if line.startswith("User:"):
+                messages.append({"role": "user", "content": line[5:].strip()[:1200]})
+            elif line.startswith("SPARK:"):
+                messages.append({"role": "assistant", "content": line[6:].strip()[:700]})
+        self._history = messages[-6:]
 
     @property
     def accepting_mic(self):
@@ -470,10 +543,15 @@ class GroqVoiceLoop:
         app=parse_desktop_command(prompt)
         search_query=knowledge_search_query(prompt)
         workbench_command=parse_workbench_command(prompt)
-        if workbench_command:
+        question=jarvis_question(prompt)
+        if question is not None:
+            result=(await self.jarvis_access.ask(question) if self.jarvis_access
+                    else {'ok':False,'message':'Open VAOS Jarvis from the Experience Deck to connect.'})
+            answer=result.get('answer') if result.get('ok') else result.get('message','Jarvis request failed.')
+        elif workbench_command:
             answer=(await self.on_workbench_command(workbench_command) if self.on_workbench_command
                     else "Local preferences and reminders are not available in this session.")
-        elif app:
+        elif app and not (self.pc_access and self.pc_access.enabled()):
             approved=False
             if self.on_desktop_approval:
                 try:
@@ -515,12 +593,15 @@ class GroqVoiceLoop:
                 if data.get("sources") and self.on_web_sources:
                     self.on_web_sources({"sources":data["sources"]})
             else:
-                answer=await self.api.chat(prompt,list(self._history))
+                if self.pc_access and self.pc_access.enabled():
+                    answer=await self.api.chat_autonomous(prompt,list(self._history),self.pc_access,self.stop_event.is_set)
+                else:
+                    answer=await self.api.chat(prompt,list(self._history))
                 self._history.extend(({"role":"user","content":prompt[:1200]},
                                       {"role":"assistant","content":answer[:700]}))
                 self._history=self._history[-6:]
         if self.on_transcription:
-            self.on_transcription({"sender":"ADA","text":answer})
+            self.on_transcription({"sender":"SPARK","text":answer})
         if self.on_browser_tts:
             await self._speak_browser(answer)
             return

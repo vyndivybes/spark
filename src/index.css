@@ -39,6 +39,14 @@ body {
   font-family: Inter, 'Segoe UI', system-ui, sans-serif;
 }
 .spark-cockpit h1 { color:#f4dfae; text-shadow: 0 0 24px rgba(228,191,114,.28); }
+.spark-toolbar {height:64px;min-height:64px;flex-shrink:0;gap:14px}
+.spark-brand,.spark-window-actions {flex-shrink:0}
+.spark-brand>div {white-space:nowrap}
+.spark-nav-actions {flex:1;min-width:0;overflow-x:auto;scrollbar-width:thin;padding:4px;overscroll-behavior-x:contain}
+.spark-nav-actions>button {flex-shrink:0;white-space:nowrap;min-height:40px}
+.spark-mic-strip {display:none}
+@media(min-width:1800px){.spark-mic-strip{display:flex;max-width:220px}}
+@media(max-width:1000px){.spark-brand>div,.spark-window-actions>div{display:none}.spark-toolbar{gap:8px}.spark-brand h1{font-size:16px}}
 .spark-launch-button {
   -webkit-app-region:no-drag; display:inline-flex; align-items:center; justify-content:center;
   gap:9px; padding:10px 17px; border-radius:100px; font:650 11px/1 'Segoe UI',sans-serif;
@@ -52,20 +60,21 @@ body {
   box-shadow:0 5px 30px rgba(222,191,130,.18); outline:2px solid rgba(245,217,158,.3);
 }
 .spark-experience-panel {
-  position:absolute; top:76px; right:22px; width:min(940px,calc(100% - 44px)); z-index:90;
-  max-height:calc(100vh - 110px); overflow-y:auto; padding:28px;
+  position:fixed; top:76px; right:22px; width:min(940px,calc(100% - 44px)); z-index:120;
+  max-height:calc(100dvh - 92px); overflow-y:auto; overscroll-behavior:contain; padding:28px;
   color:#f4f1ea; background:linear-gradient(135deg,rgba(41,59,80,.98),rgba(20,34,55,.99));
   box-shadow:0 30px 100px rgba(5,13,27,.7), inset 0 1px rgba(255,255,255,.15);
   border:1px solid rgba(230,201,144,.52); border-radius:24px;
   font-family:Inter,'Segoe UI',sans-serif; backdrop-filter:blur(26px);
 }
 .spark-panel-heading {display:flex;align-items:flex-start;justify-content:space-between;gap:22px;margin-bottom:25px}
+.spark-experience-panel .spark-panel-heading {position:sticky;top:0;z-index:2;background:#23364b;padding:8px 0}
 .spark-eyebrow {font-size:10px;font-weight:700;letter-spacing:.22em;color:#ecd39d}
 .spark-panel-heading h2 {font-size:26px;line-height:1.25;letter-spacing:-.025em;margin:8px 0;color:#fff7e8;font-weight:650}
 .spark-panel-heading p {max-width:650px;font-size:13px;line-height:1.55;color:#b8c9d7}
 .spark-close {display:grid;place-items:center;min-width:38px;height:38px;border-radius:11px;border:1px solid #6b7f93;color:#dce5eb}
 .spark-close:hover {background:#455c73}
-.spark-experience-cards {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.spark-experience-cards {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
 .spark-experience-card {position:relative;min-width:0;min-height:238px;padding:21px;text-align:left;
   display:flex;flex-direction:column;align-items:flex-start; gap:10px;border-radius:17px;
   background:linear-gradient(150deg,#345b71,#192e46);border:1px solid rgba(170,212,223,.45);
@@ -81,6 +90,15 @@ button.spark-experience-card:hover:not(:disabled),button.spark-experience-card:f
 .spark-experience-card small {font-size:12px;line-height:1.6;color:#cbd9e5;min-height:48px}
 .spark-experience-card em {margin-top:auto;font-size:10px;letter-spacing:.13em;font-weight:800;font-style:normal;color:#ffe4ad}
 .spark-exp-status {margin-top:16px;font-size:12px;color:#dce7ed;overflow-wrap:anywhere}
+.spark-workspace-group {grid-column:1 / -1}
+.spark-workspace-modes {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%}
+.spark-workspace-modes button {display:flex;flex-direction:column;gap:8px;padding:15px;border:1px solid rgba(219,189,220,.4);border-radius:12px;text-align:left;background:rgba(7,17,29,.35);min-width:0}
+.spark-workspace-modes button:hover:not(:disabled),.spark-workspace-modes button:focus-visible {background:rgba(7,17,29,.65);outline:2px solid #e8c88f;outline-offset:2px}
+.spark-workspace-modes button:disabled {opacity:.6;cursor:progress}
+.spark-workspace-modes b {font-size:13px;color:#ffe4ad}
+.spark-workspace-modes span,.spark-workspace-note {font-size:12px;line-height:1.6;color:#cbd9e5}
+.spark-workspace-note {margin-top:4px;max-width:760px}
+@media(max-width:700px){.spark-workspace-modes{grid-template-columns:1fr}}
 @media(max-width:900px){.spark-experience-panel{right:10px;width:calc(100% - 20px);padding:18px}.spark-experience-cards{grid-template-columns:1fr}.spark-experience-card{min-height:150px}.spark-experience-card small{min-height:0}.spark-panel-heading h2{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.spark-experience-card,.spark-launch-button{transition:none}}
 

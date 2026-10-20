@@ -19,6 +19,12 @@ upstream license is retained at `docs/licenses/OpenJarvis-APACHE-2.0.txt`.
 
 ### Excluded source code
 
+VAYU Workspace is also bundled from the user-provided
+`VAYU_Productivity_Workspace_Separate_Views.zip` in `vendor/vayu-workspace`.
+Its included MediaPipe Tasks Vision 0.10.21 metadata declares Apache-2.0.
+The original bundle and metadata are preserved. No open-source license is
+asserted for the VAYU application itself. See `docs/vayu-integration.md`.
+
 - [Brahma AI Evo](https://github.com/titechprabhasolutions/Brahma-Ai-Evo): personal-use source-available licence prohibits Git repository mirroring and redistribution; **no source is included**.
 - [O.L.L.I.E](https://github.com/nazirlouis/O.L.L.I.E): no redistribution licence verified; **no source is included**.
 

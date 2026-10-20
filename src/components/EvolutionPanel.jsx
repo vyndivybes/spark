@@ -15,6 +15,11 @@ export default function EvolutionPanel({socket, project}) {
     const [tools, setTools] = useState([]);
     const [toolName, setToolName] = useState('');
     const [argumentsText, setArgumentsText] = useState('{}');
+    const [repository, setRepository] = useState('');
+    const [repoGoal, setRepoGoal] = useState('');
+    const [referencePaths, setReferencePaths] = useState('');
+    const [analysis, setAnalysis] = useState(null);
+    const [analyses, setAnalyses] = useState([]);
     const pending = useRef(null);
     const deadline = useRef(null);
     const serial = useRef(0);
@@ -22,6 +27,10 @@ export default function EvolutionPanel({socket, project}) {
     useEffect(() => {
         pending.current = null;
         setBusy(false);
+        setAnalysis(null);
+        setAnalyses([]);
+        setCandidates([]);
+        setRepairs([]);
         setResult('Ready. Select an operation.');
         const listener = data => {
             if (data?.request_id !== pending.current) return;
@@ -35,6 +44,18 @@ export default function EvolutionPanel({socket, project}) {
             }
             if (data.ok && data.action === 'list_repairs') setRepairs(data.result);
             if (data.ok && data.action === 'list_repair_candidates') setCandidates(data.result);
+            if (data.ok && ['analyze_repository', 'read_repository_analysis'].includes(data.action)) setAnalysis(data.result);
+            if (data.ok && data.action === 'list_repository_analyses') setAnalyses(data.result);
+            if (data.ok && ['stage_repository_upgrade', 'heal_sources', 'test_repair_candidate'].includes(data.action)) {
+                setCandidates(current => [data.result, ...current.filter(c => c.id !== data.result.id)]);
+            }
+            if (data.ok && data.action === 'activate_repair_candidate') {
+                setCandidates([]);
+                setRepairs(current => [data.result, ...current.filter(r => r.id !== data.result.id)]);
+            }
+            if (data.ok && data.action === 'rollback_repair') {
+                setRepairs(current => current.map(r => r.id === data.result.id ? {...r, status: 'rolled_back'} : r));
+            }
         };
         const disconnect = () => {clearTimeout(deadline.current); pending.current = null; setBusy(false); setResult('Backend disconnected. Check repair history after reconnecting.');};
         socket.on('workspace_result', listener);
@@ -43,7 +64,7 @@ export default function EvolutionPanel({socket, project}) {
     }, [socket, project]);
 
     function request(action, payload = {}) {
-        if (busy) return;
+        if (busy || pending.current) return;
         if (!socket.connected) {setResult('Connect SPARK first.'); return;}
         pending.current = `evolution-${Date.now()}-${++serial.current}`;
         setBusy(true);
@@ -59,6 +80,34 @@ export default function EvolutionPanel({socket, project}) {
 
     const selected = tools.find(tool => tool.name === toolName);
     return <div className="mt-3 grid gap-4 lg:grid-cols-2">
+        <div className="space-y-3 rounded-xl border border-cyan-500/20 p-3 lg:col-span-2">
+            <h3 className="font-semibold">Learn from a repository</h3>
+            <p className="text-sm text-slate-300">Choose a local source checkout and describe an improvement to Spark. Analysis sends a bounded source sample to your configured Groq model. It returns source references and upgrade suggestions. Clone remote repositories locally first. Repository code is read, never executed during analysis.</p>
+            <input aria-label="Repository directory" className={input} value={repository} onChange={e => setRepository(e.target.value)} placeholder="Absolute local repository path" />
+            <textarea aria-label="Repository upgrade goal" className={input} value={repoGoal} onChange={e => setRepoGoal(e.target.value)} placeholder="What should Spark learn or improve from this repository?" />
+            <textarea aria-label="Repository reference paths" className={input} value={referencePaths} onChange={e => setReferencePaths(e.target.value)} placeholder="Optional reference paths, one per line. Blank selects a sample of README, manifests and source files." />
+            <p className="text-xs text-slate-400">Up to 16 UTF-8 files, 64 KiB each and 192 KiB total. Hidden files and sensitive filenames are excluded. Review which source files you share with the model. Findings describe sampled source; runtime behavior remains unverified.</p>
+            <div className="flex flex-wrap gap-2">
+                <button className={button} disabled={busy || !repository.trim() || !repoGoal.trim()} onClick={() => request('analyze_repository', {repository: repository.trim(), goal: repoGoal.trim(), reference_paths: referencePaths.split(/\r?\n/).map(p => p.trim()).filter(Boolean)})}>Analyze repository with model</button>
+                <button className={button} disabled={busy} onClick={() => request('list_repository_analyses')}>Load saved analyses</button>
+            </div>
+            {analyses.map(report => <button key={report.id} className={`${button} mr-2`} disabled={busy} onClick={() => request('read_repository_analysis', {id: report.id})}>{report.goal}</button>)}
+            {analysis && <div className="space-y-3 text-sm">
+                <p className="break-all">{analysis.repository}</p>
+                <p className="whitespace-pre-wrap">{analysis.summary}</p>
+                <details><summary>Inspect sampled source and coverage</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify({sources: analysis.sources, skipped: analysis.skipped, inventory_truncated: analysis.inventory_truncated, limitations: analysis.limitations}, null, 2)}</pre></details>
+                {!analysis.opportunities.length && <p>No supported upgrade was identified in this sample. Try a more specific goal or select different reference files.</p>}
+                {analysis.opportunities.map((item, index) => <div key={index} className="space-y-2 rounded-lg border border-white/20 p-3">
+                    <h4 className="font-semibold">{item.title}</h4>
+                    <p>{item.rationale}</p>
+                    <p className="break-words">Source evidence: {item.evidence.join(', ')}</p>
+                    <p className="break-words">Spark files: {item.spark_paths.join(', ')}</p>
+                    <p>Acceptance check: {item.verification}</p>
+                    <button className={button} disabled={busy} onClick={() => request('stage_repository_upgrade', {analysis_id: analysis.id, opportunity: index})}>Generate staged Spark upgrade</button>
+                </div>)}
+                <p>Generated upgrades appear below for inspection, approved local tests and separate activation. Existing backend Python files are supported. Recovery and authorization modules require manual upgrades.</p>
+            </div>}
+        </div>
         <div className="space-y-3 rounded-xl border border-cyan-500/20 p-3">
             <h3 className="font-semibold">Generate and upgrade skills</h3>
             <p className="text-sm text-slate-300">Describe a calculation. Spark stages a declarative skill and tests its examples. Review and activate the tested candidate in Skill Forge. Failed upgrades preserve the active revision.</p>
@@ -77,6 +126,7 @@ export default function EvolutionPanel({socket, project}) {
             </div>
             {candidates.map(candidate=><div key={candidate.id} className="space-y-2 rounded-lg border border-white/20 p-2 text-sm">
                 <p>{candidate.id}: {candidate.status}</p>
+                {candidate.provenance && <details><summary>Repository evidence and acceptance check</summary><pre className="max-h-52 overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify(candidate.provenance,null,2)}</pre></details>}
                 <details><summary>Inspect complete replacements</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify(candidate.changes,null,2)}</pre></details>
                 {['staged','tested','rejected'].includes(candidate.status)&&<button className={button} disabled={busy} onClick={()=>{if(window.confirm('Run the inspected candidate code in local regression tests? Staging is a temporary directory, not an operating-system security sandbox.'))request('test_repair_candidate',{id:candidate.id,approved:true});}}>Approve local tests</button>}
                 {candidate.status==='tested'&&<button className={button} disabled={busy} onClick={()=>{if(window.confirm('Activate this inspected, tested source replacement in Spark? Backups are kept for rollback.'))request('activate_repair_candidate',{id:candidate.id,approved:true});}}>Approve activation</button>}

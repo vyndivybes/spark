@@ -26,7 +26,9 @@ def vision_requested(value):
         r"(?:spark,? )?(?:please )?"
         r"(?:what (?:do|can) you see|describe what you see|"
         r"what(?:'s| is) in front of (?:the )?camera|"
-        r"what(?:'s| is) in (?:the )?(?:camera|image|picture|frame))",
+        r"what(?:'s| is) in (?:the )?(?:camera|image|picture|frame)|"
+        r"(?:are you able to|can you) see me(?: now)?|"
+        r"do you see me(?: now)?)",
         speech,
     ))
 

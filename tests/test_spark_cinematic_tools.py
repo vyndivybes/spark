@@ -16,14 +16,14 @@ class Stage6ToolsTests(unittest.TestCase):
         conf = select_live_config("cinematic", {"tools": ["unsafe"]})
         self.assertNotIn("tools", conf)
 
-    def test_opt_in_retains_original_voice_and_only_two_function_declarations(self):
+    def test_opt_in_retains_original_voice_and_only_three_function_declarations(self):
         c = select_live_config("cinematic_tools", {"tools": ["unsafe"]})
         base = select_live_config("cinematic", {"tools": ["unsafe"]})
         for k in ("response_modalities", "speech_config"):
             self.assertEqual(c[k], base[k])
         self.assertEqual(len(c["tools"]), 1)
         names=[x["name"] for x in c["tools"][0]["function_declarations"]]
-        self.assertEqual(names, ["get_system_status", "launch_desktop_app"])
+        self.assertEqual(names, ["get_system_status", "launch_desktop_app", "query_spark_graph"])
         self.assertEqual(names, [x["name"] for x in CINEMATIC_FUNCTIONS])
         self.assertNotIn("google_search", str(c))
         self.assertNotIn("NON_BLOCKING", str(c))
@@ -35,7 +35,7 @@ class Stage6ToolsTests(unittest.TestCase):
             self.assertEqual(live_profile(), "voice")
 
     def test_profile_level_executable_tool_enforcement(self):
-        for name in ("get_system_status","launch_desktop_app"):
+        for name in ("get_system_status","launch_desktop_app","query_spark_graph"):
             self.assertTrue(allowed_live_tool("cinematic_tools", name))
         for unsafe in ("run_web_agent","write_file","generate_cad","read_directory",
                        "control_light","print_stl","read_file","__import__",""):

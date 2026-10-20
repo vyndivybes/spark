@@ -1,0 +1,15 @@
+# Optional temporal knowledge graph. Installs into .venv-graphiti, never into
+# SPARK's runtime environment: graphiti-core resolves google-genai 2.x while
+# SPARK's Gemini Live path is pinned to google-genai>=1,<2, and it pulls openai,
+# neo4j and posthog into whatever environment it lands in.
+#
+# Fact extraction calls a cloud LLM (Groq) and a cloud embedder (Gemini) using
+# the keys already in backend/.env. Nothing is sent without -EnableGraphiti.
+#
+# Pinned to 0.31.x because backend/spark_graphiti_mcp.py carries three
+# workarounds verified against that series: the KuzuDriver._database sentinel,
+# explicit range/fulltext index DDL, and no caller-supplied episode uuid.
+graphiti-core[kuzu,groq,google-genai]>=0.31.1,<0.32
+# mcp 2.x removed mcp.server.fastmcp, which both SPARK sidecars and its MCP test
+# fixture use. SPARK's own runtime environment is on mcp 1.x for the same reason.
+mcp>=1,<2

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import io from 'socket.io-client';
+import {createPortal} from 'react-dom';
+import socket from './sparkSocket.mjs';
 
 import Visualizer from './components/Visualizer';
 import TopAudioBar from './components/TopAudioBar';
@@ -21,17 +22,19 @@ import SystemCenter from './components/SystemCenter';
 import HealthConnectPanel from './components/HealthConnectPanel';
 import ReaAuditPanel from './components/ReaAuditPanel';
 import FocusPanel from './components/FocusPanel';
+import JarvisPanel from './components/JarvisPanel';
 import WorkspacePanel from './components/WorkspacePanel';
 import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
 
 
-const socket = io('http://localhost:8000');
 const { ipcRenderer } = window.require('electron');
+const invokeJarvis=request=>ipcRenderer.invoke('spark:jarvis',request);
 ipcRenderer.invoke('spark:workspace-token').then(token=>{socket.workspaceToken=token;}).catch(()=>{});
 
 function App() {
+    const [showJarvis,setShowJarvis]=useState(false);
     const [status, setStatus] = useState('Disconnected');
     const [liveState, setLiveState] = useState({state:'disconnected',message:'Waiting for SPARK Core...'});
     const [socketConnected, setSocketConnected] = useState(socket.connected); // Track socket connection reactively
@@ -101,7 +104,7 @@ function App() {
     const [showPhoneWatch, setShowPhoneWatch] = useState(false);
     const [showReaAudit, setShowReaAudit] = useState(false);
     const [showFocus, setShowFocus] = useState(false);
-    const [showWorkspace, setShowWorkspace] = useState(false);
+    const [showWorkspace, setShowWorkspace] = useState(true);
     const [diagnostics, setDiagnostics] = useState(null);
     const [systemsNotice, setSystemsNotice] = useState('');
     const [showExperiences, setShowExperiences] = useState(false);
@@ -342,6 +345,7 @@ function App() {
 
                 setStatus('Connecting...');
                 socket.emit('start_audio', {
+                    workspace_token:socket.workspaceToken,
                     device_index: index >= 0 ? index : null,
                     device_name: deviceName,
                     muted: audioTransport === 'browser_aec' ? true : isMuted,
@@ -1336,6 +1340,7 @@ function App() {
         } else {
             const index = micDevices.findIndex(d => d.deviceId === selectedMicId);
             socket.emit('start_audio', {
+                workspace_token:socket.workspaceToken,
                 transport: audioTransportRef.current,
                 device_index: index >= 0 ? index : null,
                 muted: audioTransportRef.current === 'browser_aec'
@@ -1670,6 +1675,7 @@ function App() {
         } else {
             const mic = micDevices.find(d => d.deviceId === selectedMicId);
             socket.emit('start_audio', {
+                workspace_token:socket.workspaceToken,
                 device_name: mic?.label || null,
                 muted: audioTransportRef.current === 'browser_aec',
                 transport: audioTransportRef.current
@@ -1681,7 +1687,7 @@ function App() {
     const openExperience = async (experience) => {
         if(experienceBusy)return;
         setExperienceBusy(experience);
-        setExperienceMessage('Starting the locally installed '+(experience==='holo'?'HOLO Deck':'Brain Map')+'…');
+        setExperienceMessage('Starting the locally installed '+(experience==='vayu'?'VAYU Workspace':experience==='holo'?'HOLO Deck':'Brain Map')+'…');
         try {
             const result=await ipcRenderer.invoke('spark:open-experience',experience);
             setExperienceMessage(result.reused?'Existing experience focused.':'Experience opened. Its original controls are now available.');
@@ -1742,13 +1748,13 @@ function App() {
             />
 
             {/* Top Bar (Draggable) */}
-            <div className="z-50 flex items-center justify-between p-2 border-b border-cyan-500/20 bg-black/40 backdrop-blur-md select-none sticky top-0" style={{ WebkitAppRegion: 'drag' }}>
-                <div className="flex items-center gap-4 pl-2">
+            <div className="spark-toolbar z-50 flex items-center justify-between p-2 border-b border-cyan-500/20 bg-black/40 backdrop-blur-md select-none sticky top-0" style={{ WebkitAppRegion: 'drag' }}>
+                <div className="spark-brand flex items-center gap-4 pl-2">
                     <h1 className="text-xl font-bold tracking-[0.2em] text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
                         SPARK
                     </h1>
                     <div className="text-[10px] text-cyan-700 border border-cyan-900 px-1 rounded">
-                        FUSION · ADA CORE
+                        FUSION • SPARK CORE
                     </div>
                     {/* FPS Counter */}
                     {isVideoOn && (
@@ -1773,18 +1779,18 @@ function App() {
                 </div>
 
                 {/* Top Visualizer (User Mic) */}
-                <div className="flex-1 flex justify-center mx-4">
+                <div className="spark-mic-strip flex-1 flex justify-center mx-4">
                     <TopAudioBar audioData={micAudioData} />
                 </div>
 
-                <div className="flex items-center gap-2 pr-2" style={{ WebkitAppRegion: 'no-drag' }}>
+                <nav aria-label="Spark navigation" className="spark-nav-actions flex items-center gap-2 pr-2" style={{ WebkitAppRegion: 'no-drag' }}>
                     <button
                         type="button"
                         onClick={()=>setShowExperiences(open=>!open)}
                         aria-expanded={showExperiences}
                         aria-controls="spark-experience-panel"
                         className="spark-launch-button"
-                        title="Open original HOLO and Brain Map experiences"
+                        title="Open VAYU, linked notes, hand interaction and VAOS Jarvis"
                     >
                         <Hand size={15} /> EXPERIENCE DECK
                     </button>
@@ -1851,20 +1857,22 @@ function App() {
                         aria-controls="spark-workspace-panel"
                         className="flex items-center gap-2 rounded-lg border border-cyan-700/70 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-900/50"
                         title="Real ARKUS offline project knowledge and Skill Forge">
-                        <Search size={17}/> KNOWLEDGE / SKILLS
+                        <Search size={17}/> HOME / KNOWLEDGE
                     </button>
+                </nav>
+                <div className="spark-window-actions flex items-center gap-2" style={{WebkitAppRegion:'no-drag'}}>
                     {/* Live Clock */}
                     <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/70 font-mono px-2">
                         <Clock size={12} className="text-cyan-500/50" />
                         <span>{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <button onClick={handleMinimize} className="p-1 hover:bg-cyan-900/50 rounded text-cyan-500 transition-colors">
+                    <button aria-label="Minimize Spark" onClick={handleMinimize} className="p-1 hover:bg-cyan-900/50 rounded text-cyan-500 transition-colors">
                         <Minus size={18} />
                     </button>
-                    <button onClick={handleMaximize} className="p-1 hover:bg-cyan-900/50 rounded text-cyan-500 transition-colors">
+                    <button aria-label="Maximize or restore Spark" onClick={handleMaximize} className="p-1 hover:bg-cyan-900/50 rounded text-cyan-500 transition-colors">
                         <div className="w-[14px] h-[14px] border-2 border-current rounded-[2px]" />
                     </button>
-                    <button onClick={handleCloseRequest} className="p-1 hover:bg-red-900/50 rounded text-red-500 transition-colors">
+                    <button aria-label="Close Spark" onClick={handleCloseRequest} className="p-1 hover:bg-red-900/50 rounded text-red-500 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
@@ -1910,33 +1918,52 @@ function App() {
                 </div>
             )}
 
-            {showExperiences && (
+            {showJarvis&&<JarvisPanel onClose={()=>setShowJarvis(false)} invoke={invokeJarvis} socket={socket} project={currentProject}/>}
+            {showExperiences && createPortal(
                 <section id="spark-experience-panel" className="spark-experience-panel" role="region" aria-label="SPARK experiences" style={{WebkitAppRegion:'no-drag'}}>
                     <div className="spark-panel-heading">
                         <div><span className="spark-eyebrow">SPARK / EXPERIENCE LIBRARY</span><h2>One intelligence. Multiple dimensions.</h2>
-                            <p>Original open-source interaction engines, launched locally from pinned source checkouts.</p></div>
+                            <p>Local interaction engines, knowledge views and productivity workspaces.</p></div>
                         <button type="button" aria-label="Close experience deck" className="spark-close" onClick={()=>setShowExperiences(false)}><X size={18}/></button>
                     </div>
                     <div className="spark-experience-cards">
-                        <button type="button" className="spark-experience-card spark-holo" disabled={!!experienceBusy} onClick={()=>openExperience('holo')}>
-                            <span className="spark-exp-symbol"><Hand size={29}/></span><span className="spark-exp-subtitle">IMMERSIVE HAND CONTROL</span>
-                            <strong>HOLO DECK</strong><small>Pinch · throw · stretch · 3D artifacts · voice</small>
-                            <em>{experienceBusy==='holo'?'LAUNCHING':'OPEN EXPERIENCE →'}</em>
-                        </button>
-                        <button type="button" className="spark-experience-card spark-brain" disabled={!!experienceBusy} onClick={()=>openExperience('brain')}>
-                            <span className="spark-exp-symbol">◈</span><span className="spark-exp-subtitle">LINKED KNOWLEDGE SPACE</span>
-                            <strong>NEURAL ATLAS</strong><small>Wiki links · live graph physics · focus · replay</small>
-                            <em>{experienceBusy==='brain'?'LAUNCHING':'OPEN EXPERIENCE →'}</em>
+                        <div className="spark-experience-card spark-brain spark-workspace-group" role="group" aria-label="VAYU Workspace modes">
+                            <span className="spark-exp-symbol">◇</span><span className="spark-exp-subtitle">WORK, KNOWLEDGE &amp; HAND INTERACTION</span>
+                            <strong>VAYU WORKSPACE</strong>
+                            <div className="spark-workspace-modes">
+                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('vayu')}>
+                                    <b>{experienceBusy==='vayu'?'Opening…':'Open workspace →'}</b>
+                                    <span>Personal and business actions, analytics, and 10 business-schema views.</span>
+                                </button>
+                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('brain')}>
+                                    <b>{experienceBusy==='brain'?'Opening…':'Neural Atlas → notes graph'}</b>
+                                    <span>Explore wiki links between your published Spark notes.</span>
+                                </button>
+                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('obsidian')}>
+                                    <b>{experienceBusy==='obsidian'?'Opening…':'Obsidian → vault browser'}</b>
+                                    <span>Browse and search your local Obsidian vault.</span>
+                                </button>
+                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('holo')}>
+                                    <b>{experienceBusy==='holo'?'Opening…':'HOLO Deck → hand interaction'}</b>
+                                    <span>Grab and arrange notes and 3D objects with hand gestures.</span>
+                                </button>
+                            </div>
+                            <p className="spark-workspace-note">Each opens its own view. Atlas and HOLO share published Spark notes, with examples when none are published. VAYU actions and imports remain separate.</p>
+                        </div>
+                        <button type="button" className="spark-experience-card spark-brain" onClick={()=>{setShowJarvis(true);setShowExperiences(false);}}>
+                            <span className="spark-exp-symbol">◉</span><span className="spark-exp-subtitle">CONNECTED FOUNDER INTELLIGENCE</span>
+                            <strong>VAOS JARVIS</strong><small>Sign in · ask Jarvis · source evidence · workforce</small>
+                            <em>CONNECT JARVIS →</em>
                         </button>
                         <button type="button" className="spark-experience-card spark-core" onClick={activateSparkCore}
                             title="Activate SPARK voice core and return to the cockpit">
                             <span className="spark-exp-symbol">✦</span><span className="spark-exp-subtitle">ASSISTANT CONTROL CENTER</span>
-                            <strong>SPARK CORE</strong><small>ADA V2 voice · CAD · browser · Kasa · printers · face lock</small>
+                            <strong>SPARK CORE</strong><small>SPARK voice · CAD · browser · Kasa · printers · face lock</small>
                             <em>ACTIVATE CORE →</em>
                         </button>
                     </div>
                     <p role="status" className="spark-exp-status">{experienceMessage}</p>
-                </section>
+                </section>,document.body
             )}
 
             {/* SPARK Live readiness is distinct from Socket.IO/backend health. */}

@@ -29,6 +29,21 @@ class CloudModeTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict("os.environ",{"SPARK_GROQ_MODEL":"arbitrary-paid"},clear=True):
             self.assertEqual(groq_model(),"openai/gpt-oss-20b")
 
+    def test_seed_history_restores_roles_bounded_to_six(self):
+        loop=GroqVoiceLoop(api=object())
+        transcript="\n".join(
+            ["User: turn %d"%n if n%2 else "SPARK: reply %d"%n for n in range(1,11)]
+        )
+        loop.seed_history(transcript)
+        self.assertEqual(len(loop._history),6)
+        self.assertEqual(loop._history[0]["role"],"user")
+        self.assertEqual(loop._history[-1]["role"],"assistant")
+        before=list(loop._history)
+        loop.seed_history("")
+        self.assertEqual(loop._history,before)  # empty seed is a no-op
+        loop.seed_history(None)
+        self.assertEqual(loop._history,before)
+
     def test_wav_is_valid_16khz_and_tts_normalizes_to_24k_pcm(self):
         result=pcm_to_wav(chunk(4000)*5)
         with wave.open(io.BytesIO(result),"rb") as reader:
@@ -68,7 +83,7 @@ class CloudModeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls,["stt","chat","tts"])
         self.assertEqual(len(sounds),1)
         self.assertEqual(answers[0],{"sender":"User","text":"Hello SPARK"})
-        self.assertEqual(answers[-1],{"sender":"ADA","text":"Hello sir."})
+        self.assertEqual(answers[-1],{"sender":"SPARK","text":"Hello sir."})
         for _ in range(12):
             await loop.process_pcm(chunk(0))
         self.assertEqual(calls.count("stt"),1)

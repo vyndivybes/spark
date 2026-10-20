@@ -44,6 +44,25 @@ class PersistentConversationTests(unittest.TestCase):
             self.assertEqual(pm.get_recent_chat_history(limit=0), [])
             self.assertEqual(pm.get_recent_chat_history(limit=-1), [])
 
+    def test_recent_context_renders_roles_and_is_empty_without_history(self):
+        with tempfile.TemporaryDirectory() as folder:
+            pm = module.ProjectManager(folder)
+            self.assertEqual(pm.format_recent_chat_context(), "")
+            pm.log_chat("User", "build the bracket")
+            pm.log_chat("ADA", "Printing it now")
+            pm.log_chat("SPARK", "Done, sir")
+            context = pm.format_recent_chat_context()
+            self.assertEqual(
+                context.splitlines(),
+                ["User: build the bracket", "SPARK: Printing it now", "SPARK: Done, sir"],
+            )
+
+    def test_recent_context_collapses_whitespace_and_bounds_length(self):
+        with tempfile.TemporaryDirectory() as folder:
+            pm = module.ProjectManager(folder)
+            pm.log_chat("User", "line one\nline two\t\tspaced")
+            self.assertEqual(pm.format_recent_chat_context(), "User: line one line two spaced")
+
 
 if __name__ == "__main__":
     unittest.main()

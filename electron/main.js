@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard, session } = require('electron');
 const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
 const workspaceToken=require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
+const {createJarvisBridge}=require('./jarvis-bridge.cjs');
 const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
 
 // Use ANGLE D3D11 backend - more stable on Windows while keeping WebGL working
@@ -19,12 +20,30 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 let mainWindow;
 let pythonProcess;
 let experienceManager;
+let jarvisBridge,jarvisBridgeUrl;
 let lastReaInventory=null;
+
+// Packaged builds place backend/public/vendor under process.resourcesPath via
+// electron-builder extraResources; in dev they sit next to the repo root.
+function resolveResource(...segments){
+    const base = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
+    return path.join(base, ...segments);
+}
+
+// Prefer the bundled relocatable Python runtime (python-runtime/) so packaged
+// users need no system Python. Fall back to SPARK_PYTHON, then PATH python.
+function resolvePython(){
+    if(process.env.SPARK_PYTHON) return process.env.SPARK_PYTHON;
+    const bundled = resolveResource('python-runtime', 'python.exe');
+    try { if(require('fs').existsSync(bundled)) return bundled; } catch(_) {}
+    return 'python';
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1920,
         height: 1080,
+        icon: resolveResource('public', 'spark.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false, // For simple IPC/Socket.IO usage
@@ -50,6 +69,7 @@ function createWindow() {
                 console.log('Frontend loaded successfully!');
                 windowWasShown = true;
                 mainWindow.show();
+                if(process.env.SPARK_OPEN_JARVIS==='1')jarvisBridge.open().catch(()=>console.warn('VAOS sign-in window could not open. Use the Jarvis panel to retry.'));
                 // Developer tools intentionally remain opt-in. Auto-docking them
                 // covered half the SPARK cockpit and triggered cramped card layout.
                 if (isDev && process.env.SPARK_DEVTOOLS === '1') {
@@ -77,13 +97,14 @@ function createWindow() {
 }
 
 function startPythonBackend() {
-    const scriptPath = path.join(__dirname, '../backend/server.py');
+    const backendDir = resolveResource('backend');
+    const scriptPath = path.join(backendDir, 'server.py');
     console.log(`Starting Python backend: ${scriptPath}`);
 
     // Assuming 'python' is in PATH. In prod, this would be the executable.
-    pythonProcess = spawn(process.env.SPARK_PYTHON || 'python', [scriptPath], {
-        cwd: path.join(__dirname, '../backend'),
-        env: {...process.env,SPARK_WORKSPACE_TOKEN:workspaceToken},
+    pythonProcess = spawn(resolvePython(), [scriptPath], {
+        cwd: backendDir,
+        env: {...process.env,SPARK_WORKSPACE_TOKEN:workspaceToken,SPARK_JARVIS_BRIDGE_URL:jarvisBridgeUrl},
     });
 
     pythonProcess.on('error', (error) => {
@@ -98,7 +119,20 @@ function startPythonBackend() {
     });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    jarvisBridge=createJarvisBridge({BrowserWindow,session,token:workspaceToken,origin:process.env.SPARK_VAOS_URL});
+    jarvisBridgeUrl=await jarvisBridge.listen();
+    ipcMain.handle('spark:jarvis',async(event,request)=>{
+        if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
+            throw Error('Jarvis access requires the root SPARK cockpit.');
+        switch(request?.action){
+            case 'open':return jarvisBridge.open();
+            case 'status':return jarvisBridge.status();
+            case 'ask':return jarvisBridge.ask(request.question);
+            case 'disconnect':return jarvisBridge.disconnect();
+            default:throw Error('Unknown Jarvis operation.');
+        }
+    });
     ipcMain.handle('spark:workspace-token',event=>{
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
             throw new Error('Workspace access requires the root SPARK cockpit.');
@@ -107,6 +141,7 @@ app.whenReady().then(() => {
     experienceManager=createExperienceManager({
         root:path.resolve(__dirname,'..'),
         userData:app.getPath('userData'),
+        vayuExportsDir:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'.spark'),'SPARK','workspace','vayu-exports'),
         python:process.env.SPARK_PYTHON||'python',
         notesDir:process.env.SPARK_NOTES_DIR || path.join(
             process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
@@ -276,6 +311,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    jarvisBridge?.close();
     experienceManager?.stopAll();
     console.log('App closing... Killing Python backend.');
     if (pythonProcess) {

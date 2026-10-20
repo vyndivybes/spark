@@ -1,5 +1,8 @@
 # Lightweight offline integration tests; no CAD, microphone or model engines.
 -r requirements-intelligence.txt
+# The voice-tool suites import google.genai types directly; keep this pinned to
+# the same range SPARK's runtime uses.
+google-genai>=1,<2
 pytest>=8,<10
 pytest-asyncio>=0.24,<2
 httpx>=0.28,<1

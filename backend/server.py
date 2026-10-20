@@ -14,6 +14,7 @@ import threading
 import sys
 import os
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -54,12 +55,52 @@ from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
 from spark_workspace_auth import workspace_client_allowed
+from spark_pc_access import PcAccess
+from spark_jarvis import JarvisClient
+from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
+from spark_file_organizer import (
+    FileOrganizer, FileOrganizerError, FILE_ORGANIZER_ACTIONS as FILE_ORGANIZER_ACTIONS,
+)
+from spark_file_intelligence import (
+    FileIntelligence, FileIntelligenceError, INTELLIGENCE_ACTIONS as FILE_INTELLIGENCE_ACTIONS,
+)
+from spark_voice_answers import (
+    HERMES_KIND_TOOLS, payload_or_message, spoken_facts, spoken_graphify,
+    spoken_hermes, spoken_timeline)
+from spark_obsidian_integration import obsidian
 from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
 spark_workspace = SparkWorkspace(_SPARK_WORKSPACE_ROOT)
 spark_evolution = Evolution(spark_workspace)
 spark_workbench = Workbench(spark_workspace)
+pc_tasks=PcTasks(_SPARK_WORKSPACE_ROOT/'pc-tasks')
+# File organization stays off until PC autonomy is enabled; it is also confined
+# to an allowed root (SPARK_FILE_ORG_ROOT, else the user's home folder).
+file_organizer = FileOrganizer(
+    _SPARK_WORKSPACE_ROOT / 'file-organizer',
+    root=os.environ.get('SPARK_FILE_ORG_ROOT') or str(Path.home()))
+# Read-only file intelligence shares the organizer's allowed root.
+file_intelligence = FileIntelligence(
+    root=os.environ.get('SPARK_FILE_ORG_ROOT') or str(Path.home()))
+def _mcp_service_registered(service, tool):
+    # Read-only probe: is this MCP service host-configured with that read tool?
+    # Never touches the service or spawns a process.
+    try:
+        config = spark_workbench.integrations.catalog()
+    except Exception:
+        return False
+    entry = config.get(service) if isinstance(config, dict) else None
+    return bool(isinstance(entry, dict) and tool in entry.get('read_tools', []))
+
+def _graphify_registered():
+    return _mcp_service_registered('graphify', 'query_graph')
+
+def _graphiti_registered():
+    return _mcp_service_registered('graphiti', 'search_temporal_facts')
+
+def _hermes_registered():
+    return _mcp_service_registered('hermes', 'hermes_learned_skills')
 
 @app.on_event("startup")
 async def start_intelligence_scheduler():
@@ -77,6 +118,133 @@ async def close_rea_connection():
     await spark_workbench.intelligence.close()
 # Only the last project explicitly opened by this session is available by voice.
 workspace_project_by_sid = {}
+
+
+async def mcp_voice_call(sid, service, tool, arguments, timeout=40):
+    """Shared authorization and transport for every MCP-backed voice tool.
+
+    Both voice loops have to clear the same session guard, and keeping it here is
+    what stops a newly added service from shipping a weaker copy. Each loop
+    exposes `session` as a liveness flag: the Gemini Live websocket, and
+    GroqVoiceLoop which sets it to itself until stopped.
+    Returns the MCP response dict, or None when unauthorized or failed.
+    """
+    if (audio_loop is None
+            or getattr(audio_loop, "owner_sid", None) != sid
+            or getattr(audio_loop, "session", None) is None
+            or not sio.manager.is_connected(sid, "/")
+            or (SETTINGS.get("face_auth_enabled", False)
+                and not (authenticator and authenticator.authenticated))):
+        return None
+    project = workspace_project_by_sid.get(sid, "default")
+    try:
+        response = await asyncio.wait_for(
+            spark_workbench.execute(
+                "mcp_call", project,
+                {"server": service, "name": tool, "arguments": arguments}),
+            timeout=timeout)
+    except Exception:
+        return None
+    if not isinstance(response, dict) or response.get("isError"):
+        return None
+    return response
+
+
+async def graphify_voice_query(sid, question):
+    """Answer a SPARK architecture question from the local Graphify graph."""
+    if not _graphify_registered():
+        return "Graphify is not enabled for this launch."
+    # Speech recognition routinely mangles these identifiers and Graphify's
+    # symbol search is exact.
+    question = re.sub(r"jarvis\s+client", "JarvisClient", question, flags=re.I)
+    question = re.sub(r"gro[kg]\s+voice\s+loop", "GroqVoiceLoop", question, flags=re.I)
+    response = await mcp_voice_call(
+        sid, "graphify", "query_graph",
+        {"question": question, "mode": "bfs", "depth": 2, "token_budget": 1600})
+    if response is None:
+        return "Graphify MCP unavailable or timed out."
+    return spoken_graphify(response)
+
+
+async def graphiti_voice_query(sid, question):
+    """Answer a question about the user's recorded project history."""
+    if not _graphiti_registered():
+        return "Graphiti is not enabled for this launch."
+    response = await mcp_voice_call(
+        sid, "graphiti", "search_temporal_facts", {"question": question, "limit": 6})
+    if response is None:
+        return "Graphiti could not complete that search."
+    payload = payload_or_message(response, "Graphiti returned an unreadable answer.")
+    if isinstance(payload, str):
+        return payload
+    return spoken_facts(payload, "Graphiti has no recorded facts about that yet.")
+
+
+async def graphiti_entity_history(sid, entity):
+    """Answer with everything recorded about one named thing, superseded included."""
+    if not _graphiti_registered():
+        return "Graphiti is not enabled for this launch."
+    response = await mcp_voice_call(sid, "graphiti", "get_entity_timeline", {"entity": entity})
+    if response is None:
+        return "Graphiti could not read that history."
+    payload = payload_or_message(response, "Graphiti returned an unreadable answer.")
+    if isinstance(payload, str):
+        return payload
+    return spoken_timeline(payload, entity)
+
+
+async def hermes_experience(sid, kind):
+    """Read what the locally installed Hermes Agent has already learned."""
+    if not _hermes_registered():
+        return "Hermes Agent is not enabled for this launch."
+    tool = HERMES_KIND_TOOLS.get(kind)
+    if tool is None:
+        return "Ask Hermes for its skills, its memories, or its status."
+    # Memory bodies are deliberately not requested: they are another agent's
+    # private notes and a spoken answer would read them aloud verbatim.
+    response = await mcp_voice_call(
+        sid, "hermes", tool, {} if kind == "status" else {"limit": 8})
+    if response is None:
+        return "Hermes Agent did not answer."
+    payload = payload_or_message(response, "Hermes Agent returned an unreadable answer.")
+    if isinstance(payload, str):
+        return payload
+    return spoken_hermes(payload, kind)
+
+
+async def obsidian_search(sid, query):
+    """Search the user's local Obsidian vault for notes matching a query."""
+    if not obsidian.status()["enabled"]:
+        return "Obsidian vault is not configured."
+    results = obsidian.search(query, limit=5)
+    if not results:
+        return f"No Obsidian notes match '{query}'."
+    names = ", ".join(r["name"] for r in results)
+    return f"Found {len(results)} Obsidian notes: {names}."
+
+
+async def obsidian_read(sid, path):
+    """Read the contents of a named Obsidian note."""
+    if not obsidian.status()["enabled"]:
+        return "Obsidian vault is not configured."
+    try:
+        text = obsidian.read(path)
+    except Exception as e:
+        return f"Could not read Obsidian note '{path}': {e}"
+    return text[:2000]
+
+
+# Voice intents that resolve to an MCP read tool: action -> (handler, argument
+# name, accepted length bound). The bound is enforced by the caller so no handler
+# has to remember its own.
+MCP_VOICE_INTENTS = {
+    "graphify_voice_query": (graphify_voice_query, "question", 220),
+    "graphiti_voice_query": (graphiti_voice_query, "question", 220),
+    "graphiti_entity_history": (graphiti_entity_history, "entity", 120),
+    "hermes_experience": (hermes_experience, "kind", 20),
+    "obsidian_search": (obsidian_search, "query", 120),
+    "obsidian_read": (obsidian_read, "path", 200),
+}
 
 # --- SHUTDOWN HANDLER ---
 def signal_handler(sig, frame):
@@ -111,6 +279,7 @@ AUDIO_TRANSPORT = select_transport(os.environ.get("SPARK_AUDIO_TRANSPORT"))
 SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
+    "pc_autonomy_enabled": False,
     "face_auth_enabled": False, # Default OFF as requested
     "tool_permissions": {
         "generate_cad": True,
@@ -157,6 +326,30 @@ def save_settings():
 # Load on startup
 load_settings()
 
+
+def session_pc_access(sid, data):
+    trusted = workspace_client_allowed(sio.get_environ(sid),
+        data.get('workspace_token') if isinstance(data, dict) else None,
+        os.environ.get('SPARK_WORKSPACE_TOKEN'))
+    return PcAccess(_SPARK_WORKSPACE_ROOT / 'pc-access', enabled=lambda: bool(
+        trusted and SETTINGS.get('pc_autonomy_enabled') is True
+        and audio_loop is not None and getattr(audio_loop, 'owner_sid', None) == sid
+        and not audio_loop.stop_event.is_set()
+        and sio.manager.is_connected(sid, '/')
+        and (not SETTINGS.get('face_auth_enabled', False)
+             or (authenticator and authenticator.authenticated))))
+
+
+def session_jarvis_access(sid, data):
+    trusted = workspace_client_allowed(sio.get_environ(sid),
+        data.get('workspace_token') if isinstance(data, dict) else None,
+        os.environ.get('SPARK_WORKSPACE_TOKEN'))
+    return JarvisClient(enabled=lambda: bool(trusted
+        and audio_loop is not None and getattr(audio_loop, 'owner_sid', None) == sid
+        and not audio_loop.stop_event.is_set() and sio.manager.is_connected(sid, '/')
+        and (not SETTINGS.get('face_auth_enabled', False)
+             or (authenticator and authenticator.authenticated))))
+
 # The browser view works independently of Live audio and cloud API credentials.
 browser_sessions = register_browser_sessions(sio, lambda sid: bool(
     sio.manager.is_connected(sid, '/')
@@ -195,10 +388,22 @@ async def status():
             "gemini_configured": ada.client is not None,
             "groq_configured": bool(os.environ.get("GROQ_API_KEY")),
             "ai_provider": cloud_provider(),
+            "pc_autonomy_enabled": SETTINGS.get('pc_autonomy_enabled') is True,
+            "jarvis_bridge_configured": JarvisClient(enabled=lambda: False).configured(),
+            "pc_autonomy_session_authorized": bool(audio_loop and getattr(audio_loop, 'pc_access', None)
+                                                   and audio_loop.pc_access.enabled()),
             "live_model": groq_model() if cloud_provider() == "groq" else ada.MODEL,
             "live_profile": "groq_voice" if cloud_provider() == "groq" else live_profile(),
             "audio_transport": AUDIO_TRANSPORT,
             "groq_vision_available": os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1",
+            "graphify_ready": _graphify_registered(),
+            "graphiti_ready": _graphiti_registered(),
+            "hermes_ready": _hermes_registered(),
+            "obsidian_ready": obsidian.status()["enabled"],
+            "file_organizer_ready": bool(
+                audio_loop and getattr(audio_loop, 'pc_access', None)
+                and audio_loop.pc_access.enabled()),
+            "file_intelligence_ready": True,
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **({"live_state":live_state,
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
@@ -247,15 +452,28 @@ async def workspace_action(sid, data):
         payload = data.get("payload") if isinstance(data, dict) else None
         if isinstance(action, str) and action in EVOLUTION_ACTIONS:
             result = await spark_evolution.execute(action, project, payload)
+        elif action in ('pc_task_prepare','pc_task_run','pc_task_history'):
+            spark_workspace.skills._file(project)
+            try:result=await pc_tasks.execute(action,project,payload,getattr(audio_loop,'pc_access',None))
+            except ValueError as error:raise WorkbenchError(str(error)) from None
         elif isinstance(action, str) and action in WORKBENCH_ACTIONS:
             result = await spark_workbench.execute(action, project, payload)
+        elif isinstance(action, str) and action in FILE_ORGANIZER_ACTIONS:
+            if action in ('organize_apply', 'organize_undo'):
+                access = getattr(audio_loop, 'pc_access', None)
+                if not access or not access.enabled():
+                    raise FileOrganizerError(
+                        'Enable PC autonomy in the active authenticated session to move files.')
+            result = await asyncio.to_thread(file_organizer.execute, action, payload)
+        elif isinstance(action, str) and action in FILE_INTELLIGENCE_ACTIONS:
+            result = await asyncio.to_thread(file_intelligence.execute, action, payload)
         else:
             result = await asyncio.to_thread(spark_workspace.execute,action,project,payload)
         workspace_project_by_sid[sid] = project
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":True,"result":result
         },room=sid)
-    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError) as error:
+    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError, FileOrganizerError, FileIntelligenceError) as error:
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":False,"message":str(error)[:200]
         },room=sid)
@@ -381,9 +599,20 @@ async def start_groq_audio(sid, data=None):
     async def on_workbench_command(command):
         if (audio_loop is None or getattr(audio_loop, "owner_sid", None) != sid
                 or (SETTINGS.get("face_auth_enabled", False) and not (authenticator and authenticator.authenticated))):
-            return "Authenticate to SPARK before using saved preferences or reminders."
+            return "Authenticate to SPARK before using saved preferences, reminders or knowledge lookups."
         project = workspace_project_by_sid.get(sid, "default")
         try:
+
+            # MCP-backed intents share one authorization and transport path with
+            # the Gemini Live tools, so the Groq loop cannot end up carrying a
+            # weaker guard than the Gemini one.
+            intent = MCP_VOICE_INTENTS.get(command.get("action"))
+            if intent is not None:
+                handler, field, limit = intent
+                value = (command.get("payload") or {}).get(field)
+                if not isinstance(value, str) or not 1 <= len(value.strip()) <= limit:
+                    return "That request needs a " + field + " of at most " + str(limit) + " characters."
+                return await handler(sid, value.strip())
             result = await spark_workbench.execute(command["action"], project, command["payload"])
             if command['action']=='agent_snapshot':
                 counts={}
@@ -436,6 +665,16 @@ async def start_groq_audio(sid, data=None):
             on_live_status=on_live_status,
         )
         audio_loop.owner_sid=sid
+        audio_loop.pc_access=session_pc_access(sid, data)
+        audio_loop.jarvis_access=session_jarvis_access(sid, data)
+        # Seed cloud voice with the persisted conversation so it resumes with
+        # continuity. The Gemini path primes its own Live session separately.
+        try:
+            from project_manager import ProjectManager
+            _pm = ProjectManager(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            audio_loop.seed_history(_pm.format_recent_chat_context(12))
+        except Exception:
+            pass
         audio_loop.set_paused(True)
         live_state='connecting'
         live_message='Starting Groq cloud hands-free speech.'
@@ -542,9 +781,27 @@ async def start_audio(sid, data=None):
         print(f"Sending Browser data to frontend: {len(data.get('log', ''))} chars logs")
         asyncio.create_task(sio.emit('browser_frame', data))
         
+
+    # The four MCP-backed Live tools all delegate to the module-level handlers,
+    # which carry the session guard and are shared with the Groq voice path.
+    async def on_graphify_query(question):
+        return await graphify_voice_query(sid, question)
+
+    async def on_graphiti_query(question):
+        return await graphiti_voice_query(sid, question)
+
+    async def on_graphiti_entity(entity):
+        return await graphiti_entity_history(sid, entity)
+
+    async def on_hermes_query(kind):
+        return await hermes_experience(sid, kind)
+
+    async def on_obsidian_search(query):
+        return await obsidian_search(sid, query)
+
     # Callback to send Transcription data to frontend
     def on_transcription(data):
-        # data = {"sender": "User"|"ADA", "text": "..."}
+        # data = {"sender": "User"|"SPARK", "text": "..."}
         asyncio.create_task(sio.emit('transcription', data))
 
     # Callback to send Confirmation Request to frontend
@@ -593,11 +850,14 @@ async def start_audio(sid, data=None):
         asyncio.create_task(sio.emit('mic_safety', payload))
 
     # Initialize SPARK Live. A running socket is not proof of provider connection.
+    session_loop = None
     def on_live_status(payload):
         global live_state, live_message
+        if audio_loop is not session_loop:
+            return
         live_state = payload.get("state", "error")
         live_message = payload.get("message", "")
-        asyncio.create_task(sio.emit('ai_status', payload))
+        asyncio.create_task(sio.emit('ai_status', payload, room=sid))
 
     try:
         print(f"Initializing AudioLoop with device_index={device_index}")
@@ -606,6 +866,11 @@ async def start_audio(sid, data=None):
             on_audio_data=on_audio_data,
             on_browser_audio=on_browser_audio if AUDIO_TRANSPORT == "browser_aec" else None,
             on_web_sources=on_web_sources,
+            on_graphify_query=on_graphify_query,
+            on_graphiti_query=on_graphiti_query,
+            on_graphiti_entity=on_graphiti_entity,
+            on_hermes_query=on_hermes_query,
+            on_obsidian_search=on_obsidian_search,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,
@@ -624,8 +889,11 @@ async def start_audio(sid, data=None):
             kasa_agent=kasa_agent
         )
         print("AudioLoop initialized successfully.")
+        session_loop = audio_loop
 
         audio_loop.owner_sid = sid  # Approval ownership even in native fallback.
+        audio_loop.pc_access = session_pc_access(sid, data)
+        audio_loop.jarvis_access = session_jarvis_access(sid, data)
         audio_loop.browser_ready = False
 
         # Apply current permissions
@@ -651,6 +919,8 @@ async def start_audio(sid, data=None):
         # Add a done callback to catch silent failures in the loop
         def handle_loop_exit(task):
             global live_state, live_message, audio_loop, loop_task
+            if task is not loop_task:
+                return
             try:
                 task.result()
             except asyncio.CancelledError:
@@ -903,6 +1173,11 @@ async def shutdown(sid, data=None):
 
 @sio.event
 async def user_input(sid, data):
+    if (not isinstance(data, dict) or not audio_loop
+            or getattr(audio_loop, 'owner_sid', None) != sid
+            or (SETTINGS.get('face_auth_enabled', False)
+                and not (authenticator and authenticator.authenticated))):
+        return
     text = data.get('text')
     print(f"[SPARK] Received typed input ({len(text or '')} characters)")
     
@@ -1103,6 +1378,10 @@ async def save_memory(sid, data):
 
 @sio.event
 async def upload_memory(sid, data):
+    if (not audio_loop or getattr(audio_loop, 'owner_sid', None) != sid
+            or (SETTINGS.get('face_auth_enabled', False)
+                and not (authenticator and authenticator.authenticated))):
+        return
     print(f"Received memory upload request")
     try:
         memory_text = data.get('memory', '')
@@ -1487,8 +1766,19 @@ async def get_settings(sid):
 
 @sio.event
 async def update_settings(sid, data):
+    if not isinstance(data, dict):
+        return
+    if 'pc_autonomy_enabled' in data:
+        if (type(data['pc_autonomy_enabled']) is not bool or not workspace_client_allowed(
+                sio.get_environ(sid), data.get('workspace_token'),
+                os.environ.get('SPARK_WORKSPACE_TOKEN'))
+                or (SETTINGS.get('face_auth_enabled', False)
+                    and not (authenticator and authenticator.authenticated))):
+            await sio.emit('error', {'msg': 'Change PC autonomy from the authenticated Spark cockpit.'}, room=sid)
+            return
+        SETTINGS['pc_autonomy_enabled'] = data['pc_autonomy_enabled']
     # Generic update
-    print(f"Updating settings: {data}")
+    print('Updating settings keys:', sorted(k for k in data if k != 'workspace_token'))
     
     # Handle specific keys if needed
     if "tool_permissions" in data:

@@ -89,8 +89,16 @@ class SparkWorkspace:
         path=self._holo_path(project,identity)
         if not path.is_file():
             raise WorkspaceError("Document is not published to HOLO.")
+        self._revoke_vayu(project)
         path.unlink()
         return {"published":False,"id":identity}
+
+    def _revoke_vayu(self,project):
+        folder=self.skills.root.parent/'vayu-exports'
+        path=folder/(project+'.json')
+        if folder.is_symlink() or path.is_symlink():
+            raise WorkspaceError('Linked VAYU exports are not allowed.')
+        path.unlink(missing_ok=True)
 
 
     def execute(self,action,project,data):
@@ -112,16 +120,20 @@ class SparkWorkspace:
                 return self.knowledge.search(project,data["query"])
             if action=="remove_document":
                 # Deleting the source also revokes the separately published copy.
-                path=self._holo_path(project,data["id"])
-                result=self.knowledge.remove(project,data["id"])
-                path.unlink(missing_ok=True)
+                with self.knowledge.lock:
+                    path=self._holo_path(project,data["id"])
+                    self._revoke_vayu(project)
+                    result=self.knowledge.remove(project,data["id"])
+                    path.unlink(missing_ok=True)
                 return result
             if action=="list_holo_notes":
                 return self._published(project)
             if action=="publish_holo_note":
                 return self._publish(project,data["id"])
             if action=="unpublish_holo_note":
-                return self._unpublish(project,data["id"])
+                with self.knowledge.lock:
+                    result=self._unpublish(project,data["id"])
+                return result
             if action=="list_skills":
                 return self.skills.available(project)
             if action=="propose_skill":

@@ -8,7 +8,7 @@ const server=read('backend/server.py'), api=read('backend/spark_workspace.py');
 
 test('actual ARKUS workspace is mounted in the SPARK cockpit, not a mockup',()=>{
   assert.match(app,/import WorkspacePanel from '.\/components\/WorkspacePanel'/);
-  assert.match(app,/KNOWLEDGE \/ SKILLS/);
+  assert.match(app,/HOME \/ KNOWLEDGE/);
   assert.match(app,/<WorkspacePanel socket=\{socket\} visible=\{showWorkspace\}/);
   for(const action of ['import_document','search_documents','list_documents','remove_document',
                         'propose_skill','test_skill','activate_skill','run_skill','revise_skill','rollback_skill']){

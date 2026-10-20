@@ -1,0 +1,11 @@
+# Optional Hermes Agent learned-experience reader. Installs into .venv-hermes,
+# never into SPARK's runtime environment: hermes-agent ships 23 un-namespaced
+# top-level packages including `agent`, `cli`, `tools`, `utils`, `plugins`,
+# `providers` and `gateway`, which would shadow SPARK's own backend modules.
+#
+# backend/spark_hermes_mcp.py only ever runs `hermes journey --json`, a local
+# read of skills and memory files. No API key is required and no inference runs.
+hermes-agent>=0.19,<0.20
+# mcp 2.x removed mcp.server.fastmcp, which both SPARK sidecars and its MCP test
+# fixture use. SPARK's own runtime environment is on mcp 1.x for the same reason.
+mcp>=1,<2

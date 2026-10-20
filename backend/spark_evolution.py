@@ -6,9 +6,31 @@ from pathlib import Path
 from arkus_skill_forge import check_spec, SkillError
 from spark_maintenance import Maintenance, MaintenanceError, digest
 from spark_rea import ReaClient, ReaError
+from spark_repo_upgrade import RepositoryUpgrades, snapshot
+from spark_repo_import import RepoImportError, import_evidence, parse_github_url
+from spark_saee import AutonomousEvolutionEngine, SAEEError
+from spark_security_scan import scan_sources, scan_secrets, scan_code
+from spark_self_healing import (
+    RepairGate, SelfHealingError, diagnose, disk_forecast,
+)
+from spark_profiler import (
+    ProfileRecorder, ProfilerError, compare, frontend_probe, import_cost,
+    resource_delta,
+)
+from spark_workforce import WorkforceError, check_assignment, roles_summary
+from spark_connectivity import Connectivity, ConnectivityError
+from spark_integrations import Integrations
+from spark_pc_inventory import (
+    PcInventoryError, advisory, process_inventory, startup_inventory,
+)
+from spark_host_vitals import collect_host_vitals
 
 
 ACTION_KEYS = {
+    "analyze_repository": {"repository", "goal", "reference_paths"},
+    "list_repository_analyses": set(),
+    "read_repository_analysis": {"id"},
+    "stage_repository_upgrade": {"analysis_id", "opportunity"},
     "diagnose_sources": set(),
     "list_repairs": set(),
     "list_repair_candidates": set(),
@@ -20,6 +42,34 @@ ACTION_KEYS = {
     "upgrade_skill": {"spec", "base_id"},
     "rea_discover": set(),
     "rea_call": {"name", "arguments"},
+    "security_scan": {"paths"},
+    # §3F self-optimization profiler (read-only measurement).
+    "profile_import_cost": {"module", "repeats"},
+    "profile_compare": {"name", "before", "after", "tolerance"},
+    "profile_frontend": {"section", "repeats"},
+    "import_repository": {"url", "reference_paths"},
+    # §6 specialist agent workforce: role-scoped task routing (read-only listing).
+    "workforce_roles": set(),
+    "workforce_assign": {"role", "action", "payload"},
+    # §3E environmental self-diagnosis (read-only) and disk forecasting.
+    "self_heal_diagnose": {"deep"},
+    "self_heal_recover": set(),
+    "disk_forecast": {"free_gb", "used_gb_per_day", "horizon_days"},
+    # SAEE core: advisory discovery plus its own local registry and ledger.
+    "saee_registry": set(),
+    "saee_inventory": set(),
+    "saee_discover": {"request"},
+    "saee_ledger": set(),
+    "saee_failures": set(),
+    "saee_record_attempt": {"request_id", "stage", "outcome", "evidence"},
+    "saee_record_error_signature": {"signature", "repair", "verified"},
+    "saee_record_benchmark": {"name", "before", "after"},
+    # A10 system connectivity classification (read-only).
+    "connectivity_report": {"deep"},
+    # A5 Windows management-agent inventories (read-only).
+    "pc_startup_inventory": set(),
+    "pc_process_inventory": set(),
+    "pc_advisory": set(),
 }
 
 
@@ -44,8 +94,72 @@ class Evolution:
         self.workspace = workspace
         self.maintenance = Maintenance(repository or Path(__file__).resolve().parents[1], workspace.skills.root.parent)
         self.generator = generator or generate_json
+        self.repositories = RepositoryUpgrades(self.maintenance, self.generator)
         self.rea = rea or ReaClient()
+        self.saee = AutonomousEvolutionEngine(workspace, evolution=self)
         self.lock = asyncio.Lock()
+
+    async def _saee(self, action, project, payload):
+        # Advisory registry/ledger only. These actions never stage, activate or
+        # deploy source; that still flows through the maintenance/repo gates.
+        saee = self.saee
+        try:
+            if action == "saee_registry":
+                return await asyncio.to_thread(saee.registry, project)
+            if action == "saee_inventory":
+                return await asyncio.to_thread(saee.inventory, project)
+            if action == "saee_discover":
+                return await asyncio.to_thread(saee.discover, project, payload["request"])
+            if action == "saee_ledger":
+                return await asyncio.to_thread(saee.ledger, project)
+            if action == "saee_failures":
+                return await asyncio.to_thread(saee.failures, project)
+            if action == "saee_record_attempt":
+                return await asyncio.to_thread(
+                    saee.record_attempt, project, payload["request_id"],
+                    payload["stage"], payload["outcome"], payload["evidence"])
+            if action == "saee_record_error_signature":
+                return await asyncio.to_thread(
+                    saee.record_error_signature, project, payload["signature"],
+                    payload["repair"], payload["verified"])
+            if action == "saee_record_benchmark":
+                return await asyncio.to_thread(
+                    saee.record_benchmark, project, payload["name"],
+                    payload["before"], payload["after"])
+        except SAEEError as error:
+            raise MaintenanceError(str(error)) from None
+        raise MaintenanceError("Unknown SAEE action.")
+
+    def _security_scan(self, paths):
+        # Read-only heuristic scan of named backend sources. No execution.
+        if not isinstance(paths, list) or not 1 <= len(paths) <= 16 \
+                or any(not isinstance(item, str) for item in paths):
+            raise MaintenanceError("Select one to sixteen backend source paths.")
+        root = self.maintenance.root
+        candidates = {}
+        for relative in paths:
+            target = self.maintenance._target(relative)
+            candidates[relative] = target.read_text(encoding="utf-8-sig")
+        return scan_sources(candidates)
+
+    async def _connectivity(self, deep):
+        integrations = Integrations(audit_dir=self.workspace.skills.root.parent / 'integrations')
+        connectivity = Connectivity(root=self.maintenance.root, integrations=integrations)
+        try:
+            return await connectivity.report(deep=deep)
+        except (ConnectivityError, ValueError) as error:
+            raise MaintenanceError(str(error)) from None
+
+    def _pc_advisory(self):
+        vitals = collect_host_vitals()
+        startup = startup_inventory()
+        processes = process_inventory()
+        return {
+            "vitals": {key: vitals.get(key) for key in ("ram_percent", "disk_free_gb")},
+            "startup_count": startup["count"],
+            "process_count": processes["count"],
+            **advisory(vitals, startup["entries"], processes["processes"]),
+        }
 
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
@@ -54,8 +168,90 @@ class Evolution:
         self.workspace.skills._file(project)
         if action.startswith("rea_"):
             return await self.rea.request(action, payload)
+        if action.startswith("saee_"):
+            return await self._saee(action, project, payload)
+        if action == "security_scan":
+            return await asyncio.to_thread(self._security_scan, payload["paths"])
+        if action == "self_heal_diagnose":
+            deep = payload["deep"]
+            if not isinstance(deep, bool):
+                raise MaintenanceError("Specify whether to run the deep connectivity probe.")
+            return await asyncio.to_thread(diagnose, deep=deep)
+        if action == "self_heal_recover":
+            async with self.lock:
+                return await asyncio.to_thread(self.maintenance.recover)
+        if action == "disk_forecast":
+            return disk_forecast(payload["free_gb"], payload["used_gb_per_day"],
+                                 horizon_days=payload["horizon_days"])
+        if action == "profile_import_cost":
+            return await asyncio.to_thread(import_cost, payload["module"],
+                                            repeats=payload["repeats"])
+        if action == "profile_compare":
+            return compare(payload["name"], payload["before"], payload["after"],
+                           tolerance=payload["tolerance"])
+        if action == "profile_frontend":
+            try:
+                return await asyncio.to_thread(
+                    frontend_probe, payload["section"], payload["repeats"])
+            except ProfilerError as error:
+                raise MaintenanceError(str(error)) from None
+        if action == "workforce_roles":
+            return roles_summary()
+        if action == "workforce_assign":
+            try:
+                inner_action, inner_payload = check_assignment(
+                    payload["role"], payload["action"], payload["payload"])
+            except WorkforceError as error:
+                raise MaintenanceError(str(error)) from None
+            return await self.execute(inner_action, project, inner_payload)
+        if action == "connectivity_report":
+            deep = payload.get("deep", False)
+            if not isinstance(deep, bool):
+                raise MaintenanceError("deep must be a boolean.")
+            return await self._connectivity(deep)
+        if action == "pc_startup_inventory":
+            return await asyncio.to_thread(startup_inventory)
+        if action == "pc_process_inventory":
+            try:
+                return await asyncio.to_thread(process_inventory)
+            except PcInventoryError as error:
+                raise MaintenanceError(str(error)) from None
+        if action == "pc_advisory":
+            try:
+                return await asyncio.to_thread(self._pc_advisory)
+            except PcInventoryError as error:
+                raise MaintenanceError(str(error)) from None
+        if action == "import_repository":
+            return await asyncio.to_thread(import_evidence, payload["url"],
+                                           selected=payload["reference_paths"])
+        if action == "analyze_repository":
+            goal = payload['goal']
+            if not isinstance(goal, str) or not 1 <= len(goal.strip()) <= 2000:
+                raise MaintenanceError('Describe the desired Spark improvement in 1–2000 characters.')
+            repository = payload['repository']
+            try:
+                parse_github_url(repository)
+                is_url = True
+            except RepoImportError:
+                is_url = False
+            # Clone/read evidence outside the maintenance lock.
+            if is_url:
+                evidence = await asyncio.to_thread(import_evidence, repository,
+                                                   selected=payload['reference_paths'])
+            else:
+                evidence = await asyncio.to_thread(snapshot, repository, payload['reference_paths'])
+        else:
+            evidence = None
         async with self.lock:
             await asyncio.to_thread(self.maintenance.recover)
+            if action == 'list_repository_analyses':
+                return await asyncio.to_thread(self.repositories.list, project)
+            if action == 'read_repository_analysis':
+                return await asyncio.to_thread(self.repositories.read, project, payload['id'])
+            if action == 'analyze_repository':
+                return await self.repositories.analyze(project, evidence, payload['goal'])
+            if action == 'stage_repository_upgrade':
+                return await self.repositories.stage(project, payload['analysis_id'], payload['opportunity'])
             if action == "diagnose_sources":
                 return await asyncio.to_thread(self.maintenance.detect)
             if action == "list_repairs":

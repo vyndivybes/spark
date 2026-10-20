@@ -8,8 +8,8 @@ const card='rounded-xl border border-cyan-500/20 bg-slate-950/70 p-4 space-y-3';
 const initialPlan=JSON.stringify([{action:'get_system_status',args:{},depends:[]}],null,2);
 function Details({value,label='Inspect record'}){return <details className="text-sm"><summary className="cursor-pointer text-cyan-200">{label}</summary><pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-300">{JSON.stringify(value,null,2)}</pre></details>;}
 
-export default function IntelligenceConsole({socket,project}){
-    const [page,setPage]=useState('Agents');
+export default function IntelligenceConsole({socket,project,initialPage='Agents'}){
+    const [page,setPage]=useState(()=>pages.includes(initialPage)?initialPage:'Agents');
     const [notice,setNotice]=useState(socket?.connected?'Ready. Operations stay in the selected project.':'Backend offline. Connect and authenticate to SPARK.');
     const [busy,setBusy]=useState(false);
     const [snapshot,setSnapshot]=useState({jobs:[],traces:[],schedules:[]});

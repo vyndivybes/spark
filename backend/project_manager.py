@@ -137,6 +137,24 @@ class ProjectManager:
 
         return "\n".join(context_lines)
 
+    def format_recent_chat_context(self, limit: int = 12) -> str:
+        """Render the tail of the conversation as a compact transcript.
+
+        Used to prime a fresh voice session so SPARK resumes as if the exchange
+        never stopped, rather than greeting the user cold every launch. Returns
+        an empty string when there is no history so callers can skip priming.
+        Older logs attributed SPARK's turns to "ADA"; both are treated as SPARK.
+        """
+        history = self.get_recent_chat_history(limit)
+        lines = []
+        for entry in history:
+            sender = str(entry.get("sender", "")).strip().lower()
+            who = "User" if sender == "user" else "SPARK"
+            text = " ".join(str(entry.get("text", "")).split())
+            if text:
+                lines.append(f"{who}: {text[:400]}")
+        return "\n".join(lines)
+
     def get_recent_chat_history(self, limit: int = 10):
         """Returns the last 'limit' chat messages from history."""
         log_file = self.get_current_project_path() / "chat_history.jsonl"

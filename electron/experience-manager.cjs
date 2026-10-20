@@ -7,14 +7,61 @@ const net = require('node:net');
 const http = require('node:http');
 const {spawn,spawnSync} = require('node:child_process');
 
-const KNOWN = Object.freeze({holo:4890,brain:4710});
+const KNOWN = Object.freeze({holo:4890,brain:4710,vayu:4891,graphify:4720,graphiti:4721,hermes:4722,obsidian:4723});
 
-function getExperiencePlan(name,{root,userData,python='python',notesDir}={}){
+function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExportsDir}={}) {
   if(!Object.prototype.hasOwnProperty.call(KNOWN,name))throw new Error('Unknown SPARK experience.');
   if(!root||!userData||typeof python!=='string'||!python.trim())throw new Error('SPARK experience paths are unavailable.');
   const vendor=path.join(root,'vendor');
-  const folder=path.join(vendor,name==='holo'?'holo-gestures':'brain-map');
-  const script=path.join(folder,name==='holo'?'server.py':'build.py');
+  if(name==='vayu'){
+    const folder=path.join(vendor,'vayu-workspace');
+    const wrapper=path.join(root,'scripts','vayu_launcher.py');
+    if(!fs.existsSync(path.join(folder,'start.py'))||!fs.existsSync(wrapper))throw new Error('The bundled VAYU workspace or launcher is missing. Restore the SPARK checkout.');
+    return {name,port:KNOWN.vayu,url:'http://127.0.0.1:'+KNOWN.vayu,
+      page:'/VAYU-Knowledge-Sphere-Live.html',steps:[
+        {command:python,args:[wrapper,'--port',String(KNOWN.vayu),'--data-dir',path.join(userData,'vayu-workspace')],cwd:folder,shell:false,once:false,
+          env:{SPARK_VAYU_EXPORTS_DIR:vayuExportsDir||path.join(userData,'vayu-exports')}}
+      ]};
+  }
+  if(name==='graphify'){
+    const wrapper=path.join(root,'scripts','spark_knowledge_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK knowledge dashboard is missing.');
+    return {name,port:KNOWN.graphify,url:'http://127.0.0.1:'+KNOWN.graphify,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--mode','graphify','--port',String(KNOWN.graphify),'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env}}
+      ]};
+  }
+  if(name==='graphiti'){
+    const wrapper=path.join(root,'scripts','spark_knowledge_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK knowledge dashboard is missing.');
+    return {name,port:KNOWN.graphiti,url:'http://127.0.0.1:'+KNOWN.graphiti,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--mode','graphiti','--port',String(KNOWN.graphiti),'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env}}
+      ]};
+  }
+  if(name==='hermes'){
+    const wrapper=path.join(root,'scripts','spark_knowledge_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK knowledge dashboard is missing.');
+    return {name,port:KNOWN.hermes,url:'http://127.0.0.1:'+KNOWN.hermes,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--mode','hermes','--port',String(KNOWN.hermes),'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env}}
+      ]};
+  }
+  if(name==='obsidian'){
+    const wrapper=path.join(root,'scripts','spark_obsidian_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK Obsidian dashboard is missing.');
+    const vault = process.env.SPARK_OBSIDIAN_VAULT || notesDir || path.join(require('node:os').homedir(),'Documents','Obsidian Vault');
+    return {name,port:KNOWN.obsidian,url:'http://127.0.0.1:'+KNOWN.obsidian,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--port',String(KNOWN.obsidian),'--vault',vault,'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env, SPARK_OBSIDIAN_VAULT: vault}}
+      ]};
+  }
+  const folder=path.join(vendor,'holo-gestures');
+  const script=name==='holo'?path.join(folder,'server.py'):path.join(vendor,'brain-map','build.py');
   if(!fs.existsSync(script))throw new Error('Experience files are missing. Run npm run setup:experiences from your SPARK checkout.');
   const port=KNOWN[name];
   const requestedVault=notesDir||path.join(vendor,'holo-gestures','sample-notes');
@@ -41,11 +88,11 @@ function assertPortFree(port){return new Promise((resolve,reject)=>{
   s.once('error',()=>reject(new Error('Local experience port '+port+' is already occupied. Close the other app before opening SPARK experience.')));
   s.listen(port,'127.0.0.1',()=>s.close(resolve));
 });}
-function waitForServer(port,child,timeoutMs=10000){return new Promise((resolve,reject)=>{
+function waitForServer(port,child,timeoutMs=10000,page='/'){return new Promise((resolve,reject)=>{
   const deadline=Date.now()+timeoutMs;
   const attempt=()=>{
     if(child.exitCode!==null||child.signalCode!==null)return reject(new Error('Local experience exited before it became ready.'));
-    const req=http.get({host:'127.0.0.1',port,path:'/',timeout:800},res=>{
+    const req=http.get({host:'127.0.0.1',port,path:page,timeout:800},res=>{
       res.resume();
       if(res.statusCode===200)return resolve();
       if(Date.now()>=deadline)return reject(new Error('Local experience health check failed.'));
@@ -84,14 +131,14 @@ function killOwnedProcess(child){
     spawnSync('taskkill',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,timeout:3000,stdio:'ignore'});
   }else{try{child.kill('SIGTERM')}catch{}}
 }
-function createExperienceManager({root,userData,python='python',notesDir,BrowserWindow}){
+function createExperienceManager({root,userData,python='python',notesDir,vayuExportsDir,BrowserWindow}){
   const windows=new Map(),children=new Map();
   async function open(name){
     if(!BrowserWindow)throw new Error('Windows experience hosting is unavailable.');
     if(windows.has(name)&&!windows.get(name).isDestroyed()){
       windows.get(name).focus();return {opened:true,reused:true,experience:name};
     }
-    const plan=getExperiencePlan(name,{root,userData,python,notesDir});
+    const plan=getExperiencePlan(name,{root,userData,python,notesDir,vayuExportsDir});
     await assertPortFree(plan.port);
     for(const step of plan.steps){
       if(step.once){fs.mkdirSync(path.dirname(step.args[step.args.indexOf('--out')+1]),{recursive:true});await completedProcess(step);continue;}
@@ -99,16 +146,16 @@ function createExperienceManager({root,userData,python='python',notesDir,Browser
         env:experiencePythonEnvironment({...process.env,...(step.env||{})})});
       children.set(name,child);
       const failedToStart=new Promise((_,reject)=>child.once('error',()=>reject(new Error('Python is unavailable. Configure SPARK_PYTHON or install Python.'))));
-      try{await Promise.race([waitForServer(plan.port,child),failedToStart]);}
+      try{await Promise.race([waitForServer(plan.port,child,10000,plan.page),failedToStart]);}
       catch(e){killOwnedProcess(child);children.delete(name);throw e;}
     }
-    const win=new BrowserWindow({width:1450,height:910,backgroundColor:'#070b13',title:name==='holo'?'SPARK · HOLO DECK':'SPARK · NEURAL ATLAS',
+    const win=new BrowserWindow({width:1450,height:910,backgroundColor:'#070b13',title:name==='vayu'?'SPARK · VAYU WORKSPACE':name==='holo'?'SPARK · HOLO DECK':'SPARK · NEURAL ATLAS',
       webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
     win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
     win.webContents.on('will-navigate',(event,url)=>{if(!url.startsWith(plan.url+'/'))event.preventDefault();});
     windows.set(name,win);
     win.on('closed',()=>{windows.delete(name);killOwnedProcess(children.get(name));children.delete(name);});
-    try{await win.loadURL(plan.url);}catch(e){win.close();throw new Error('SPARK experience could not load its local interface.');}
+    try{await win.loadURL(plan.url+(plan.page||''));}catch(e){win.close();throw new Error('SPARK experience could not load its local interface.');}
     return {opened:true,reused:false,experience:name};
   }
   function stopAll(){for(const win of windows.values())if(!win.isDestroyed())win.close();for(const child of children.values())killOwnedProcess(child);windows.clear();children.clear();}

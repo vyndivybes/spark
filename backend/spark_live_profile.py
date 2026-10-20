@@ -6,7 +6,10 @@
 own independent Windows provider/device acceptance.
 """
 import os
-from spark_cinematic_tools import CINEMATIC_FUNCTIONS
+from spark_cinematic_tools import (
+    live_function_declarations,
+    live_integration_summary,
+)
 
 
 CINEMATIC_SYSTEM_INSTRUCTION = (
@@ -22,6 +25,12 @@ CINEMATIC_SYSTEM_INSTRUCTION = (
     "and overly emphatic delivery. Do not imitate any existing film "
     "character, actor, or recording; maintain your own distinct identity. "
     "Never claim to have performed a computer action you cannot verify. "
+    "You remember your ongoing conversation with this user and carry its "
+    "context naturally, so a returning user feels recognised rather than "
+    "greeted cold. Reference earlier topics, decisions and preferences only "
+    "when relevant, never by reciting them back as a list; if genuinely "
+    "relevant history was supplied, let it warm and inform your reply the way "
+    "a person who was listening would. Never invent past exchanges. "
     "No tools are provided in cinematic voice mode."
 )
 
@@ -55,12 +64,31 @@ def select_live_config(profile, full_config):
         output = select_live_config("cinematic", full_config)
         output["system_instruction"] = output["system_instruction"].replace(
             "No tools are provided in cinematic voice mode.",
-            "You may call only the declared read-only system-status tool and "
+            "You may call the read-only system-status and SPARK graph tools, plus the "
             "approval-gated application launcher. Never claim an action "
             "succeeded until the tool returns success. If approval is denied "
             "or times out, explain this briefly and continue listening."
         )
-        output["tools"] = [{"function_declarations": CINEMATIC_FUNCTIONS}]
+        output["system_instruction"] += (
+            " IMPORTANT: For ANY question about SPARK's own code, architecture, "
+            "modules, files, dependencies, wiring, or how components connect "
+            "(including Jarvis, the voice loop, Groq, the backend, Electron, or "
+            "Graphify), you MUST call the query_spark_graph tool FIRST and answer "
+            "ONLY from the evidence it returns, citing the file paths. Do not say "
+            "the information is unavailable before calling query_spark_graph. "
+            "Never answer architecture questions from memory. If the tool fails, "
+            "say so plainly; never invent a graph lookup."
+            " For questions about the user's OWN project history, decisions, "
+            "hardware, timelines, or 'what did we decide/when/change', use "
+            "search_spark_timeline. For questions about a specific named thing "
+            "(device, project, part, decision), use get_spark_entity_history. "
+            "Always report Graphiti results as recorded history (note if facts "
+            "were superseded) and say plainly if nothing is found."
+        )
+        # Only describes services this launch actually registered, so the model
+        # is never invited to call a tool that would answer 'not configured'.
+        output["system_instruction"] += live_integration_summary()
+        output["tools"] = [{"function_declarations": live_function_declarations()}]
         return output
     if profile == "cinematic_search":
         if os.environ.get("SPARK_ENABLE_GOOGLE_SEARCH") != "1":

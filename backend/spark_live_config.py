@@ -24,9 +24,32 @@ def live_status(configured, model=None):
     return {"state": "idle", "model": chosen, "message": "SPARK ready to open a Gemini Live voice session."}
 
 
+def _live_error_text(error):
+    """Inspect task-group leaves and chained causes without returning their text to UI."""
+    pending=[error]
+    seen=set()
+    values=[]
+    while pending and len(seen)<32:
+        current=pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        values.append(str(current).lower())
+        pending.extend(getattr(current,'exceptions',()) or ())
+        for cause in (getattr(current,'__cause__',None),getattr(current,'__context__',None)):
+            if cause is not None:
+                pending.append(cause)
+    return ' '.join(values)
+
+
+def live_error_requires_user_action(error):
+    value=_live_error_text(error)
+    return any(code in value for code in ('429','quota','401','403','404','permission','1008','policy violation','requested entity was not found'))
+
+
 def live_error_message(error):
     """Classify errors without showing provider stack traces, key or query."""
-    value = str(error).lower()
+    value = _live_error_text(error)
     if "1008" in value or "policy violation" in value or "requested entity was not found" in value:
         return "Gemini Live session closed (1008 policy violation). Check selected model and profile; do not retry automatically."
     if "429" in value or "quota" in value or "resource_exhausted" in value:
@@ -45,6 +68,8 @@ def live_status_report(state, message=""):
                 "live_message": "SPARK Core connected to Gemini Live.",
                 "live_error_code": None}
     if state == "error":
+        if isinstance(message,str) and message.startswith('Gemini Live session closed (1008 policy violation).'):
+            return {'live_state':'error','live_message':'Gemini Live closed the session (1008). Check model/profile availability, then reconnect manually.','live_error_code':1008}
         # The backend supplies classified messages, not raw exception bodies.
         # Only recognize known, constant prefixes; never include untrusted text.
         if isinstance(message, str) and message.startswith("Gemini Live rate limit or quota reached (429)."):
