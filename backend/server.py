@@ -749,7 +749,7 @@ async def start_audio(sid, data=None):
              loop_task = None
         else:
              print("Audio loop already running. Re-connecting client to session.")
-             await sio.emit('status', {'msg': 'A.D.A Already Running'})
+             await sio.emit('status', {'msg': 'SPARK Already Running'})
              return
 
 
@@ -956,7 +956,7 @@ async def start_audio(sid, data=None):
         asyncio.create_task(monitor_printers_loop())
         
     except Exception as e:
-        print(f"CRITICAL ERROR STARTING ADA: {e}")
+        print(f"CRITICAL ERROR STARTING SPARK: {e}")
         import traceback
         traceback.print_exc()
         live_state = "error"
@@ -1019,7 +1019,7 @@ async def stop_audio(sid):
         audio_loop = None
         live_state = 'idle'
         await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL))
-        await sio.emit('status', {'msg': 'A.D.A Stopped'})
+        await sio.emit('status', {'msg': 'SPARK Stopped'})
 
 @sio.event
 async def browser_audio_ready(sid, data=None):
@@ -1548,7 +1548,7 @@ async def discover_printers(sid):
             return
         else:
             await sio.emit('printer_list', [])
-            await sio.emit('status', {'msg': "Connect to A.D.A to enable printer discovery"})
+            await sio.emit('status', {'msg': "Connect to SPARK to enable printer discovery"})
             return
         
     try:
