@@ -72,6 +72,7 @@ export default function SparkScreens({socket, project, onCockpit}) {
     const [profile, setProfile] = useState(null);
     const [agentJobs, setAgentJobs] = useState([]);
     const [connectivity, setConnectivity] = useState(null);
+    const [pcInventory, setPcInventory] = useState(null);
     const [probeLive, setProbeLive] = useState(false);
 
     const [repository, setRepository] = useState('');
@@ -141,6 +142,7 @@ export default function SparkScreens({socket, project, onCockpit}) {
                 case 'list_repair_candidates': setCandidates(Array.isArray(r) ? r : []); break;
                 case 'agent_snapshot': setAgentJobs((r && r.jobs) || []); break;
                 case 'connectivity_report': setConnectivity(r); break;
+                case 'pc_startup_inventory': case 'pc_process_inventory': case 'pc_advisory': setPcInventory(r); break;
                 case 'test_repair_candidate': case 'activate_repair_candidate': case 'stage_repository_upgrade': case 'heal_sources':
                     setCandidates(current => [r, ...current.filter(c => c && c.id !== r.id)]); break;
                 case 'rollback_repair': setRepairs(current => current.map(item => item.id === r.id ? {...item, status: 'rolled_back'} : item)); break;
@@ -421,6 +423,31 @@ export default function SparkScreens({socket, project, onCockpit}) {
                         </div>
                         <Details value={filesHits.intent} label="Inspect parsed search intent"/>
                         <p className="text-xs text-slate-400">{filesHits.note}</p>
+                    </>}
+                </div>
+                <div className={card}>
+                    <h4 className="font-semibold">Startup &amp; running processes — read-only inventories</h4>
+                    <div className="flex flex-wrap gap-2">
+                        <button type="button" className={button} disabled={busy} onClick={() => request('pc_startup_inventory', {}, 120000)}>Startup inventory</button>
+                        <button type="button" className={button} disabled={busy} onClick={() => request('pc_process_inventory', {}, 180000)}>Process inventory</button>
+                        <button type="button" className={button} disabled={busy} onClick={() => request('pc_advisory', {}, 240000)}>Optimization advisory</button>
+                    </div>
+                    {pcInventory && <>
+                        <p className="text-sm text-slate-200">
+                            {pcInventory.startup_count != null ? `${pcInventory.startup_count} startup entries; ` : ''}
+                            {pcInventory.process_count != null ? `${pcInventory.process_count} processes` : ''}
+                            {pcInventory.startup_count == null && pcInventory.process_count == null ? 'Inventories load on their own buttons.' : '.'}
+                        </p>
+                        <ul className="text-xs text-slate-300 list-disc pl-5 space-y-1">
+                            {(pcInventory.findings || []).map((item, index) => <li key={index}>
+                                <span className="text-slate-200">{item.name}</span> — {item.evidence}
+                                {item.recommendation && <span className="text-slate-400"> {item.recommendation}</span>}
+                            </li>)}
+                        </ul>
+                        {pcInventory.entries && pcInventory.entries.length > 0 && <Details value={pcInventory.entries} label="Inspect startup entries"/>}
+                        {pcInventory.processes && <Details value={pcInventory.processes.slice(0, 60)} label="Inspect the heaviest processes"/>}
+                        <Details value={pcInventory} label="Inspect the full advisory report"/>
+                        <p className="text-xs text-slate-400">{pcInventory.note}</p>
                     </>}
                 </div>
             </>}

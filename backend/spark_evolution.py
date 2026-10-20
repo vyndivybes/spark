@@ -19,6 +19,10 @@ from spark_profiler import (
 from spark_workforce import WorkforceError, check_assignment, roles_summary
 from spark_connectivity import Connectivity, ConnectivityError
 from spark_integrations import Integrations
+from spark_pc_inventory import (
+    PcInventoryError, advisory, process_inventory, startup_inventory,
+)
+from spark_host_vitals import collect_host_vitals
 
 
 ACTION_KEYS = {
@@ -60,6 +64,10 @@ ACTION_KEYS = {
     "saee_record_benchmark": {"name", "before", "after"},
     # A10 system connectivity classification (read-only).
     "connectivity_report": {"deep"},
+    # A5 Windows management-agent inventories (read-only).
+    "pc_startup_inventory": set(),
+    "pc_process_inventory": set(),
+    "pc_advisory": set(),
 }
 
 
@@ -140,6 +148,17 @@ class Evolution:
         except (ConnectivityError, ValueError) as error:
             raise MaintenanceError(str(error)) from None
 
+    def _pc_advisory(self):
+        vitals = collect_host_vitals()
+        startup = startup_inventory()
+        processes = process_inventory()
+        return {
+            "vitals": {key: vitals.get(key) for key in ("ram_percent", "disk_free_gb")},
+            "startup_count": startup["count"],
+            "process_count": processes["count"],
+            **advisory(vitals, startup["entries"], processes["processes"]),
+        }
+
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
             raise MaintenanceError("Invalid evolution action or arguments.")
@@ -178,10 +197,22 @@ class Evolution:
                 raise MaintenanceError(str(error)) from None
             return await self.execute(inner_action, project, inner_payload)
         if action == "connectivity_report":
-            deep = payload["deep"]
+            deep = payload.get("deep", False)
             if not isinstance(deep, bool):
-                raise MaintenanceError("Specify whether to run the live service probes.")
+                raise MaintenanceError("deep must be a boolean.")
             return await self._connectivity(deep)
+        if action == "pc_startup_inventory":
+            return await asyncio.to_thread(startup_inventory)
+        if action == "pc_process_inventory":
+            try:
+                return await asyncio.to_thread(process_inventory)
+            except PcInventoryError as error:
+                raise MaintenanceError(str(error)) from None
+        if action == "pc_advisory":
+            try:
+                return await asyncio.to_thread(self._pc_advisory)
+            except PcInventoryError as error:
+                raise MaintenanceError(str(error)) from None
         if action == "import_repository":
             return await asyncio.to_thread(import_evidence, payload["url"],
                                            selected=payload["reference_paths"])
