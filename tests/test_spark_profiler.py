@@ -4,9 +4,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from spark_profiler import (
-    ProfileRecorder,
+    FRONTEND_SECTIONS,
     ProfilerError,
+    ProfileRecorder,
     compare,
+    frontend_probe,
     import_cost,
     profile_callable,
     resource_delta,
@@ -124,6 +126,70 @@ class ProfileCallableTests(unittest.TestCase):
     def test_rejects_bad_repeats(self):
         with self.assertRaises(ProfilerError):
             profile_callable(lambda: None, repeats=0)
+
+
+class FrontendProbeTests(unittest.TestCase):
+    def runner(self, text):
+        return lambda root, section, repeats: text
+
+    def test_summarises_timings_with_context(self):
+        report = frontend_probe("SparkScreens", 3, runner=self.runner(
+            "[200.04, 180.01, 260.0]"))
+        self.assertEqual(report["section"], "SparkScreens")
+        self.assertEqual(report["timings_ms"], [180.0, 200.0, 260.0])
+        self.assertEqual(report["mean_ms"], 213.3)
+        self.assertGreaterEqual(report["p95_ms"], report["mean_ms"])
+        self.assertIn("offline", report["context"])
+        self.assertIn("react-dom/server", report["context"])
+
+    def test_unknown_section_rejected(self):
+        with self.assertRaises(ProfilerError):
+            frontend_probe("NotAShippedScreen", 1, runner=self.runner([1.0]))
+        self.assertEqual(FRONTEND_SECTIONS, ("SparkScreens", "IntelligenceConsole"))
+
+    def test_repeats_bounds_enforced(self):
+        with self.assertRaises(ProfilerError):
+            frontend_probe("SparkScreens", 0, runner=self.runner([]))
+        with self.assertRaises(ProfilerError):
+            frontend_probe("SparkScreens", 11, runner=self.runner([]))
+
+    def test_count_mismatch_and_junk_rejected(self):
+        with self.assertRaises(ProfilerError):
+            frontend_probe("SparkScreens", 2, runner=self.runner(
+                "[1.0, 2.0, 3.0]"))
+        with self.assertRaises(ProfilerError):
+            frontend_probe("SparkScreens", 1, runner=self.runner("<html>"))
+        with self.assertRaises(ProfilerError):
+            frontend_probe("SparkScreens", 1, runner=self.runner("[9999999.0]"))
+        with self.assertRaises(ProfilerError):
+            frontend_probe("SparkScreens", 2, runner=self.runner("[1.0]"))
+
+    def test_dispatch_arm_and_validation(self):
+        import asyncio
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
+        try:
+            from test_helpers import temp_workspace
+            workspace, cleanup = temp_workspace()
+        except ModuleNotFoundError:
+            from spark_workspace import SparkWorkspace
+            import tempfile
+            handle = tempfile.TemporaryDirectory()
+            workspace, cleanup = SparkWorkspace(handle.name), handle.cleanup
+        try:
+            from spark_evolution import Evolution, ACTION_KEYS, MaintenanceError
+            self.assertEqual(ACTION_KEYS["profile_frontend"], {"section", "repeats"})
+            engine = Evolution(
+                workspace,
+                generator=lambda *a, **k: (_ for _ in ()).throw(AssertionError("no model")))
+            with self.assertRaises(MaintenanceError):
+                asyncio.run(engine.execute(
+                    "profile_frontend", "general", {"section": "X", "repeats": 1}))
+            report = asyncio.run(engine.execute(
+                "profile_frontend", "general", {"section": "SparkScreens", "repeats": 1}))
+            self.assertEqual(report["repeats"], 1)
+            self.assertIn("context", report)
+        finally:
+            cleanup()
 
 
 if __name__ == "__main__":

@@ -2,8 +2,9 @@
 
 §3F asks for measurement before recommendation. This module provides the
 measurement half: a monotonic timing recorder, a benchmark comparison that only
-recommends when a change is real, module-import-cost measurement, and a
-resource-delta summary. It runs no profiling daemon and never mutates state.
+recommends when a change is real, module-import-cost measurement, a
+frontend-render responsiveness probe, and a resource-delta summary. It runs no
+profiling daemon and never mutates state.
 
 Design choices:
 
@@ -12,12 +13,65 @@ Design choices:
   as `no_measurable_change`, never as an improvement.
 * Import cost is measured in a subprocess against a throwaway `sys.path` entry so
   the measuring process is not polluted, and against the *current* Python.
+* The frontend probe measures real component render latency of the shipped
+  screens through one bounded Node subprocess using the repository's own dev
+  dependencies; it is an offline render probe, not a browser benchmark, and it
+  says so in its output.
 * Recommendations are advisory strings; acting on them still flows through the
   maintenance and repository approval gates.
 """
+import json
+import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
+
+PROBE_REPEAT_MAX = 10
+
+FRONTEND_SECTIONS = ("SparkScreens", "IntelligenceConsole")
+
+_FRONTEND_PROBE_SCRIPT = r"""
+const path = require('path'), fs = require('fs'), os = require('os');
+const {createRequire} = require('module');
+const [root, section, repeatsRaw] = process.argv.slice(1);
+const repeats = Number(repeatsRaw);
+const req = createRequire(path.join(root, 'package.json'));
+const esbuild = req('esbuild');
+const React = req('react');
+const {renderToStaticMarkup} = req('react-dom/server');
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'spark-frontend-probe-'));
+const target = path.join(directory, section + '.cjs');
+try {
+    esbuild.buildSync({
+        entryPoints: [path.join(root, 'src', 'components', section + '.jsx')],
+        outfile: target, bundle: true, platform: 'node', format: 'cjs',
+        external: ['react'], logLevel: 'silent'});
+    const Module = require('module');
+    const loaded = new Module(target, module);
+    loaded.filename = target;
+    loaded.paths = [path.join(root, 'node_modules')];
+    loaded._compile(fs.readFileSync(target, 'utf8'), target);
+    const Component = loaded.exports.default;
+    const props = {socket: {connected: false}, project: 'general'};
+    const timings = [];
+    for (let index = 0; index < repeats; index += 1) {
+        const started = process.hrtime.bigint();
+        const html = renderToStaticMarkup(React.createElement(Component, props));
+        const milliseconds = Number(process.hrtime.bigint() - started) / 1e6;
+        if (typeof html !== 'string' || html.length < 100) {
+            throw new Error(section + ' rendered no markup');
+        }
+        timings.push(Math.round(milliseconds * 1000) / 1000);
+    }
+    fs.rmSync(directory, {recursive: true, force: true});
+    console.log(JSON.stringify(timings));
+} catch (error) {
+    fs.rmSync(directory, {recursive: true, force: true});
+    console.error(error.message);
+    process.exit(1);
+}
+"""
 
 
 class ProfilerError(ValueError):
@@ -201,3 +255,60 @@ def profile_callable(func, *, recorder=None, name="call", repeats=1):
         with recorder.measure(name):
             func()
     return recorder
+
+
+def _frontend_runner(root, section, repeats):
+    node = shutil.which("node")
+    if not node:
+        raise ProfilerError("Node.js is unavailable, so the render probe cannot run.")
+    try:
+        result = subprocess.run(
+            [node, "-e", _FRONTEND_PROBE_SCRIPT, root, section, str(repeats)],
+            capture_output=True, timeout=180, text=True,
+            encoding="utf-8", errors="replace")
+    except subprocess.TimeoutExpired as error:
+        raise ProfilerError("The frontend render probe timed out.") from None
+    if result.returncode:
+        raise ProfilerError("The render probe failed: %s"
+                            % (result.stderr or "unknown error")[:200])
+    return result.stdout
+
+
+def frontend_probe(section, repeats, *, runner=None):
+    """Measure offline render latency (milliseconds) of a shipped screen.
+
+    One bounded Node subprocess bundles the real component with the
+    repository's own dev dependencies, then renders it with
+    `react-dom/server` once per repeat and reports the stochastic summary.
+    This is an offline render probe — not a browser benchmark — and the
+    result carries that honesty in `context`.
+    """
+    if section not in FRONTEND_SECTIONS:
+        raise ProfilerError("Choose one shipped component: %s."
+                            % ", ".join(FRONTEND_SECTIONS))
+    if not isinstance(repeats, int) or not 1 <= repeats <= PROBE_REPEAT_MAX:
+        raise ProfilerError("Repeats must be between 1 and %d." % PROBE_REPEAT_MAX)
+    root = str(Path(__file__).resolve().parents[1])
+    runner = runner or _frontend_runner
+    try:
+        text = runner(root, section, repeats)
+    except (OSError,) as error:
+        raise ProfilerError("The frontend render probe could not run.") from error
+    try:
+        timings = json.loads(text)
+    except ValueError:
+        raise ProfilerError("The render probe returned unreadable data.") from None
+    if (not isinstance(timings, list) or len(timings) != repeats
+            or any(not isinstance(value, (int, float)) or value < 0
+                   or value > 120000 for value in timings)):
+        raise ProfilerError("The render probe returned unverifiable timings.")
+    ordered = sorted(round(float(value), 1) for value in timings)
+    return {
+        "section": section,
+        "repeats": repeats,
+        "timings_ms": ordered,
+        "min_ms": ordered[0],
+        "mean_ms": round(sum(ordered) / len(ordered), 1),
+        "p95_ms": round(_percentile(ordered, 0.95), 1),
+        "context": "offline react-dom/server render of the shipped components",
+    }

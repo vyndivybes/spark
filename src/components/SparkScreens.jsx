@@ -94,6 +94,8 @@ export default function SparkScreens({socket, project, onCockpit}) {
     const [deepCheck, setDeepCheck] = useState(false);
     const [scanPaths, setScanPaths] = useState('backend/spark_task_planner.py');
     const [moduleName, setModuleName] = useState('');
+    const [probeSection, setProbeSection] = useState('SparkScreens');
+    const [probeRepeats, setProbeRepeats] = useState('3');
     const [repeats, setRepeats] = useState('3');
     const [compareName, setCompareName] = useState('');
     const [compareBefore, setCompareBefore] = useState('');
@@ -132,7 +134,7 @@ export default function SparkScreens({socket, project, onCockpit}) {
                 case 'files_intelligence_scan': setFilesReport(r); break;
                 case 'files_search': setFilesHits(r); break;
                 case 'disk_forecast': setForecast(r); break;
-                case 'profile_import_cost': case 'profile_compare': setProfile({...r, kind: data.action}); break;
+                case 'profile_import_cost': case 'profile_compare': case 'profile_frontend': setProfile({...r, kind: data.action}); break;
                 case 'security_scan': setScan(r); break;
                 case 'import_repository': setEvidence(r); break;
                 case 'analyze_repository': setAnalysis(r); break;
@@ -200,6 +202,12 @@ export default function SparkScreens({socket, project, onCockpit}) {
         const count = Number(repeats);
         if (!moduleName.trim() || !Number.isInteger(count) || count < 1 || count > 10) {setNotice('Enter a module and a repeat count of 1-10.'); return;}
         request('profile_import_cost', {module: moduleName.trim(), repeats: count}, 300000);
+    }
+
+    function runFrontendProbe() {
+        const count = Number(probeRepeats);
+        if (!Number.isInteger(count) || count < 1 || count > 10) {setNotice('Enter a repeat count of 1-10.'); return;}
+        request('profile_frontend', {section: probeSection, repeats: count}, 240000);
     }
 
     function runCompare() {
@@ -337,6 +345,20 @@ export default function SparkScreens({socket, project, onCockpit}) {
                     </div>
                     {profile?.kind === 'profile_import_cost' && <p className="text-sm text-slate-200">Fresh import of {profile.module}: {profile.seconds} s (best of {profile.repeats}).</p>}
                     <p className="text-xs text-slate-400">Runs the real interpreter import in a fresh subprocess. Read-only measurement.</p>
+                </div>
+                <div className={card}>
+                    <h4 className="font-semibold">Frontend render probe (responsiveness)</h4>
+                    <p className="text-sm text-slate-300">Measures offline render latency of a shipped screen component through Node. Not a browser benchmark — it is the honest render-path cost.</p>
+                    <select aria-label="Component to probe" className={input} value={probeSection} onChange={e => setProbeSection(e.target.value)}>
+                        <option value="SparkScreens">SparkScreens</option>
+                        <option value="IntelligenceConsole">IntelligenceConsole</option>
+                    </select>
+                    <div className="flex flex-wrap gap-2">
+                        <input aria-label="Probe repeat count" className={`${input} max-w-24`} value={probeRepeats} onChange={e => setProbeRepeats(e.target.value)}/>
+                        <button type="button" className={button} disabled={busy} onClick={runFrontendProbe}>Run render probe</button>
+                    </div>
+                    {profile?.kind === 'profile_frontend' && <p className="text-sm text-slate-200">{profile.section}: min {profile.min_ms} ms, mean {profile.mean_ms} ms, p95 {profile.p95_ms} ms (of {profile.repeats}).</p>}
+                    <p className="text-xs text-slate-400">Read-only measurement. Runs inside the same offline harness the UI tests use, so results stay comparable over time.</p>
                 </div>
             </>}
 

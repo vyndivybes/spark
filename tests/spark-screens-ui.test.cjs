@@ -26,7 +26,7 @@ test('spark operating screens render the ten ninth-section pages offline without
 
 test('spark operating screens bundle includes the approved workspace actions only through user interactions',()=>{
   const source=fs.readFileSync(path.join(__dirname,'../src/components/SparkScreens.jsx'),'utf8');
-  for(const action of ['self_heal_diagnose','security_scan','files_intelligence_scan','files_search','disk_forecast','import_repository','saee_registry','workforce_roles','profile_import_cost','profile_compare','connectivity_report','pc_startup_inventory','pc_process_inventory','pc_advisory'])
+  for(const action of ['self_heal_diagnose','security_scan','files_intelligence_scan','files_search','disk_forecast','import_repository','saee_registry','workforce_roles','profile_import_cost','profile_compare','profile_frontend','connectivity_report','pc_startup_inventory','pc_process_inventory','pc_advisory'])
     assert.ok(source.includes(`'${action}'`),action);
   assert.ok(!source.includes('approved:true')||source.includes('window.confirm'),'activation and testing approvals require a confirmation dialog');
 });

@@ -14,7 +14,8 @@ from spark_self_healing import (
     RepairGate, SelfHealingError, diagnose, disk_forecast,
 )
 from spark_profiler import (
-    ProfileRecorder, ProfilerError, compare, import_cost, resource_delta,
+    ProfileRecorder, ProfilerError, compare, frontend_probe, import_cost,
+    resource_delta,
 )
 from spark_workforce import WorkforceError, check_assignment, roles_summary
 from spark_connectivity import Connectivity, ConnectivityError
@@ -45,6 +46,7 @@ ACTION_KEYS = {
     # §3F self-optimization profiler (read-only measurement).
     "profile_import_cost": {"module", "repeats"},
     "profile_compare": {"name", "before", "after", "tolerance"},
+    "profile_frontend": {"section", "repeats"},
     "import_repository": {"url", "reference_paths"},
     # §6 specialist agent workforce: role-scoped task routing (read-only listing).
     "workforce_roles": set(),
@@ -187,6 +189,12 @@ class Evolution:
         if action == "profile_compare":
             return compare(payload["name"], payload["before"], payload["after"],
                            tolerance=payload["tolerance"])
+        if action == "profile_frontend":
+            try:
+                return await asyncio.to_thread(
+                    frontend_probe, payload["section"], payload["repeats"])
+            except ProfilerError as error:
+                raise MaintenanceError(str(error)) from None
         if action == "workforce_roles":
             return roles_summary()
         if action == "workforce_assign":
