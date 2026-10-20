@@ -148,6 +148,28 @@ unverified. HOLO/Brain Map publication still requires its existing separate
 sharing operation. Retrieval benchmarks execute local searches against your
 independent expected source IDs; no datasets are downloaded.
 
+## Neural Atlas (Graphify-backed, read-only)
+
+Opening "Neural Atlas → notes graph" no longer renders the sample notes
+vault. Each launch regenerates an atlas vault from the packaged Graphify
+business inventory embedded in the VAYU workspace page
+(`vendor/vayu-workspace/VAYU-Knowledge-Sphere-Live.html`) through
+`scripts/neural_atlas_vault.py` and `backend/spark_neural_atlas.py`, then the
+unmodified Brain Map viewer graphs it. The atlas therefore maps your real
+VAOS/Vyndios universe: the Vayu Shastr organisation, its divisions, projects
+(VAOS, Vyndios, VEDM, Studio, Altitude), contacts, indexed documents,
+decisions and the event record, with every Graphify edge as a wiki link and
+one cluster per node type. Files carry status, confidence, tags, properties,
+timeline and backing-source notes; titles become node labels, ids keep
+everything unique, and stale rebuilds are replaced wholesale.
+
+The original local-notes flow is untouched elsewhere: HOLO Deck still uses
+the published Spark-notes folder, Obsidian still browses the local vault, and
+VAYU actions and imports remain separate. The extraction is read-only over
+the packaged page; nothing is uploaded, and the vault lives under the SPARK
+user-data directory. Graphify's hosted `query_graph` read tool remains the
+voice/interaction path (`_graphify_registered()` in `backend/server.py`).
+
 ## MCP and business connections
 
 `SPARK_MCP_SERVERS` is host-only configuration. Stdio entries use `command`,
