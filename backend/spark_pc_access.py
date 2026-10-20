@@ -34,7 +34,10 @@ PC_INSTRUCTION = (
     'Read a file before editing it. Prefer pc_action write for edits because it '
     'backs up overwritten files. Terminal commands can change the PC and are not '
     'automatically backed up. Never infer administrator access. List/read are paged; '
-    'follow next_offset when needed. Do not start work unrelated to the user goal.'
+    'follow next_offset when needed. Do not start work unrelated to the user goal. '
+    'For requests like "move report.pdf to my Documents", resolve the source and an '
+    'absolute destination, then call pc_action with action "move" and both path and '
+    'destination; report the actual result and never move unrelated files.'
 )
 
 
