@@ -60,7 +60,8 @@ function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExpo
           env:{...process.env, SPARK_OBSIDIAN_VAULT: vault}}
       ]};
   }
-  const script=path.join(folder,name==='holo'?'server.py':'build.py');
+  const folder=path.join(vendor,'holo-gestures');
+  const script=name==='holo'?path.join(folder,'server.py'):path.join(vendor,'brain-map','build.py');
   if(!fs.existsSync(script))throw new Error('Experience files are missing. Run npm run setup:experiences from your SPARK checkout.');
   const port=KNOWN[name];
   const requestedVault=notesDir||path.join(vendor,'holo-gestures','sample-notes');
