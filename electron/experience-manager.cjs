@@ -7,7 +7,7 @@ const net = require('node:net');
 const http = require('node:http');
 const {spawn,spawnSync} = require('node:child_process');
 
-const KNOWN = Object.freeze({holo:4890,brain:4710,vayu:4891,graphify:4720,graphiti:4721,hermes:4722});
+const KNOWN = Object.freeze({holo:4890,brain:4710,vayu:4891,graphify:4720,graphiti:4721,hermes:4722,obsidian:4723});
 
 function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExportsDir}={}) {
   if(!Object.prototype.hasOwnProperty.call(KNOWN,name))throw new Error('Unknown SPARK experience.');
@@ -50,7 +50,16 @@ function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExpo
           env:{...process.env}}
       ]};
   }
-  const folder=path.join(vendor,name==='holo'?'holo-gestures':'brain-map');
+  if(name==='obsidian'){
+    const wrapper=path.join(root,'scripts','spark_obsidian_dashboard.py');
+    if(!fs.existsSync(wrapper)) throw new Error('SPARK Obsidian dashboard is missing.');
+    const vault = process.env.SPARK_OBSIDIAN_VAULT || notesDir || path.join(require('node:os').homedir(),'Documents','Obsidian Vault');
+    return {name,port:KNOWN.obsidian,url:'http://127.0.0.1:'+KNOWN.obsidian,
+      page:'/',steps:[
+        {command:python,args:[wrapper,'--port',String(KNOWN.obsidian),'--vault',vault,'--root',root],cwd:root,shell:false,once:false,
+          env:{...process.env, SPARK_OBSIDIAN_VAULT: vault}}
+      ]};
+  }
   const script=path.join(folder,name==='holo'?'server.py':'build.py');
   if(!fs.existsSync(script))throw new Error('Experience files are missing. Run npm run setup:experiences from your SPARK checkout.');
   const port=KNOWN[name];

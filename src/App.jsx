@@ -1936,11 +1936,15 @@ function App() {
                                     <span>Personal and business actions, analytics, and 10 business-schema views.</span>
                                 </button>
                                 <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('brain')}>
-                                    <b>{experienceBusy==='brain'?'Opening…':'Neural Atlas · notes graph →'}</b>
+                                    <b>{experienceBusy==='brain'?'Opening…':'Neural Atlas → notes graph'}</b>
                                     <span>Explore wiki links between your published Spark notes.</span>
                                 </button>
+                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('obsidian')}>
+                                    <b>{experienceBusy==='obsidian'?'Opening…':'Obsidian → vault browser'}</b>
+                                    <span>Browse and search your local Obsidian vault.</span>
+                                </button>
                                 <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('holo')}>
-                                    <b>{experienceBusy==='holo'?'Opening…':'HOLO Deck · hand interaction →'}</b>
+                                    <b>{experienceBusy==='holo'?'Opening…':'HOLO Deck → hand interaction'}</b>
                                     <span>Grab and arrange notes and 3D objects with hand gestures.</span>
                                 </button>
                             </div>
