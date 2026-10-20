@@ -58,6 +58,9 @@ from spark_workspace_auth import workspace_client_allowed
 from spark_pc_access import PcAccess
 from spark_jarvis import JarvisClient
 from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
+from spark_file_organizer import (
+    FileOrganizer, FileOrganizerError, FILE_ORGANIZER_ACTIONS as FILE_ORGANIZER_ACTIONS,
+)
 from spark_voice_answers import (
     HERMES_KIND_TOOLS, payload_or_message, spoken_facts, spoken_graphify,
     spoken_hermes, spoken_timeline)
@@ -69,7 +72,11 @@ spark_workspace = SparkWorkspace(_SPARK_WORKSPACE_ROOT)
 spark_evolution = Evolution(spark_workspace)
 spark_workbench = Workbench(spark_workspace)
 pc_tasks=PcTasks(_SPARK_WORKSPACE_ROOT/'pc-tasks')
-
+# File organization stays off until PC autonomy is enabled; it is also confined
+# to an allowed root (SPARK_FILE_ORG_ROOT, else the user's home folder).
+file_organizer = FileOrganizer(
+    _SPARK_WORKSPACE_ROOT / 'file-organizer',
+    root=os.environ.get('SPARK_FILE_ORG_ROOT') or str(Path.home()))
 def _mcp_service_registered(service, tool):
     # Read-only probe: is this MCP service host-configured with that read tool?
     # Never touches the service or spawns a process.
@@ -387,6 +394,9 @@ async def status():
             "graphiti_ready": _graphiti_registered(),
             "hermes_ready": _hermes_registered(),
             "obsidian_ready": obsidian.status()["enabled"],
+            "file_organizer_ready": bool(
+                audio_loop and getattr(audio_loop, 'pc_access', None)
+                and audio_loop.pc_access.enabled()),
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **({"live_state":live_state,
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
@@ -441,13 +451,20 @@ async def workspace_action(sid, data):
             except ValueError as error:raise WorkbenchError(str(error)) from None
         elif isinstance(action, str) and action in WORKBENCH_ACTIONS:
             result = await spark_workbench.execute(action, project, payload)
+        elif isinstance(action, str) and action in FILE_ORGANIZER_ACTIONS:
+            if action in ('organize_apply', 'organize_undo'):
+                access = getattr(audio_loop, 'pc_access', None)
+                if not access or not access.enabled():
+                    raise FileOrganizerError(
+                        'Enable PC autonomy in the active authenticated session to move files.')
+            result = await asyncio.to_thread(file_organizer.execute, action, payload)
         else:
             result = await asyncio.to_thread(spark_workspace.execute,action,project,payload)
         workspace_project_by_sid[sid] = project
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":True,"result":result
         },room=sid)
-    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError) as error:
+    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError, FileOrganizerError) as error:
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":False,"message":str(error)[:200]
         },room=sid)

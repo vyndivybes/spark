@@ -43,10 +43,28 @@ class SaeDiscoveryTests(unittest.TestCase):
         self.assertTrue(result["plan"])
 
     def test_discovery_flags_a_real_gap_as_manual(self):
-        result = self.saee.discover("general", "organize my windows files and folders automatically")
+        result = self.saee.discover("general", "set up automatic release and deployment to production")
         self.assertTrue(result["gaps"])
         self.assertEqual(result["risk"]["level"], "high")
         self.assertTrue(any(step["engine"] == "manual" for step in result["plan"]))
+
+    def test_discovery_recognizes_the_file_organizer_as_a_real_capability(self):
+        result = self.saee.discover("general", "organize my windows files into folders")
+        ids = {item["id"] for item in result["matches"]}
+        self.assertIn("windows_file_organization", ids)
+        gap_ids = {item["id"] for item in result["gaps"]}
+        self.assertNotIn("windows_file_organization", gap_ids)
+
+    def test_inventory_confirms_modules_present_and_reports_coverage(self):
+        inventory = self.saee.inventory("general")
+        self.assertEqual(inventory["missing_modules"], [])
+        self.assertTrue(inventory["measured"])
+        for item in inventory["capabilities"]:
+            self.assertTrue(item["module_present"], item["id"])
+        self.assertIn("spark_evolution.py", inventory["action_sets"])
+        actions = inventory["action_sets"]["spark_evolution.py"]
+        self.assertIn("saee_inventory", actions)
+        self.assertIn("saee_record_attempt", actions)
 
     def test_empty_or_oversized_request_is_rejected(self):
         for bad in ("", "   ", "x" * 2001, None, 5):
@@ -133,12 +151,14 @@ class SaeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.temp.cleanup()
 
     async def test_saee_actions_are_exposed_and_dispatch(self):
-        for action in ("saee_registry", "saee_discover", "saee_ledger", "saee_failures",
-                       "saee_record_attempt", "saee_record_error_signature",
+        for action in ("saee_registry", "saee_inventory", "saee_discover", "saee_ledger",
+                       "saee_failures", "saee_record_attempt", "saee_record_error_signature",
                        "saee_record_benchmark"):
             self.assertIn(action, ACTION_KEYS)
         registry = await self.engine.execute("saee_registry", "general", {})
         self.assertTrue(registry["capabilities"])
+        inventory = await self.engine.execute("saee_inventory", "general", {})
+        self.assertEqual(inventory["missing_modules"], [])
         discovered = await self.engine.execute(
             "saee_discover", "general", {"request": "improve repository analysis"})
         self.assertIn("risk", discovered)

@@ -231,3 +231,33 @@ rejected. These actions are exposed to the authorized workspace session through
 the existing evolution dispatch; no shell, merge, deploy or credential action is
 ever automatic. Capability presence and test coverage come from the local
 inventory and are not an independent security audit.
+
+`saee_inventory` goes further than the static registry: it scans the real
+checkout read-only, confirming each declared capability's engine module exists
+and locating a test that names it, and it collects the action keys other modules
+actually expose. It reports `missing_modules` and `untested` honestly and never
+imports or executes the scanned code. A "present" result is not a security
+audit.
+
+## Windows file organization
+
+`backend/spark_file_organizer.py` implements the file organization agent to the
+same standard as the rest of the workspace. It never deletes and never recurses:
+a scan touches one directory, top-level plain files only, and groups them into
+category folders (Documents, Images, Audio, Video, Archives, Installers, Code,
+`_Others`). Unknown extensions fall back to `_Others`.
+
+Scanning is read-only and returns a proposal; no file moves. A plan moves only
+for the exact reviewed `plan_hash` and an explicit approval, one directory at a
+time. A durable journal is written before the first move, so a failed run rolls
+back and an applied run is reversible with `organize_undo`, which refuses to undo
+if a file has since reappeared or changed. Name collisions and folders are
+skipped, not overwritten. Moving files requires the same session PC autonomy as
+other mutating PC actions; scanning and history only need a trusted session. The
+root is confined to `SPARK_FILE_ORG_ROOT` (default: the user's home folder), and
+whole drives, the home folder as a target, symlinks and relative paths are
+rejected.
+
+Not supported deliberately: recursive organization, scheduling, file deletion,
+and any move outside the named directory. These are listed as honest gaps in
+SAEE rather than approximated.

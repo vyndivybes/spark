@@ -21,6 +21,7 @@ docs/intelligence-operations.md):
 Storage lives beside the other workspace data:
 ``<workspace.skills.root.parent>/saee``.
 """
+import ast
 import json
 import re
 import secrets
@@ -92,14 +93,16 @@ KNOWN_CAPABILITIES = (
      "engine": "spark_intelligence.memory.Memory",
      "summary": "Project-isolated FTS5 memory with citations; optional local embeddings.",
      "verified": True, "gate": "read/write within project"},
+    {"id": "windows_file_organization",
+     "name": "Windows File Organization Agent",
+     "engine": "spark_file_organizer.FileOrganizer",
+     "summary": "Read-only scan proposes moves; approved apply journals and undo reverses them.",
+     "verified": True, "gate": "scan + approved plan hash; undo journalled"},
 )
 
 # Capability gaps the master prompt asks for that have no engine yet. SAEE
 # reports these honestly rather than pretending they exist.
 KNOWN_GAPS = (
-    {"id": "windows_file_organization",
-     "name": "Windows File Organization Agent",
-     "reason": "No safe file mover/organizer exists; would need its own read-only-first safety tests."},
     {"id": "automatic_deployment",
      "name": "Automatic Release and Rollback Pipeline",
      "reason": "Deliberately absent: docs/intelligence-operations.md rejects auto-merge/deploy/updater."},
@@ -109,6 +112,9 @@ KNOWN_GAPS = (
     {"id": "self_optimization_profiler",
      "name": "Self-Optimization Profiler",
      "reason": "Only host vitals and read-only version inspection exist; no SPARK-owned process profiler."},
+    {"id": "recursive_file_organization",
+     "name": "Recursive / Scheduled File Organization",
+     "reason": "Only single-directory, top-level, approval-gated moves exist; no recursion or scheduling."},
 )
 
 _PROJECT = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
@@ -202,6 +208,114 @@ class AutonomousEvolutionEngine:
             "measured": False,
             "note": ("Capability presence and test coverage are from the local "
                      "inventory; runtime behavior and security are not independently verified."),
+        }
+
+    def _repository_root(self):
+        # spark_saee.py lives in <root>/backend, so the repo root is parents[1].
+        return Path(__file__).resolve().parents[1]
+
+    def _live_inventory(self):
+        """Scan the real checkout so the registry reflects what is present.
+
+        For every declared capability, confirm its engine module exists and
+        locate a test that names it. Also collect the action keys other modules
+        actually expose. Pure read-only; nothing is imported or executed.
+        """
+        root = self._repository_root()
+        backend = root / "backend"
+        tests = root / "tests"
+        modules = {}
+        if backend.is_dir() and not backend.is_symlink():
+            for source in sorted(backend.glob("*.py")):
+                if source.is_symlink():
+                    continue
+                modules[source.name] = source
+            # Sub-packages (for example spark_intelligence) expose engines too:
+            # register the package name and each of its modules.
+            for package in sorted(p for p in backend.iterdir() if p.is_dir() and not p.is_symlink()):
+                if (package / "__init__.py").is_file():
+                    modules[package.name + ".py"] = package / "__init__.py"
+                    for source in sorted(package.glob("*.py")):
+                        if not source.is_symlink():
+                            modules[package.name + "/" + source.name] = source
+        test_names = set()
+        if tests.is_dir() and not tests.is_symlink():
+            test_names = {path.name for path in tests.glob("test_*.py") if not path.is_symlink()}
+
+        capabilities = []
+        for item in KNOWN_CAPABILITIES:
+            engine = item["engine"]
+            module_key = engine.replace(".", "/", 1) + ".py" if "." in engine else engine + ".py"
+            # Accept both "spark_intelligence/memory.py" and the package form.
+            candidates = [module_key]
+            package_name = engine.split(".", 1)[0]
+            candidates.append(package_name + ".py")
+            source = next((modules.get(key) for key in candidates if key in modules), None)
+            present = source is not None
+            # Prefer a test naming the specific engine module/class (for example
+            # "memory.Memory" or "skills.InstructionalSkills"); fall back to the
+            # package name so coverage is still reported.
+            probes = []
+            if "." in engine:
+                head, _, tail = engine.rpartition(".")
+                if "." in head:
+                    probes.append(head.rsplit(".", 1)[-1] + "." + tail)
+                if len(tail) >= 6:
+                    probes.append(tail)
+            probes.append(package_name)
+            test_file = None
+            if present:
+                for probe in probes:
+                    for name in sorted(test_names):
+                        text = (tests / name).read_text(encoding="utf-8", errors="replace")
+                        if probe in text:
+                            test_file = name
+                            break
+                    if test_file:
+                        break
+            capabilities.append({
+                **item,
+                "module_present": present,
+                "test_file": test_file,
+                "live": present,
+            })
+
+        action_sets = {}
+        for name, source in modules.items():
+            if source.stat().st_size > 200_000:
+                continue
+            try:
+                tree = ast.parse(source.read_text(encoding="utf-8", errors="replace"))
+            except (SyntaxError, ValueError, OSError):
+                continue
+            for node in tree.body:
+                if isinstance(node, ast.Assign) and len(node.targets) == 1 \
+                        and isinstance(node.targets[0], ast.Name) \
+                        and (node.targets[0].id.endswith("_ACTIONS")
+                             or node.targets[0].id == "ACTION_KEYS") \
+                        and isinstance(node.value, ast.Dict):
+                    keys = [key.value for key in node.value.keys
+                            if isinstance(key, ast.Constant) and isinstance(key.value, str)]
+                    if keys:
+                        action_sets[name] = sorted(keys)
+        return {"capabilities": capabilities, "action_sets": action_sets}
+
+    def inventory(self, project):
+        """Live capability inventory cross-checked against the real checkout."""
+        self._project_dir(project)
+        live = self._live_inventory()
+        missing = [item["id"] for item in live["capabilities"] if not item["module_present"]]
+        untested = [item["id"] for item in live["capabilities"]
+                    if item["module_present"] and not item["test_file"]]
+        return {
+            "capabilities": live["capabilities"],
+            "action_sets": live["action_sets"],
+            "gaps": [dict(item) for item in KNOWN_GAPS],
+            "missing_modules": missing,
+            "untested": untested,
+            "measured": True,
+            "note": ("Presence and coverage are scanned from the local checkout; this is "
+                     "not a security audit and does not prove runtime behavior."),
         }
 
     def discover(self, project, request):

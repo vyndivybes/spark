@@ -28,6 +28,7 @@ ACTION_KEYS = {
     "rea_call": {"name", "arguments"},
     # SAEE core: advisory discovery plus its own local registry and ledger.
     "saee_registry": set(),
+    "saee_inventory": set(),
     "saee_discover": {"request"},
     "saee_ledger": set(),
     "saee_failures": set(),
@@ -70,6 +71,8 @@ class Evolution:
         try:
             if action == "saee_registry":
                 return await asyncio.to_thread(saee.registry, project)
+            if action == "saee_inventory":
+                return await asyncio.to_thread(saee.inventory, project)
             if action == "saee_discover":
                 return await asyncio.to_thread(saee.discover, project, payload["request"])
             if action == "saee_ledger":
