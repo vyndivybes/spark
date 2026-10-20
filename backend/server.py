@@ -61,6 +61,9 @@ from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
 from spark_file_organizer import (
     FileOrganizer, FileOrganizerError, FILE_ORGANIZER_ACTIONS as FILE_ORGANIZER_ACTIONS,
 )
+from spark_file_intelligence import (
+    FileIntelligence, FileIntelligenceError, INTELLIGENCE_ACTIONS as FILE_INTELLIGENCE_ACTIONS,
+)
 from spark_voice_answers import (
     HERMES_KIND_TOOLS, payload_or_message, spoken_facts, spoken_graphify,
     spoken_hermes, spoken_timeline)
@@ -76,6 +79,9 @@ pc_tasks=PcTasks(_SPARK_WORKSPACE_ROOT/'pc-tasks')
 # to an allowed root (SPARK_FILE_ORG_ROOT, else the user's home folder).
 file_organizer = FileOrganizer(
     _SPARK_WORKSPACE_ROOT / 'file-organizer',
+    root=os.environ.get('SPARK_FILE_ORG_ROOT') or str(Path.home()))
+# Read-only file intelligence shares the organizer's allowed root.
+file_intelligence = FileIntelligence(
     root=os.environ.get('SPARK_FILE_ORG_ROOT') or str(Path.home()))
 def _mcp_service_registered(service, tool):
     # Read-only probe: is this MCP service host-configured with that read tool?
@@ -397,6 +403,7 @@ async def status():
             "file_organizer_ready": bool(
                 audio_loop and getattr(audio_loop, 'pc_access', None)
                 and audio_loop.pc_access.enabled()),
+            "file_intelligence_ready": True,
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **({"live_state":live_state,
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
@@ -458,13 +465,15 @@ async def workspace_action(sid, data):
                     raise FileOrganizerError(
                         'Enable PC autonomy in the active authenticated session to move files.')
             result = await asyncio.to_thread(file_organizer.execute, action, payload)
+        elif isinstance(action, str) and action in FILE_INTELLIGENCE_ACTIONS:
+            result = await asyncio.to_thread(file_intelligence.execute, action, payload)
         else:
             result = await asyncio.to_thread(spark_workspace.execute,action,project,payload)
         workspace_project_by_sid[sid] = project
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":True,"result":result
         },room=sid)
-    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError, FileOrganizerError) as error:
+    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError, FileOrganizerError, FileIntelligenceError) as error:
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":False,"message":str(error)[:200]
         },room=sid)

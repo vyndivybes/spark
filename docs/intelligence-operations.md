@@ -261,3 +261,23 @@ rejected.
 Not supported deliberately: recursive organization, scheduling, file deletion,
 and any move outside the named directory. These are listed as honest gaps in
 SAEE rather than approximated.
+
+## File intelligence (read-only)
+
+`backend/spark_file_intelligence.py` reports on an approved directory tree
+without changing anything: exact duplicates (SHA-256), large files, old files and
+temporary files, plus a `reclaimable_bytes` estimate. It shares the organizer's
+allowed root and refuses whole drives and the home folder as scan targets.
+
+Duplicate detection groups files by byte size first, so only files that share a
+size are ever hashed; a directory of unique-size files is effectively not read
+beyond its metadata. The walk is bounded (depth 8, 20000 files), never follows
+symlinks, and returns `truncated` when a limit is hit. Nothing is written to
+disk: results are returned to the caller, not stored. The `files_intelligence_scan`
+action only needs a trusted session — it is read-only.
+
+Acting on findings is a separate, approved, journalled operation: moves go
+through the file organizer (`organize_*`) and any other change through the PC
+access path. This module never deletes anything, and no automatic cleanup is
+performed. Near-duplicate/semantic matching and natural-language search over raw
+filesystem metadata are not implemented and are listed as honest SAEE gaps.

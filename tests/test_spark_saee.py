@@ -28,11 +28,14 @@ class SaeDiscoveryTests(unittest.TestCase):
         ids = {item["id"] for item in registry["capabilities"]}
         self.assertIn("repository_intelligence", ids)
         self.assertIn("source_repair", ids)
+        self.assertIn("file_intelligence", ids)
+        self.assertIn("windows_file_organization", ids)
         self.assertEqual(registry["pipeline"], list(PIPELINE))
         self.assertFalse(registry["measured"])
         self.assertTrue(all(item["verified"] for item in registry["capabilities"]))
         gap_ids = {item["id"] for item in registry["gaps"]}
         self.assertIn("automatic_deployment", gap_ids)
+        self.assertIn("near_duplicate_detection", gap_ids)
 
     def test_discovery_matches_existing_engine_and_is_advisory(self):
         result = self.saee.discover("general", "analyze this local repository and propose an upgrade")

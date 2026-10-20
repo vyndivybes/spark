@@ -98,6 +98,11 @@ KNOWN_CAPABILITIES = (
      "engine": "spark_file_organizer.FileOrganizer",
      "summary": "Read-only scan proposes moves; approved apply journals and undo reverses them.",
      "verified": True, "gate": "scan + approved plan hash; undo journalled"},
+    {"id": "file_intelligence",
+     "name": "File Intelligence (read-only)",
+     "engine": "spark_file_intelligence.FileIntelligence",
+     "summary": "Exact duplicate detection, large/old/temp inventory; changes nothing.",
+     "verified": True, "gate": "read-only report"},
 )
 
 # Capability gaps the master prompt asks for that have no engine yet. SAEE
@@ -115,6 +120,12 @@ KNOWN_GAPS = (
     {"id": "recursive_file_organization",
      "name": "Recursive / Scheduled File Organization",
      "reason": "Only single-directory, top-level, approval-gated moves exist; no recursion or scheduling."},
+    {"id": "near_duplicate_detection",
+     "name": "Near-Duplicate and Content Classification",
+     "reason": "Only exact SHA-256 duplicates are detected; no fuzzy/semantic near-duplicate matching or content-based project classification."},
+    {"id": "filesystem_natural_language_search",
+     "name": "Natural-Language Filesystem Search",
+     "reason": "NL search covers indexed documents and memories only; no NL query over raw filesystem metadata."},
 )
 
 _PROJECT = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
