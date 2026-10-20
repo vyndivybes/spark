@@ -14,6 +14,7 @@ import threading
 import sys
 import os
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -57,6 +58,9 @@ from spark_workspace_auth import workspace_client_allowed
 from spark_pc_access import PcAccess
 from spark_jarvis import JarvisClient
 from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
+from spark_voice_answers import (
+    HERMES_KIND_TOOLS, payload_or_message, spoken_facts, spoken_graphify,
+    spoken_hermes, spoken_timeline)
 from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
@@ -65,15 +69,24 @@ spark_evolution = Evolution(spark_workspace)
 spark_workbench = Workbench(spark_workspace)
 pc_tasks=PcTasks(_SPARK_WORKSPACE_ROOT/'pc-tasks')
 
-def _graphify_registered():
-    # Read-only probe: is the Graphify MCP service host-configured for the
-    # query_spark_graph voice tool? Never touches the graph or spawns a process.
+def _mcp_service_registered(service, tool):
+    # Read-only probe: is this MCP service host-configured with that read tool?
+    # Never touches the service or spawns a process.
     try:
         config = spark_workbench.integrations.catalog()
     except Exception:
         return False
-    entry = config.get('graphify') if isinstance(config, dict) else None
-    return bool(isinstance(entry, dict) and 'query_graph' in entry.get('read_tools', []))
+    entry = config.get(service) if isinstance(config, dict) else None
+    return bool(isinstance(entry, dict) and tool in entry.get('read_tools', []))
+
+def _graphify_registered():
+    return _mcp_service_registered('graphify', 'query_graph')
+
+def _graphiti_registered():
+    return _mcp_service_registered('graphiti', 'search_temporal_facts')
+
+def _hermes_registered():
+    return _mcp_service_registered('hermes', 'hermes_learned_skills')
 
 @app.on_event("startup")
 async def start_intelligence_scheduler():
@@ -91,6 +104,109 @@ async def close_rea_connection():
     await spark_workbench.intelligence.close()
 # Only the last project explicitly opened by this session is available by voice.
 workspace_project_by_sid = {}
+
+
+async def mcp_voice_call(sid, service, tool, arguments, timeout=40):
+    """Shared authorization and transport for every MCP-backed voice tool.
+
+    Both voice loops have to clear the same session guard, and keeping it here is
+    what stops a newly added service from shipping a weaker copy. Each loop
+    exposes `session` as a liveness flag: the Gemini Live websocket, and
+    GroqVoiceLoop which sets it to itself until stopped.
+    Returns the MCP response dict, or None when unauthorized or failed.
+    """
+    if (audio_loop is None
+            or getattr(audio_loop, "owner_sid", None) != sid
+            or getattr(audio_loop, "session", None) is None
+            or not sio.manager.is_connected(sid, "/")
+            or (SETTINGS.get("face_auth_enabled", False)
+                and not (authenticator and authenticator.authenticated))):
+        return None
+    project = workspace_project_by_sid.get(sid, "default")
+    try:
+        response = await asyncio.wait_for(
+            spark_workbench.execute(
+                "mcp_call", project,
+                {"server": service, "name": tool, "arguments": arguments}),
+            timeout=timeout)
+    except Exception:
+        return None
+    if not isinstance(response, dict) or response.get("isError"):
+        return None
+    return response
+
+
+async def graphify_voice_query(sid, question):
+    """Answer a SPARK architecture question from the local Graphify graph."""
+    if not _graphify_registered():
+        return "Graphify is not enabled for this launch."
+    # Speech recognition routinely mangles these identifiers and Graphify's
+    # symbol search is exact.
+    question = re.sub(r"jarvis\s+client", "JarvisClient", question, flags=re.I)
+    question = re.sub(r"gro[kg]\s+voice\s+loop", "GroqVoiceLoop", question, flags=re.I)
+    response = await mcp_voice_call(
+        sid, "graphify", "query_graph",
+        {"question": question, "mode": "bfs", "depth": 2, "token_budget": 1600})
+    if response is None:
+        return "Graphify MCP unavailable or timed out."
+    return spoken_graphify(response)
+
+
+async def graphiti_voice_query(sid, question):
+    """Answer a question about the user's recorded project history."""
+    if not _graphiti_registered():
+        return "Graphiti is not enabled for this launch."
+    response = await mcp_voice_call(
+        sid, "graphiti", "search_temporal_facts", {"question": question, "limit": 6})
+    if response is None:
+        return "Graphiti could not complete that search."
+    payload = payload_or_message(response, "Graphiti returned an unreadable answer.")
+    if isinstance(payload, str):
+        return payload
+    return spoken_facts(payload, "Graphiti has no recorded facts about that yet.")
+
+
+async def graphiti_entity_history(sid, entity):
+    """Answer with everything recorded about one named thing, superseded included."""
+    if not _graphiti_registered():
+        return "Graphiti is not enabled for this launch."
+    response = await mcp_voice_call(sid, "graphiti", "get_entity_timeline", {"entity": entity})
+    if response is None:
+        return "Graphiti could not read that history."
+    payload = payload_or_message(response, "Graphiti returned an unreadable answer.")
+    if isinstance(payload, str):
+        return payload
+    return spoken_timeline(payload, entity)
+
+
+async def hermes_experience(sid, kind):
+    """Read what the locally installed Hermes Agent has already learned."""
+    if not _hermes_registered():
+        return "Hermes Agent is not enabled for this launch."
+    tool = HERMES_KIND_TOOLS.get(kind)
+    if tool is None:
+        return "Ask Hermes for its skills, its memories, or its status."
+    # Memory bodies are deliberately not requested: they are another agent's
+    # private notes and a spoken answer would read them aloud verbatim.
+    response = await mcp_voice_call(
+        sid, "hermes", tool, {} if kind == "status" else {"limit": 8})
+    if response is None:
+        return "Hermes Agent did not answer."
+    payload = payload_or_message(response, "Hermes Agent returned an unreadable answer.")
+    if isinstance(payload, str):
+        return payload
+    return spoken_hermes(payload, kind)
+
+
+# Voice intents that resolve to an MCP read tool: action -> (handler, argument
+# name, accepted length bound). The bound is enforced by the caller so no handler
+# has to remember its own.
+MCP_VOICE_INTENTS = {
+    "graphify_voice_query": (graphify_voice_query, "question", 220),
+    "graphiti_voice_query": (graphiti_voice_query, "question", 220),
+    "graphiti_entity_history": (graphiti_entity_history, "entity", 120),
+    "hermes_experience": (hermes_experience, "kind", 20),
+}
 
 # --- SHUTDOWN HANDLER ---
 def signal_handler(sig, frame):
@@ -243,6 +359,8 @@ async def status():
             "audio_transport": AUDIO_TRANSPORT,
             "groq_vision_available": os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1",
             "graphify_ready": _graphify_registered(),
+            "graphiti_ready": _graphiti_registered(),
+            "hermes_ready": _hermes_registered(),
             "hands_free_ready": bool(audio_loop and getattr(audio_loop, "browser_ready", False)),
             **({"live_state":live_state,
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
@@ -429,45 +547,20 @@ async def start_groq_audio(sid, data=None):
     async def on_workbench_command(command):
         if (audio_loop is None or getattr(audio_loop, "owner_sid", None) != sid
                 or (SETTINGS.get("face_auth_enabled", False) and not (authenticator and authenticator.authenticated))):
-            return "Authenticate to SPARK before using saved preferences or reminders."
+            return "Authenticate to SPARK before using saved preferences, reminders or knowledge lookups."
         project = workspace_project_by_sid.get(sid, "default")
         try:
 
-            if command.get("action") == "graphify_voice_query":
-                import re
-                question = command.get("payload", {}).get("question")
-                if not isinstance(question, str) or not 1 <= len(question) <= 220:
-                    return "Invalid architecture question."
-                response = await spark_workbench.execute(
-                    "mcp_call", project, {
-                        "server": "graphify",
-                        "name": "query_graph",
-                        "arguments": {
-                            "question": question,
-                            "mode": "bfs",
-                            "depth": 2,
-                            "token_budget": 1200
-                        }
-                    }
-                )
-                if response.get("isError"):
-                    return "Graphify could not complete the architecture query."
-                evidence = "\n".join(
-                    item.get("text", "")
-                    for item in response.get("content", [])
-                    if item.get("type") == "text"
-                )
-                paths = list(dict.fromkeys(
-                    re.findall(r"\bsrc=([^\s\]]+)", evidence)
-                ))
-                paths = [p for p in paths if p.lower() not in ("loc=l1",)]
-                if not paths:
-                    return "Graphify found no matching source files for that question."
-                return (
-                    "Graphify found related SPARK files: "
-                    + "; ".join(paths[:7])
-                    + ". These are graph associations, not verified change impacts."
-                )
+            # MCP-backed intents share one authorization and transport path with
+            # the Gemini Live tools, so the Groq loop cannot end up carrying a
+            # weaker guard than the Gemini one.
+            intent = MCP_VOICE_INTENTS.get(command.get("action"))
+            if intent is not None:
+                handler, field, limit = intent
+                value = (command.get("payload") or {}).get(field)
+                if not isinstance(value, str) or not 1 <= len(value.strip()) <= limit:
+                    return "That request needs a " + field + " of at most " + str(limit) + " characters."
+                return await handler(sid, value.strip())
             result = await spark_workbench.execute(command["action"], project, command["payload"])
             if command['action']=='agent_snapshot':
                 counts={}
@@ -629,83 +722,19 @@ async def start_audio(sid, data=None):
         asyncio.create_task(sio.emit('browser_frame', data))
         
 
+    # The four MCP-backed Live tools all delegate to the module-level handlers,
+    # which carry the session guard and are shared with the Groq voice path.
     async def on_graphify_query(question):
-        import re
-        if (
-            audio_loop is None
-            or getattr(audio_loop, "owner_sid", None) != sid
-            or getattr(audio_loop, "session", None) is None
-            or not sio.manager.is_connected(sid, "/")
-            or (
-                SETTINGS.get("face_auth_enabled", False)
-                and not (authenticator and authenticator.authenticated)
-            )
-        ):
-            return "Graphify denied: no authorized voice session."
+        return await graphify_voice_query(sid, question)
 
-        if not isinstance(question, str) or not 1 <= len(question) <= 220:
-            return "Invalid graph question."
+    async def on_graphiti_query(question):
+        return await graphiti_voice_query(sid, question)
 
-        # Normalize common speech-recognition variations.
-        question = re.sub(
-            r"jarvis\s+client", "JarvisClient", question, flags=re.I
-        )
-        question = re.sub(
-            r"gro[kg]\s+voice\s+loop",
-            "GroqVoiceLoop", question, flags=re.I
-        )
+    async def on_graphiti_entity(entity):
+        return await graphiti_entity_history(sid, entity)
 
-        try:
-            project = workspace_project_by_sid.get(sid, "default")
-            response = await asyncio.wait_for(
-                spark_workbench.execute(
-                    "mcp_call", project, {
-                        "server": "graphify",
-                        "name": "query_graph",
-                        "arguments": {
-                            "question": question,
-                            "mode": "bfs",
-                            "depth": 2,
-                            "token_budget": 1600
-                        }
-                    }
-                ),
-                timeout=20
-            )
-
-            if response.get("isError"):
-                return "Graphify returned an error."
-
-            nodes = []
-            for item in response.get("content", []):
-                if item.get("type") != "text":
-                    continue
-                for line in item.get("text", "").splitlines():
-                    match = re.match(
-                        r"^NODE (.+?) \[src=(.*?) loc=",
-                        line
-                    )
-                    if match and match.group(2):
-                        entry = (
-                            match.group(1)[:80] +
-                            " (" + match.group(2)[:120] + ")"
-                        )
-                        if entry not in nodes:
-                            nodes.append(entry)
-
-            if not nodes:
-                return "Graphify found no matching source nodes."
-
-            print("[SPARK] Graphify MCP query PASS")
-            return (
-                "Graphify verified these related nodes and source files: "
-                + "; ".join(nodes[:9])
-                + ". These are graph associations, not independently "
-                  "verified dependency directions or change impacts."
-            )[:1100]
-
-        except Exception:
-            return "Graphify MCP unavailable or timed out."
+    async def on_hermes_query(kind):
+        return await hermes_experience(sid, kind)
 
     # Callback to send Transcription data to frontend
     def on_transcription(data):
@@ -775,6 +804,9 @@ async def start_audio(sid, data=None):
             on_browser_audio=on_browser_audio if AUDIO_TRANSPORT == "browser_aec" else None,
             on_web_sources=on_web_sources,
             on_graphify_query=on_graphify_query,
+            on_graphiti_query=on_graphiti_query,
+            on_graphiti_entity=on_graphiti_entity,
+            on_hermes_query=on_hermes_query,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,

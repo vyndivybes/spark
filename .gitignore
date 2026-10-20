@@ -5,6 +5,8 @@ __pycache__/
 .env
 venv/
 .venv/
+# Optional sidecar environments (Graphiti, Hermes Agent); see start-spark.ps1.
+.venv-*/
 env/
 
 # ADA Specific Local Data

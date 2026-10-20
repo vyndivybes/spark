@@ -6,7 +6,10 @@
 own independent Windows provider/device acceptance.
 """
 import os
-from spark_cinematic_tools import CINEMATIC_FUNCTIONS
+from spark_cinematic_tools import (
+    live_function_declarations,
+    live_integration_summary,
+)
 
 
 CINEMATIC_SYSTEM_INSTRUCTION = (
@@ -61,12 +64,25 @@ def select_live_config(profile, full_config):
             "or times out, explain this briefly and continue listening."
         )
         output["system_instruction"] += (
-            " When asked about SPARK code architecture, Jarvis, "
-            "module dependencies or Graphify, call query_spark_graph. "
-            "Use returned evidence and filenames. If the tool fails, "
-            "say so. Never invent a graph lookup."
+            " IMPORTANT: For ANY question about SPARK's own code, architecture, "
+            "modules, files, dependencies, wiring, or how components connect "
+            "(including Jarvis, the voice loop, Groq, the backend, Electron, or "
+            "Graphify), you MUST call the query_spark_graph tool FIRST and answer "
+            "ONLY from the evidence it returns, citing the file paths. Do not say "
+            "the information is unavailable before calling query_spark_graph. "
+            "Never answer architecture questions from memory. If the tool fails, "
+            "say so plainly; never invent a graph lookup."
+            " For questions about the user's OWN project history, decisions, "
+            "hardware, timelines, or 'what did we decide/when/change', use "
+            "search_spark_timeline. For questions about a specific named thing "
+            "(device, project, part, decision), use get_spark_entity_history. "
+            "Always report Graphiti results as recorded history (note if facts "
+            "were superseded) and say plainly if nothing is found."
         )
-        output["tools"] = [{"function_declarations": CINEMATIC_FUNCTIONS}]
+        # Only describes services this launch actually registered, so the model
+        # is never invited to call a tool that would answer 'not configured'.
+        output["system_instruction"] += live_integration_summary()
+        output["tools"] = [{"function_declarations": live_function_declarations()}]
         return output
     if profile == "cinematic_search":
         if os.environ.get("SPARK_ENABLE_GOOGLE_SEARCH") != "1":

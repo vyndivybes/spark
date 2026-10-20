@@ -35,6 +35,11 @@ def safe_diagnostics(status,uptime_seconds=0):
         "hands_free_ready":status.get("hands_free_ready") is True,
         "gemini_configured":status.get("gemini_configured") is True,
         "groq_configured":status.get("groq_configured") is True,
+        # Host-configured read-only MCP services. Booleans only: no paths,
+        # commands or tool names leave the backend.
+        "graphify_ready":status.get("graphify_ready") is True,
+        "graphiti_ready":status.get("graphiti_ready") is True,
+        "hermes_ready":status.get("hermes_ready") is True,
         "live_error_code":code if code in SAFE_CODES else "unknown",
         "uptime_seconds":min(8640000,max(0,int(uptime_seconds))) if isinstance(uptime_seconds,(int,float)) and not isinstance(uptime_seconds,bool) else 0,
         "host":normalize_host_vitals(status.get("host")),

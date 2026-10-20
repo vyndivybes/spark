@@ -10,6 +10,7 @@ from spark_live_config import live_model, live_error_message, live_error_require
 from spark_live_profile import live_profile, select_live_config
 from spark_pc_access import pc_live_config
 from spark_jarvis import jarvis_live_config
+from spark_workbench_voice import parse_workbench_command
 from spark_echo_gate import EchoGate
 import cv2
 import pyaudio
@@ -222,10 +223,31 @@ from web_agent import WebAgent
 from kasa_agent import KasaAgent
 from printer_agent import PrinterAgent
 
+# Read-only MCP services reachable from voice, declared once so that every entry
+# gets the same argument bound, the same call budget and the same cache lifetime.
+# One bounded string argument each: a Live tool that takes more than that is more
+# likely to be filled in wrongly by the model than to be used well.
+MCP_VOICE_TOOLS = {
+    "query_spark_graph": {
+        "argument": "question", "minimum": 1, "maximum": 220,
+        "label": "Graphify", "callback": "on_graphify_query", "timeout": 45},
+    "search_spark_timeline": {
+        "argument": "question", "minimum": 3, "maximum": 220,
+        "label": "Graphiti", "callback": "on_graphiti_query", "timeout": 45},
+    "get_spark_entity_history": {
+        "argument": "entity", "minimum": 1, "maximum": 120,
+        "label": "Graphiti", "callback": "on_graphiti_entity", "timeout": 45},
+    "ask_hermes_experience": {
+        "argument": "kind", "choices": ("skills", "memories", "status"),
+        "label": "Hermes", "callback": "on_hermes_query", "timeout": 45},
+}
+MCP_VOICE_BUDGET = 3
+MCP_VOICE_WINDOW = 60
+
 class AudioLoop:
     pc_access = None
     jarvis_access = None
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None, on_graphiti_query=None, on_graphiti_entity=None, on_hermes_query=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -243,8 +265,19 @@ class AudioLoop:
         self.on_browser_audio = on_browser_audio
         self.on_web_sources = on_web_sources
         self.on_graphify_query = on_graphify_query
-        self._graphify_calls = []
-        self._graphify_cache = {}
+        self.on_graphiti_query = on_graphiti_query
+        self.on_graphiti_entity = on_graphiti_entity
+        self.on_hermes_query = on_hermes_query
+        # Per-tool call timestamps and per-(tool, argument) answers, both bounded
+        # to MCP_VOICE_WINDOW seconds.
+        self._mcp_calls = {}
+        self._mcp_cache = {}
+        # Deterministic architecture routing: accumulate the user's utterance
+        # and dispatch once per turn, independent of model tool choice.
+        self._user_utterance = ""
+        self._graphify_dispatched = False
+        self._graphify_tool_used = False
+        self._graphiti_dispatched = False
         self._grounding_signature = None
         self.browser_audio = bool(browser_audio)
         self.input_device_index = input_device_index
@@ -322,6 +355,164 @@ class AudioLoop:
         # Reset transcription tracking for new turn
         self._last_input_transcription = ""
         self._last_output_transcription = ""
+
+    async def answer_mcp_tool(self, name, args):
+        """Validate, budget and cache one read-only MCP voice tool call.
+
+        Always returns a sentence rather than raising: the model asked for a tool
+        call, so it needs a function response even when the argument is bad, the
+        service is unconfigured, or the call fails.
+        """
+        spec = MCP_VOICE_TOOLS[name]
+        label = spec["label"]
+        value = (args if isinstance(args, dict) else {}).get(spec["argument"])
+        now = time.monotonic()
+
+        choices = spec.get("choices")
+        if choices:
+            if not isinstance(value, str) or value.strip().lower() not in choices:
+                return f"{label} needs one of: {', '.join(choices)}."
+            argument_value = key = value.strip().lower()
+        else:
+            if not isinstance(value, str) or not spec["minimum"] <= len(value.strip()) <= spec["maximum"]:
+                return f"Invalid {label} request."
+            argument_value = value.strip()
+            key = " ".join(argument_value.lower().split())
+
+        callback = getattr(self, spec["callback"], None)
+        if callback is None:
+            return f"{label} is not configured for this session."
+
+        calls = [t for t in self._mcp_calls.get(name, ()) if now - t < MCP_VOICE_WINDOW]
+        self._mcp_calls[name] = calls
+        self._mcp_cache = {
+            k: v for k, v in self._mcp_cache.items()
+            if now - v[0] < MCP_VOICE_WINDOW
+        }
+
+        cached = self._mcp_cache.get((name, key))
+        if cached is not None:
+            return cached[1]
+        if len(calls) >= MCP_VOICE_BUDGET:
+            return f"{label} rate limit reached for this voice session."
+
+        calls.append(now)
+        try:
+            answer = await asyncio.wait_for(callback(argument_value), timeout=spec["timeout"])
+        except Exception:
+            answer = f"{label} query failed."
+        if not isinstance(answer, str) or not answer.strip():
+            answer = f"{label} returned no result."
+        # Failures are cached too, so one broken service cannot be retried
+        # against a live microphone for the rest of the window.
+        self._mcp_cache[(name, key)] = (now, answer)
+        return answer
+
+    async def maybe_dispatch_graphify(self, session):
+        """Deterministic architecture routing for the Gemini Live path.
+
+        The Live model is free to ignore its query_spark_graph tool. When the
+        user's completed utterance is an explicit architecture question we call
+        Graphify ourselves and inject the evidence as a client turn, so the
+        answer is grounded in the local graph regardless of model choice.
+
+        If the model already called query_spark_graph for this turn, skip: the
+        tool response is authoritative and avoids a duplicate spoken answer.
+        """
+        if self._graphify_dispatched or self.on_graphify_query is None:
+            return
+        if self._graphify_tool_used:
+            self._graphify_dispatched = True
+            return
+        utterance = self._user_utterance.strip()
+        if not utterance:
+            return
+        command = parse_workbench_command(utterance)
+        if not command:
+            return
+        if command.get("action") == "graphify_voice_query":
+            self._graphify_dispatched = True
+            self._graphiti_dispatched = True
+            question = command["payload"]["question"]
+            try:
+                answer = await asyncio.wait_for(
+                    self.on_graphify_query(question), timeout=45
+                )
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                answer = "Graphify MCP unavailable or timed out."
+            except Exception:
+                return
+            if not isinstance(answer, str) or not answer.strip():
+                return
+            try:
+                await session.send_client_content(
+                    turns={"role": "user", "parts": [{
+                        "text": (
+                            "The user asked an architecture question. Summarise the "
+                            "answer in one or two spoken sentences using ONLY this "
+                            "verified Graphify evidence, naming the relevant files. "
+                            "Do not read the raw node list aloud.\n\n" + answer[:1800]
+                        )
+                    }]},
+                    turn_complete=True,
+                )
+            except Exception:
+                pass
+            return
+        if command.get("action") == "graphiti_voice_query" and self.on_graphiti_query:
+            self._graphiti_dispatched = True
+            self._graphify_dispatched = True
+            question = command["payload"]["question"]
+            try:
+                answer = await asyncio.wait_for(
+                    self.on_graphiti_query(question), timeout=45
+                )
+            except Exception:
+                return
+            if not isinstance(answer, str) or not answer.strip():
+                return
+            try:
+                await session.send_client_content(
+                    turns={"role": "user", "parts": [{
+                        "text": (
+                            "The user asked about their recorded project history. "
+                            "Summarise the answer in one or two spoken sentences using "
+                            "ONLY this Graphiti evidence. Note if facts were superseded. "
+                            "Say plainly if nothing was found.\n\n" + answer[:1800]
+                        )
+                    }]},
+                    turn_complete=True,
+                )
+            except Exception:
+                pass
+            return
+        if command.get("action") == "graphiti_entity_history" and self.on_graphiti_entity:
+            self._graphiti_dispatched = True
+            self._graphify_dispatched = True
+            entity = command["payload"]["entity"]
+            try:
+                answer = await asyncio.wait_for(
+                    self.on_graphiti_entity(entity), timeout=45
+                )
+            except Exception:
+                return
+            if not isinstance(answer, str) or not answer.strip():
+                return
+            try:
+                await session.send_client_content(
+                    turns={"role": "user", "parts": [{
+                        "text": (
+                            "The user asked for history about a named thing. Summarise "
+                            "in one or two spoken sentences using ONLY this Graphiti "
+                            "timeline. Report superseded facts as superseded. Say "
+                            "plainly if nothing was found.\n\n" + answer[:1800]
+                        )
+                    }]},
+                    turn_complete=True,
+                )
+            except Exception:
+                pass
+            return
 
     def update_permissions(self, new_perms):
         print(f"[ADA DEBUG] [CONFIG] Updating tool permissions: {new_perms}")
@@ -731,6 +922,12 @@ class AudioLoop:
                                 self.on_web_sources({"sources": sources})
                         if getattr(response.server_content, "turn_complete", False):
                             self._grounding_signature = None
+                            # Deterministic Graphify routing, off the receive
+                            # loop so a slow MCP query never blocks streaming.
+                            if (self._user_utterance and not self._graphify_dispatched
+                                    and self.on_graphify_query is not None):
+                                asyncio.create_task(
+                                    self.maybe_dispatch_graphify(self.session))
 
                     # 3. Handle Transcription (User & Model)
                     if response.server_content:
@@ -761,9 +958,14 @@ class AudioLoop:
                                                 self.project_manager.log_chat(self.chat_buffer["sender"], self.chat_buffer["text"])
                                             # Start new
                                             self.chat_buffer = {"sender": "User", "text": delta}
+                                            self._user_utterance = delta
+                                            self._graphify_dispatched = False
+                                            self._graphify_tool_used = False
+                                            self._graphiti_dispatched = False
                                         else:
                                             # Append
                                             self.chat_buffer["text"] += delta
+                                            self._user_utterance += delta
                         
                         if response.server_content.output_transcription:
                             transcript = response.server_content.output_transcription.text
@@ -823,38 +1025,12 @@ class AudioLoop:
                                 ))
                                 continue
 
-                            if fc.name == "query_spark_graph":
-                                args = fc.args if isinstance(fc.args, dict) else {}
-                                question = args.get("question")
-                                now = time.monotonic()
-                                self._graphify_calls = [
-                                    t for t in self._graphify_calls
-                                    if now - t < 60
-                                ]
-                                self._graphify_cache = {
-                                    k: v for k, v in self._graphify_cache.items()
-                                    if now - v[0] < 60
-                                }
-                                if not isinstance(question, str) or not 1 <= len(question.strip()) <= 220:
-                                    answer = "Invalid Graphify question."
-                                else:
-                                    key = " ".join(question.lower().split())
-                                    if key in self._graphify_cache:
-                                        answer = self._graphify_cache[key][1]
-                                    elif len(self._graphify_calls) >= 3:
-                                        answer = "Graphify rate limit reached for this voice session."
-                                    elif self.on_graphify_query is None:
-                                        answer = "Graphify callback unavailable."
-                                    else:
-                                        self._graphify_calls.append(now)
-                                        try:
-                                            answer = await asyncio.wait_for(
-                                                self.on_graphify_query(question.strip()),
-                                                timeout=25
-                                            )
-                                        except Exception:
-                                            answer = "Local Graphify query failed."
-                                        self._graphify_cache[key] = (now, answer)
+                            if fc.name in MCP_VOICE_TOOLS:
+                                if fc.name == "query_spark_graph":
+                                    # Suppresses the deterministic fallback for
+                                    # this turn: the tool response is authoritative.
+                                    self._graphify_tool_used = True
+                                answer = await self.answer_mcp_tool(fc.name, fc.args)
                                 function_responses.append(types.FunctionResponse(
                                     id=fc.id, name=fc.name,
                                     response={"result": answer}
