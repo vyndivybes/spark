@@ -107,6 +107,10 @@ class AutoEvolution:
         self._persist()
         return self.status()
 
+    def _ensure_active(self):
+        if not self.state["enabled"] or not self.state["allow_model_source"]:
+            raise AutoEvolutionError("Autonomous model-assisted changes were stopped.")
+
     def _diagnose_syntax(self):
         root = self.evolution.maintenance.root
         backend = root / "backend"
@@ -174,6 +178,7 @@ class AutoEvolution:
             return {"status": "manual_review", "reason": "Source is unavailable or sensitive.", "rea": rea}
         repair_id = None
         try:
+            self._ensure_active()
             analysis = await self.evolution.execute("analyze_repository", project, {
                 "repository": str(root), "goal": goal, "reference_paths": [target]})
             opportunities = analysis.get("opportunities", []) if isinstance(analysis, dict) else []
@@ -186,6 +191,7 @@ class AutoEvolution:
                 self._record(project, "risk_check", "no safely scoped improvement", {"target": target})
                 return {"status": "manual_review", "reason": "No single-file supported upgrade.",
                         "queued_goal": goal, "rea": rea}
+            self._ensure_active()
             candidate = await self.evolution.execute("stage_repository_upgrade", project, {
                 "analysis_id": analysis["id"], "opportunity": indexes[0]})
             if not isinstance(candidate, dict) or candidate.get("status") != "staged":
@@ -194,15 +200,18 @@ class AutoEvolution:
             if changes is not None and (len(changes) != 1 or
                                         any(x.get("path") != target for x in changes)):
                 raise AutoEvolutionError("Upgrade modified files outside the selected scope.")
+            self._ensure_active()
             tested = await self.evolution.execute("test_repair_candidate", project, {
                 "id": candidate["id"], "approved": True})
             if not isinstance(tested, dict) or tested.get("status") != "tested":
                 raise AutoEvolutionError("Repository candidate did not pass staged tests.")
+            self._ensure_active()
             applied = await self.evolution.execute("activate_repair_candidate", project, {
                 "id": candidate["id"], "approved": True})
             if not isinstance(applied, dict) or applied.get("status") != "applied":
                 raise AutoEvolutionError("Repository candidate did not activate.")
             repair_id = applied["id"]
+            self._ensure_active()
             self.state["last_upgrade_day"] = day
             self._persist()
             result = await asyncio.to_thread(self.evolution.maintenance.detect)
@@ -296,19 +305,23 @@ class AutoEvolution:
             issue = "Repair the Python syntax error in " + path + ": " + eligible[0]["error"]
             repair_id = None
             try:
+                self._ensure_active()
                 candidate = await self.evolution.execute("heal_sources", project,
                                                          {"paths": [path], "issue": issue})
                 if not isinstance(candidate, dict) or candidate.get("status") != "staged":
                     raise AutoEvolutionError("Candidate was not staged.")
+                self._ensure_active()
                 tested = await self.evolution.execute("test_repair_candidate", project,
                                                      {"id": candidate["id"], "approved": True})
                 if not isinstance(tested, dict) or tested.get("status") != "tested":
                     raise AutoEvolutionError("Candidate did not pass staged tests.")
+                self._ensure_active()
                 applied = await self.evolution.execute("activate_repair_candidate", project,
                                                       {"id": candidate["id"], "approved": True})
                 if not isinstance(applied, dict) or applied.get("status") != "applied":
                     raise AutoEvolutionError("Activation did not confirm success.")
                 repair_id = applied["id"]
+                self._ensure_active()
                 self.state["last_upgrade_day"] = utc_day
                 self._persist()
                 # Verify the actual live tree; revert if the post-apply
