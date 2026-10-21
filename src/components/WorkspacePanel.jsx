@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import EvolutionPanel from './EvolutionPanel';
 import WorkbenchPanel from './WorkbenchPanel';
+import IntegrationSyncPanel from './IntegrationSyncPanel';
 const IntelligenceConsole=React.lazy(()=>import('./IntelligenceConsole'));
 const SparkScreens=React.lazy(()=>import('./SparkScreens'));
 
@@ -15,11 +16,10 @@ function cleanProject(name) {
 
 // Genuine ARKUS-powered, offline project knowledge and declarative skill controls.
 // Operations go only through the currently authorized local SPARK Socket.IO owner.
-export default function WorkspacePanel({socket,visible,project:rawProject,onClose,onSettings}) {
+export default function WorkspacePanel({socket,visible,project:rawProject,onClose,embedded=false,initialTab='home',initialScreen,initialIntelligencePage='Agents'}) {
     const project=useMemo(() => cleanProject(rawProject),[rawProject]);
-    const [tab,setTab]=useState('home');
-    const [advanced,setAdvanced]=useState(false);
-    const [intelligencePage,setIntelligencePage]=useState('Agents');
+    const [tab,setTab]=useState(initialTab);
+    const [intelligencePage,setIntelligencePage]=useState(initialIntelligencePage);
     const openIntelligence=page=>{setIntelligencePage(page);setTab('intelligence');};
     const [query,setQuery]=useState('');
     const [documents,setDocuments]=useState([]);
@@ -54,6 +54,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             setWorking(false);
             if(!data.ok) {setNotice(String(data.message||'Workspace action failed.'));return;}
             const result=data.result;
+            setNotice('Ready. Local workspace connected.');
             if(data.action==='list_documents') {setDocuments(Array.isArray(result)?result:[]);return;}
             if(data.action==='list_holo_notes') {setPublished(Array.isArray(result)?result:[]);return;}
             if(data.action==='list_skills') {setSkills(Array.isArray(result)?result:[]);return;}
@@ -121,9 +122,9 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
     }
 
     return (
-        <section className="relative z-40 mx-3 my-2 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-cyan-500/50 bg-slate-950/95 p-4 text-white shadow-2xl"
+        <section className={embedded ? `cc-embedded-workspace ${tab==='knowledge' ? 'cc-knowledge-workspace' : ''} text-white` : 'relative z-40 mx-3 my-2 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-cyan-500/50 bg-slate-950/95 p-4 text-white shadow-2xl'}
             role="region" aria-label="SPARK knowledge and skill workspace">
-            <div className="flex items-center justify-between gap-2">
+            {!embedded && <><div className="flex items-center justify-between gap-2">
                 <div>
                     <div className="text-xs tracking-widest text-cyan-400">SPARK / {project}</div>
                     <h2 className="text-xl font-bold">Your SPARK workspace</h2>
@@ -131,28 +132,26 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 </div>
                 <button type="button" className={buttonStyle} onClick={onClose}>Voice cockpit</button>
             </div>
-            <nav className="mt-4 flex flex-wrap items-center gap-2" aria-label="SPARK workspace navigation">
-                {[["home","Home"],["workbench","Workspace"],["knowledge","Knowledge"],
-                  ["skills","Tools"],["evolution","Improve SPARK"]].map(([id,label])=>
-                  <button key={id} type="button" aria-current={tab===id?"page":undefined}
-                    className={buttonStyle+(tab===id?" ring-2 ring-cyan-400":"")} onClick={()=>setTab(id)}>{label}</button>)}
-                <button type="button" className={buttonStyle} onClick={onClose}>Ask SPARK</button>
-                <button type="button" className={buttonStyle} onClick={()=>onSettings ? onSettings() : openIntelligence("Models")}>Settings</button>
-                <button type="button" className="ml-auto rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-200"
-                    aria-expanded={advanced} onClick={()=>setAdvanced(value=>!value)}>{advanced?"Hide advanced":"Advanced"}</button>
-                {advanced&&<>
-                    <button type="button" className={buttonStyle} onClick={()=>setTab("screens")}>Developer screens</button>
-                    <button type="button" className={buttonStyle} onClick={()=>openIntelligence("Agents")}>Agent controls</button>
-                </>}
-            </nav>
-            <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>
-            {(tab==='knowledge'||advanced)&&<div className="mt-3 flex flex-wrap items-center gap-2">
-                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Share selected notes with Vāyú</button>
+            <div className="mt-3 flex flex-wrap gap-2" role="tablist">
+                <button type="button" role="tab" aria-selected={tab==='home'} className={buttonStyle} onClick={()=>setTab('home')}>Home</button>
+                <button type="button" role="tab" aria-selected={tab==='screens'} className={buttonStyle} onClick={()=>setTab('screens')}>Command Center</button>
+                <button type="button" role="tab" aria-selected={tab==='knowledge'} className={buttonStyle} onClick={()=>setTab('knowledge')}>Document knowledge</button>
+                <button type="button" role="tab" aria-selected={tab==='skills'} className={buttonStyle} onClick={()=>setTab('skills')}>Skill Forge</button>
+                <button type="button" role="tab" aria-selected={tab==='evolution'} className={buttonStyle} onClick={()=>setTab('evolution')}>Recovery &amp; REA</button>
+                <button type="button" role="tab" aria-selected={tab==='workbench'} className={buttonStyle} onClick={()=>setTab('workbench')}>Workbench</button>
+                <button type="button" role="tab" aria-selected={tab==='intelligence'} className={buttonStyle} onClick={()=>setTab('intelligence')}>Intelligence</button>
+            </div>
+            </>}
+            {(!embedded || ['knowledge','skills'].includes(tab)) && <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>}
+            {tab==='knowledge'&&<IntegrationSyncPanel socket={socket}/>}
+            {(!embedded || tab==='knowledge') && <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Publish / refresh VAYU snapshot</button>
                 <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('unpublish_vayu_snapshot')}>Remove VAYU snapshot</button>
-                <span className="text-xs text-slate-400">Shares published notes and task states for this project only; it is not a live business connection.</span>
-            </div>}
-            {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
-                <div><h3 className="text-2xl font-semibold">What would you like SPARK to do?</h3><p className="mt-1 text-slate-300">Ask SPARK, or select a starting point below.</p><button type="button" className={buttonStyle+' mt-3'} onClick={onClose}>Open voice and chat</button></div>
+                <span className="text-xs text-slate-400">Shares published notes and task states for this project only.</span>
+            </div>
+            }
+            {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose} initialPage={initialScreen} compactNavigation={embedded}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
+                <div><h3 className="text-2xl font-semibold">Your project starts here</h3><p className="mt-1 text-slate-300">Bring in knowledge, run reviewed agents, and inspect Spark's health.</p></div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
                         ['Tasks and schedules','Create, review and schedule actions.',()=>openIntelligence('Agents')],
@@ -212,7 +211,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         </div>
                     </div>
                 </div>
-            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole key={intelligencePage} socket={socket} project={project} initialPage={intelligencePage}/></React.Suspense> : (
+            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project} initialPage={intelligencePage} compactNavigation={embedded}/></React.Suspense> : (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Skill specification (declarative JSON only)</h3>

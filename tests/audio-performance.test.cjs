@@ -19,8 +19,8 @@ test('audio meter UI updates are throttled, not main-App renders at every animat
  assert.match(app,/setMicAudioData/);
 });
 test('Gemini turn completion does not delete queued speaker audio',()=>{
- const ada=read('backend/ada.py');
- const section=ada.slice(ada.indexOf('# Turn/Response Loop Finished'),ada.indexOf('async def play_audio'));
+ const spark=read('backend/spark.py');
+ const section=spark.slice(spark.indexOf('# Turn/Response Loop Finished'),spark.indexOf('async def play_audio'));
  assert.doesNotMatch(section,/audio_in_queue\.get_nowait\(\)/);
- assert.match(ada,/def clear_audio_queue/); // explicit interruption still supported
+ assert.match(spark,/def clear_audio_queue/); // explicit interruption still supported
 });

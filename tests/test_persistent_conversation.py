@@ -49,7 +49,7 @@ class PersistentConversationTests(unittest.TestCase):
             pm = module.ProjectManager(folder)
             self.assertEqual(pm.format_recent_chat_context(), "")
             pm.log_chat("User", "build the bracket")
-            pm.log_chat("ADA", "Printing it now")
+            pm.log_chat("SPARK", "Printing it now")
             pm.log_chat("SPARK", "Done, sir")
             context = pm.format_recent_chat_context()
             self.assertEqual(

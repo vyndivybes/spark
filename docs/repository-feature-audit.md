@@ -9,18 +9,18 @@ Existing REA static summaries were not treated as runtime feature proof.
 
 | Repository | Inspected remote commit | Relationship to Spark |
 |---|---|---|
-| [ADA V2](https://github.com/nazirlouis/ada_v2) | `d005af742fc5c604074b8b92bd9a223d7fca7447` | MIT-licensed foundation already integrated. |
+| Upstream V2 foundation | `d005af742fc5c604074b8b92bd9a223d7fca7447` | MIT-licensed foundation already integrated. |
 | [Brahma AI Evo](https://github.com/titechprabhasolutions/Brahma-Ai-Evo) | `c8d9c0f8f1b14b67baf4c258a15be631793a7381` | Functional reference only; no upstream source, assets or prompts copied. |
 | [O.L.L.I.E](https://github.com/nazirlouis/O.L.L.I.E) | `abf7f49b2871554af5c5c7e7d33176a774d8e3cc` | Functional reference only; no upstream robot code, models or assets copied. |
 
 These statuses describe implemented code and the verification listed below.
 They do not assert full parity with another application or its advertised claims.
 
-## ADA V2 comparison
+## Upstream V2 foundation comparison
 
 | Source capability | Source evidence | Spark status |
 |---|---|---|
-| Native voice and interruption | `backend/ada.py` | Present; Spark also has an explicit Groq path. |
+| Native voice and interruption | `backend/spark.py` | Present; Spark also has an explicit Groq path. |
 | CAD generation, refinement and STL preview | `backend/cad_agent.py`, `src/` CAD components | Present. |
 | Slicing and Moonraker/OctoPrint printing | `backend/printer_agent.py` | Present; physical printer acceptance depends on the user's equipment. |
 | Browser agent | `backend/web_agent.py` | Present, with additional scoped browser sessions. |
@@ -28,7 +28,7 @@ They do not assert full parity with another application or its advertised claims
 | Kasa discovery and control | `backend/kasa_agent.py` | Present. |
 | Project context, files and chat | `backend/project_manager.py`, `backend/tools.py` | Present; Spark preserves default-project history and has indexed knowledge. |
 
-No missing ADA feature family was established by this inspection. This does
+No missing feature family was established by this inspection. This does
 not certify every upstream hardware or provider path on this Windows device.
 
 ## Brahma comparison

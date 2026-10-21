@@ -19,7 +19,7 @@ MODULES = {
     "cad": "test_cad_agent.py",
     "web": "test_web_agent.py",
     "auth": "test_authenticator.py",
-    "tools": "test_ada_tools.py",
+    "tools": "test_spark_tools.py",
 }
 
 TESTS_DIR = Path(__file__).parent

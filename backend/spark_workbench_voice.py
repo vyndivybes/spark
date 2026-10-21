@@ -9,13 +9,13 @@ def parse_workbench_command(value, now=None):
     value = re.sub(r"\s+", " ", value.strip()).rstrip(".?!")
     value = re.sub(r"^spark,?\s+", "", value, flags=re.I)
 
-    utterance = re.sub(r"^(?:jarvis|ada),?\s+", "", value, flags=re.I)
+    utterance = re.sub(r"^(?:jarvis|spark),?\s+", "", value, flags=re.I)
     # A named SPARK source artifact is always an architecture question, even
-    # inside temporal phrasing: "what did we decide about ada.py" belongs to
+    # inside temporal phrasing: "what did we decide about spark.py" belongs to
     # Graphify, which can read the file, not to a memory graph that cannot.
     graph_target = re.search(
         r"\b(?:graphify|groqvoiceloop|groq voice loop|grokwise|jarvisclient|jarvis client|jarvis bridge|"
-        r"spark_groq|spark_jarvis|spark_workbench|spark_rea|ada\.py|server\.py|main\.js)\b",
+        r"spark_groq|spark_jarvis|spark_workbench|spark_rea|spark\.py|server\.py|main\.js)\b",
         utterance, re.I
     )
 

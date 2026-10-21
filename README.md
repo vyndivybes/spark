@@ -906,7 +906,7 @@ Developer notes: Live model names are restricted to documented compatible option
 
 ## Windows backend startup repair (October 2026)
 
-Use `start-spark.ps1` to create an isolated `.venv` with a compatible Python interpreter, test its essential module imports, and install the narrower `requirements-runtime.txt` set if needed. **Python 3.12 is recommended** for Windows audio and MediaPipe wheels. Python 3.14 is not yet qualified for this ADA-derived backend. When only Python 3.14 is installed, the launcher prints an explicit Python 3.12 requirement rather than repeatedly failing on `ModuleNotFoundError: socketio`. Do not uninstall or change the Python 3.14 interpreter used by ARKUS.
+Use `start-spark.ps1` to create an isolated `.venv` with a compatible Python interpreter, test its essential module imports, and install the narrower `requirements-runtime.txt` set if needed. **Python 3.12 is recommended** for Windows audio and MediaPipe wheels. Python 3.14 is not yet qualified for this SPARK-derived backend. When only Python 3.14 is installed, the launcher prints an explicit Python 3.12 requirement rather than repeatedly failing on `ModuleNotFoundError: socketio`. Do not uninstall or change the Python 3.14 interpreter used by ARKUS.
 
 ```powershell
 cd "$HOME\\spark"
@@ -1007,7 +1007,7 @@ Commands are examples, not a promise that all optional integrations are enabled.
 ```text
 spark/
 ├── backend/
-│   ├── ada.py                # Legacy internal Gemini Live implementation module
+│   ├── spark.py              # Gemini Live implementation module
 │   ├── server.py             # Python API + Socket.IO
 │   ├── cad_agent.py          # CAD orchestration
 │   ├── printer_agent.py      # Discovery and slicing
@@ -1023,7 +1023,7 @@ spark/
 └── README.md
 ```
 
-The filename `backend/ada.py` is an **internal compatibility module**, not the product's name. Do not rename it without updating all imports and testing Python integration.
+The filename `backend/spark.py` is the **voice-engine module**, not the product's name. Do not rename it without updating all imports and testing Python integration.
 
 ### Troubleshooting
 

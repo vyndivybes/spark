@@ -5,14 +5,14 @@ const path = require('node:path');
 const read = p => fs.readFileSync(path.resolve(__dirname,'..',p), 'utf8');
 
 test('opt-in tool calls are authorized by active Live profile before execution',()=>{
- const ada=read('backend/ada.py');
- assert.match(ada, /if not allowed_live_tool\(live_profile\(\), fc\.name\):/);
- assert.match(ada, /if fc\.name == "get_system_status":/);
- assert.match(ada, /response=\{"result": get_system_status\(\)\}/);
- assert.match(ada, /tool_confirmation_required\(fc\.name, self\.permissions\)/);
- assert.match(ada, /asyncio\.wait_for\(future, timeout=45\)/);
- assert.match(ada, /except asyncio\.TimeoutError:/);
- assert.match(ada, /launch_allowed_app, fc\.args\.get\("app", ""\)/);
+ const spark=read('backend/spark.py');
+ assert.match(spark, /if not allowed_live_tool\(live_profile\(\), fc\.name\):/);
+ assert.match(spark, /if fc\.name == "get_system_status":/);
+ assert.match(spark, /response=\{"result": get_system_status\(\)\}/);
+ assert.match(spark, /tool_confirmation_required\(fc\.name, self\.permissions\)/);
+ assert.match(spark, /asyncio\.wait_for\(future, timeout=45\)/);
+ assert.match(spark, /except asyncio\.TimeoutError:/);
+ assert.match(spark, /launch_allowed_app, fc\.args\.get\("app", ""\)/);
 });
 test('only the session-owning window can approve an application launch',()=>{
  const server=read('backend/server.py');

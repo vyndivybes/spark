@@ -105,6 +105,14 @@ class Connectivity:
     def _static_entries(self):
         config = self._catalog()
         names = set(config) if config else set()
+        # Jarvis uses Electron's isolated session instead of a stdio registry
+        # entry. A configured bridge still needs a signed-in founder session.
+        jarvis = getattr(self.integrations, 'jarvis', None)
+        if config is not None and jarvis is not None and jarvis.configured():
+            names.add('vaos-jarvis')
+        business=getattr(self.integrations,'business',None)
+        if config is not None and business is not None and business.configured():
+            names.update(('vyndi-os','vedm'))
         audited = self._recent_ok(names)
         by_name = {}
 
@@ -127,6 +135,10 @@ class Connectivity:
                     if server == "vaos-jarvis":
                         evidence = ("Session-managed advisory; each question verifies the "
                                     "VAOS founder session from this authorized client.")
+                    if server in ('vyndi-os','vedm') and server not in config:
+                        evidence=('Electron session read of a seeded authority reference; not a live ledger.'
+                                  if server=='vyndi-os' else
+                                  'Published engineering-library reference read; not synchronization or release approval.')
                     by_name[display] = self._registered(display, server, evidence, audited)
                 else:
                     by_name[display] = self._entry(
@@ -246,6 +258,12 @@ class Connectivity:
         try:
             result = await self.integrations.execute(server, "mcp_discover", {})
             tools = len(result) if isinstance(result, list) else 0
+            if server in ('vyndi-os','vedm') and server not in self.integrations.catalog() and getattr(self.integrations,'business',None) is not None and self.integrations.business.configured():
+                from spark_business import BUSINESS_TOOLS
+                read=await self.integrations.execute(server,'mcp_call',{'name':BUSINESS_TOOLS[server]['name'],'arguments':{}})
+                if read.get('isError'):
+                    raise ConnectivityError('Reference read failed. Check portal sign-in and source availability.')
+                entry['evidence'] += ' Actual reference read succeeded; source limitations still apply.'
             entry["state"] = "verified operational"
             entry["probe"] = {"ok": True, "tools": tools}
             entry["evidence"] = entry["evidence"] + " Live discovery succeeded."

@@ -5,11 +5,11 @@ const path=require('node:path');
 const read=p=>fs.readFileSync(path.resolve(__dirname,'..',p),'utf8');
 
 test('Live grounding source metadata reaches initiating cockpit without model-text trust',()=>{
- const ada=read('backend/ada.py');
+ const spark=read('backend/spark.py');
  const server=read('backend/server.py');
- assert.match(ada,/getattr\(response\.server_content, "grounding_metadata", None\)/);
- assert.match(ada,/extract_grounding_sources\(metadata\)/);
- assert.match(ada,/self\.on_web_sources\(\{"sources": sources\}\)/);
+ assert.match(spark,/getattr\(response\.server_content, "grounding_metadata", None\)/);
+ assert.match(spark,/extract_grounding_sources\(metadata\)/);
+ assert.match(spark,/self\.on_web_sources\(\{"sources": sources\}\)/);
  assert.match(server,/sio\.emit\('web_sources', payload, room=sid\)/);
 });
 test('source cards are clickable through restricted Electron shell, never via unsafe Electron navigation',()=>{

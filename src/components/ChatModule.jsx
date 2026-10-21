@@ -39,15 +39,15 @@ const ChatModule = ({
                 height: height
             }}
         >
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 pointer-events-none mix-blend-overlay"></div>
+            <div className="spark-conversation-heading"><span>Conversation</span><small>Your current session</small></div>
 
             <div
-                className="flex flex-col gap-3 overflow-y-auto mb-4 scrollbar-hide mask-image-gradient relative z-10"
+                className="spark-conversation-history flex flex-col gap-3 overflow-y-auto mb-4 scrollbar-hide mask-image-gradient relative z-10"
                 style={{ height: height ? `calc(${height}px - 70px)` : '15rem' }}
             >
                 {messages.slice(-5).map((msg, i) => (
                     <div key={i} className="text-sm border-l-2 border-cyan-800/50 pl-3 py-1">
-                        <span className="text-cyan-600 font-mono text-xs opacity-70">[{msg.time}]</span> <span className="font-bold text-cyan-300 drop-shadow-sm">{msg.sender}</span>
+                        <span className="text-cyan-600 font-mono text-xs opacity-70">[{msg.time}]</span> <span className="font-bold text-cyan-300 drop-shadow-sm">{['SPARK','Spark'].includes(msg.sender)?'Spark':['User','You','user'].includes(msg.sender)?'You':msg.sender}</span>
                         <div className="text-gray-300 mt-1 leading-relaxed">{msg.text}</div>
                         {Array.isArray(msg.sources) && msg.sources.length > 0 && (
                             <div className="mt-2 flex flex-col gap-1">
@@ -69,13 +69,14 @@ const ChatModule = ({
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="flex gap-2 relative z-10 absolute bottom-4 left-6 right-6">
+            <div className="spark-conversation-composer flex gap-2 relative z-10 absolute bottom-4 left-6 right-6">
                 <input
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleSend}
-                    placeholder="INITIALIZE COMMAND..."
+                    placeholder="Ask Spark or describe a task…"
+                    aria-label="Message Spark"
                     className="flex-1 bg-black/40 border border-cyan-700/30 rounded-lg p-3 text-cyan-50 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all placeholder-cyan-800/50 backdrop-blur-sm"
                 />
             </div>

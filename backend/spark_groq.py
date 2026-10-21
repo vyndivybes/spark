@@ -64,6 +64,8 @@ def classify_groq_http_error(stage,status):
     if type(status) is not int or status<100 or status>599:
         status=0
     prefix=f"Groq {stage} HTTP {status}: "
+    if status==413:
+        return GroqUnavailable(prefix+"request exceeds the provider size/token budget. Select fewer reference files or a smaller source sample. No automatic retry.")
     if status==429:
         return GroqUnavailable(prefix+"free-tier rate limit reached; no automatic retry or paid fallback.")
     if status==401:

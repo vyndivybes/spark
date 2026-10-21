@@ -20,7 +20,7 @@ from pathlib import Path
 
 
 
-# Ensure we can import ada
+# Ensure we can import spark
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Recover source transactions before importing modules a patch may have changed.
@@ -28,7 +28,7 @@ from spark_maintenance import Maintenance, MaintenanceError
 _SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
 Maintenance(Path(__file__).resolve().parents[1], _SPARK_WORKSPACE_ROOT).recover()
 
-import ada
+import spark
 from spark_live_config import live_status, live_status_report
 from spark_live_profile import live_profile
 from spark_audio_meter import AudioMeter
@@ -54,7 +54,7 @@ from spark_rea import ReaError
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
-from spark_workspace_auth import workspace_client_allowed
+from spark_workspace_auth import workspace_client_allowed, workspace_access_allowed
 from spark_pc_access import PcAccess
 from spark_jarvis import JarvisClient
 from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
@@ -103,6 +103,11 @@ def _hermes_registered():
     return _mcp_service_registered('hermes', 'hermes_learned_skills')
 
 @app.on_event("startup")
+async def start_integration_sync():
+    spark_workbench.sync.authorized=lambda: not SETTINGS.get('face_auth_enabled',False) or bool(authenticator and authenticator.authenticated)
+    await spark_workbench.sync.start()
+
+@app.on_event("startup")
 async def start_intelligence_scheduler():
     if os.environ.get('SPARK_INTELLIGENCE_ENABLED','1')=='0':
         return
@@ -118,6 +123,8 @@ async def start_saee_autonomy_scheduler():
 
 @app.on_event("shutdown")
 async def close_rea_connection():
+    await spark_workbench.sync.close()
+    await spark_workbench.sync.integrations.close()
     await spark_evolution.rea.close()
     await spark_evolution.autonomy.stop_scheduler()
     await spark_workbench.integrations.close()
@@ -391,14 +398,14 @@ async def startup_event():
 @app.get("/status")
 async def status():
     return {"status": "running", "service": "SPARK Core",
-            "gemini_configured": ada.client is not None,
+            "gemini_configured": spark.client is not None,
             "groq_configured": bool(os.environ.get("GROQ_API_KEY")),
             "ai_provider": cloud_provider(),
             "pc_autonomy_enabled": SETTINGS.get('pc_autonomy_enabled') is True,
             "jarvis_bridge_configured": JarvisClient(enabled=lambda: False).configured(),
             "pc_autonomy_session_authorized": bool(audio_loop and getattr(audio_loop, 'pc_access', None)
                                                    and audio_loop.pc_access.enabled()),
-            "live_model": groq_model() if cloud_provider() == "groq" else ada.MODEL,
+            "live_model": groq_model() if cloud_provider() == "groq" else spark.MODEL,
             "live_profile": "groq_voice" if cloud_provider() == "groq" else live_profile(),
             "audio_transport": AUDIO_TRANSPORT,
             "groq_vision_available": os.environ.get("SPARK_GROQ_VISION_ENABLED") == "1",
@@ -430,6 +437,19 @@ async def get_diagnostics(sid):
 
 
 @sio.event
+async def integration_sync_action(sid,data):
+    request_id=data.get('request_id') if isinstance(data,dict) else None
+    if not isinstance(request_id,str) or len(request_id)>64: return
+    allowed=workspace_access_allowed(data.get('workspace_token'),os.environ.get('SPARK_WORKSPACE_TOKEN'),
+        face_required=SETTINGS.get('face_auth_enabled',False),face_authenticated=bool(authenticator and authenticator.authenticated))
+    try:
+        if not allowed or not spark_workbench.sync.authorized(): raise WorkbenchError('Connect and authenticate to Spark to access synchronized sources.')
+        result=await spark_workbench.sync.execute(data.get('action'),data.get('payload'))
+        await sio.emit('integration_sync_result',{'request_id':request_id,'ok':True,'result':result},room=sid)
+    except Exception:
+        await sio.emit('integration_sync_result',{'request_id':request_id,'ok':False,'message':'Synchronization request unavailable. Check connection and inputs.'},room=sid)
+
+@sio.event
 async def workspace_action(sid, data):
     """Expose source-ported ARKUS engines to the owning SPARK cockpit only."""
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
@@ -447,10 +467,23 @@ async def workspace_action(sid, data):
         and (not SETTINGS.get("face_auth_enabled", False)
              or (authenticator and authenticator.authenticated))
     )
+    # Local documents and reviewed repository reads must remain available when
+    # voice is offline. Execution/device/upgrade actions retain the owner gate.
+    if not authorized and action in (
+        'list_documents','search_documents','list_holo_notes','list_skills',
+        'import_document','propose_skill','test_skill','activate_skill','run_skill',
+        'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
+        'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
+        'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
+        'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit'):
+        authorized=workspace_access_allowed(
+            data.get('workspace_token') if isinstance(data,dict) else None,os.environ.get('SPARK_WORKSPACE_TOKEN'),
+            face_required=SETTINGS.get('face_auth_enabled',False),
+            face_authenticated=bool(authenticator and authenticator.authenticated))
     if not authorized:
         await sio.emit("workspace_result", {
             "request_id":request_id,"action":action,"ok":False,
-            "message":"Connect and authenticate to SPARK before using the workspace."
+            "message":"Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first."
         },room=sid)
         return
     try:
@@ -502,7 +535,7 @@ async def connect(sid, environ):
             'state': 'idle', 'model': groq_model(),
             'message': 'Groq is selected. Start hands-free voice to connect.'}, room=sid)
     else:
-        await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL), room=sid)
+        await sio.emit('ai_status', live_status(spark.client is not None, spark.MODEL), room=sid)
 
     global authenticator
     
@@ -726,10 +759,10 @@ async def start_audio(sid, data=None):
         await start_groq_audio(sid, data)
         return
 
-    if ada.client is None:
+    if spark.client is None:
         live_state = "setup_required"
         live_message = "Configure the SPARK Gemini key."
-        await sio.emit('ai_status', live_status(False, ada.MODEL), room=sid)
+        await sio.emit('ai_status', live_status(False, spark.MODEL), room=sid)
         return
 
     request_transport = data.get("transport") if isinstance(data, dict) else None
@@ -820,7 +853,7 @@ async def start_audio(sid, data=None):
     # Callback to send CAD status to frontend
     def on_cad_status(status):
         # status can be: 
-        # - a string like "generating" (from ada.py handle_cad_request)
+        # - a string like "generating" (from spark.py handle_cad_request)
         # - a dict with {status, attempt, max_attempts, error} (from CadAgent)
         if isinstance(status, dict):
             print(f"Sending CAD Status: {status.get('status')} (attempt {status.get('attempt')}/{status.get('max_attempts')})")
@@ -867,7 +900,7 @@ async def start_audio(sid, data=None):
 
     try:
         print(f"Initializing AudioLoop with device_index={device_index}")
-        audio_loop = ada.AudioLoop(
+        audio_loop = spark.AudioLoop(
             video_mode="none", 
             on_audio_data=on_audio_data,
             on_browser_audio=on_browser_audio if AUDIO_TRANSPORT == "browser_aec" else None,
@@ -917,7 +950,7 @@ async def start_audio(sid, data=None):
         live_state = "connecting"
         live_message = "Connecting to Gemini Live..."
         await sio.emit('ai_status', {
-            'state': 'connecting', 'model': ada.MODEL,
+            'state': 'connecting', 'model': spark.MODEL,
             'message': 'Opening SPARK Gemini Live session...'})
         print("Creating asyncio task for AudioLoop.run()")
         loop_task = asyncio.create_task(audio_loop.run())
@@ -936,7 +969,7 @@ async def start_audio(sid, data=None):
                 live_state = "error"
                 live_message = "Gemini Live connection or audio session failed."
                 asyncio.create_task(sio.emit('ai_status', {
-                    'state': 'error', 'model': ada.MODEL,
+                    'state': 'error', 'model': spark.MODEL,
                     'message': 'SPARK Live audio loop stopped unexpectedly.'}))
             finally:
                 if loop_task is task:
@@ -968,7 +1001,7 @@ async def start_audio(sid, data=None):
         live_state = "error"
         live_message = "Gemini Live connection or audio session failed."
         await sio.emit('ai_status', {
-            'state': 'error', 'model': ada.MODEL,
+            'state': 'error', 'model': spark.MODEL,
             'message': 'SPARK Core could not start its audio engine. Check the backend terminal.'})
         audio_loop = None # Ensure we can try again
 
@@ -1024,7 +1057,7 @@ async def stop_audio(sid):
         print("Stopping Audio Loop")
         audio_loop = None
         live_state = 'idle'
-        await sio.emit('ai_status', live_status(ada.client is not None, ada.MODEL))
+        await sio.emit('ai_status', live_status(spark.client is not None, spark.MODEL))
         await sio.emit('status', {'msg': 'SPARK Stopped'})
 
 @sio.event
@@ -1121,7 +1154,7 @@ async def resume_audio(sid):
     else:
         await sio.emit('ai_status', {
             'state': live_state if live_state in ('error', 'setup_required') else 'disconnected',
-            'model': ada.MODEL,
+            'model': spark.MODEL,
             'message': 'SPARK Live is not connected. Check Gemini key, model and microphone.'}, room=sid)
 
 @sio.event
@@ -1221,7 +1254,7 @@ async def user_input(sid, data):
                     import base64
                     frame = base64.b64decode(frame)
                 await audio_loop.session.send_realtime_input(
-                    video=ada.types.Blob(data=frame, mime_type="image/jpeg"))
+                    video=spark.types.Blob(data=frame, mime_type="image/jpeg"))
             await audio_loop.session.send_client_content(
                 turns={"role": "user", "parts": [{"text": text}]}, turn_complete=True)
         except Exception:

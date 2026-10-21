@@ -68,6 +68,7 @@ function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExpo
   const vault=fs.existsSync(requestedVault)&&fs.statSync(requestedVault).isDirectory()
     ? requestedVault:path.join(vendor,'holo-gestures','sample-notes');
   if(name==='holo'){
+    if(!fs.existsSync(vault)||!fs.statSync(vault).isDirectory())throw new Error('A readable local Markdown notes folder is required for HOLO.');
     const wrapper=path.join(root,'scripts','holo_notes_launcher.py');
     if(!fs.existsSync(wrapper))throw new Error('The SPARK HOLO notes launcher is missing.');
     return {name,port,url:'http://127.0.0.1:'+port,steps:[
@@ -75,10 +76,18 @@ function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExpo
        env:{SPARK_HOLO_NOTES_DIR:vault}}
     ]};
   }
-  if(!fs.existsSync(vault)||!fs.statSync(vault).isDirectory())throw new Error('A readable local Markdown notes folder is required for Brain Map.');
+  if(!fs.existsSync(vault)||!fs.statSync(vault).isDirectory())throw new Error('A readable local Markdown notes folder is required for Brain Map.'); // kept for the HOLO branch above  // Neural Atlas: generated from the packaged Graphify business inventory
+  // (VAOS/Vyndios graph) instead of the sample notes vault. The generator is
+  // a one-shot step; then the original Brain Map builder and viewer run
+  // unmodified on the produced vault.
+  const atlasVault=path.join(userData,'neural-atlas-vault');
+  const atlasScript=path.join(root,'scripts','neural_atlas_vault.py');
   const out=path.join(userData,'spark-brain-map');
+  if(!fs.existsSync(atlasScript))throw new Error('Neural Atlas generator is missing. Restore the SPARK checkout.');
+  if(!fs.existsSync(script))throw new Error('Experience files are missing. Run npm run setup:experiences from your SPARK checkout.');
   return {name,port,url:'http://127.0.0.1:'+port,steps:[
-    {command:python,args:[script,'--vault',vault,'--out',out],cwd:folder,shell:false,once:true},
+    {command:python,args:[atlasScript,'--root',root,'--out',atlasVault],cwd:root,shell:false,once:true},
+    {command:python,args:[script,'--vault',atlasVault,'--out',out],cwd:folder,shell:false,once:true},
     {command:python,args:['-m','http.server',String(port),'--bind','127.0.0.1','--directory',out],cwd:out,shell:false,once:false}
   ]};
 }

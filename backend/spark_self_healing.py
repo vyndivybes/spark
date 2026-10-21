@@ -36,7 +36,7 @@ class SelfHealingError(ValueError):
 # Modules SPARK core is expected to import. Missing any is a startup failure.
 REQUIRED_MODULES = (
     "spark_maintenance", "spark_evolution", "spark_saee", "spark_workspace",
-    "spark_groq", "ada",
+    "spark_groq", "spark",
 )
 
 # Optional/platform integrations: absent is a warning, not a failure.

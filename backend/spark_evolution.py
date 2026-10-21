@@ -83,15 +83,25 @@ ACTION_KEYS = {
 async def generate_json(instruction, context):
     # Explicit workspace action only. Uses the configured provider without retry.
     from spark_groq import GroqClient, GroqUnavailable, CHAT_URL, groq_model
+    messages=[{"role":"system","content":instruction},
+              {"role":"user","content":json.dumps(context,ensure_ascii=False)}]
+    # Reserve output space too. Byte accounting is a conservative bound, not
+    # an exact model tokenizer or a promise about account-specific limits.
+    if len(json.dumps(messages,ensure_ascii=False).encode('utf-8'))>10_000:
+        raise MaintenanceError('Source context exceeds the configured Groq request budget. Select fewer/smaller source files; no request was sent.')
     try:
         response = await GroqClient()._http(CHAT_URL, body={
-            "model": groq_model(), "temperature": 0, "max_completion_tokens": 12000,
+            "model": groq_model(), "temperature": 0, "max_completion_tokens": 2048,
+            "reasoning_effort":"low",
             "response_format": {"type": "json_object"},
-            "messages": [{"role": "system", "content": instruction},
-                         {"role": "user", "content": json.dumps(context)}]})
+            "messages":messages})
+        if response["choices"][0].get('finish_reason')=='length':
+            raise MaintenanceError('Model output reached its budget. Use a narrower goal or smaller source selection; nothing was saved.')
         return json.loads(response["choices"][0]["message"]["content"])
     except GroqUnavailable as error:
         raise MaintenanceError(str(error)) from None
+    except MaintenanceError:
+        raise
     except (KeyError, IndexError, TypeError, ValueError):
         raise MaintenanceError("Model returned invalid JSON; no changes applied.") from None
 

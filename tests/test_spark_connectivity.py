@@ -44,6 +44,16 @@ def connectivity(env=None, exists=False, which=None, audit=None, config=None, hi
 
 
 class StaticClassificationTests(unittest.TestCase):
+    def test_electron_jarvis_bridge_is_listed_without_claiming_account_access(self):
+        from types import SimpleNamespace
+        hub = fake_integrations(config={})
+        hub.jarvis = SimpleNamespace(configured=lambda: True)
+        report = asyncio.run(Connectivity(integrations=hub, env={}).report())
+        entry = next(item for item in report['entries'] if item['name'] == 'VAOS Jarvis')
+        self.assertEqual(entry['state'], 'installed but disconnected')
+        self.assertEqual(entry['server'], 'vaos-jarvis')
+        self.assertIn('founder session', entry['evidence'])
+
     def report(self, **kwargs):
         self.result = asyncio.run(connectivity(**kwargs).report())
         return self.result

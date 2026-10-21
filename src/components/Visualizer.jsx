@@ -1,108 +1,57 @@
-import React, { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, {useEffect, useRef, useState} from 'react';
+import * as THREE from 'three';
 
-const Visualizer = ({ audioData, isListening, intensity = 0, width = 600, height = 400 }) => {
-    const canvasRef = useRef(null);
-
-    // Use a ref for audioData to avoid re-creating the animation loop on every frame
-    const audioDataRef = useRef(audioData);
-    const intensityRef = useRef(intensity);
-    const isListeningRef = useRef(isListening);
-
-    useEffect(() => {
-        audioDataRef.current = audioData;
-        intensityRef.current = intensity;
-        isListeningRef.current = isListening;
-    }, [audioData, intensity, isListening]);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        // Ensure canvas internal resolution matches display size for sharpness
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        let animationId;
-
-        const draw = () => {
-            const w = canvas.width;
-            const h = canvas.height;
-            const centerX = w / 2;
-            const centerY = h / 2;
-
-            // Use current audio data from ref if we were using it for visualization
-            // Currently the effect only uses 'intensity', passed as prop. 
-            // To ensure we aren't re-triggering this effect constantly, we use refs.
-
-            const currentIntensity = intensityRef.current;
-            const currentIsListening = isListeningRef.current;
-
-            const baseRadius = Math.min(w, h) * 0.25;
-            const radius = baseRadius + (currentIntensity * 40);
-
-            ctx.clearRect(0, 0, w, h);
-
-            // Base Circle (Glow)
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius - 10, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(6, 182, 212, 0.1)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            if (!currentIsListening) {
-                // Idle State: Breathing Circle
-                const time = Date.now() / 1000;
-                const breath = Math.sin(time * 2) * 5;
-
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius + breath, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(34, 211, 238, 0.5)';
-                ctx.lineWidth = 4;
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = '#22d3ee';
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-            } else {
-                // Active State: Just the Circle causing the pulse
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(34, 211, 238, 0.8)';
-                ctx.lineWidth = 4;
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = '#22d3ee';
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-            }
-
-            animationId = requestAnimationFrame(draw);
-        };
-
-        draw();
-        return () => cancelAnimationFrame(animationId);
-    }, [width, height]);
-
-    return (
-        <div className="relative" style={{ width, height }}>
-            {/* Central Logo/Text */}
-            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                <motion.div
-                    animate={{ scale: isListening ? [1, 1.1, 1] : 1 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                    className="text-cyan-100 font-bold tracking-widest drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]"
-                    style={{ fontSize: Math.min(width, height) * 0.1 }}
-                >
-                    SPARK
-                </motion.div>
-            </div>
-
-            <canvas
-                ref={canvasRef}
-                style={{ width: '100%', height: '100%' }}
-            />
-        </div>
-    );
-};
-
-export default Visualizer;
+// One shared, genuinely three-dimensional core for the dashboard and cockpit.
+export default function Visualizer({isListening, intensity=0, width=600, height=400, active=true}) {
+    const mount=useRef(null);
+    const signal=useRef({isListening,intensity});
+    const [fallback,setFallback]=useState(false);
+    useEffect(()=>{signal.current={isListening,intensity};},[isListening,intensity]);
+    useEffect(()=>{
+        if(!active)return undefined;
+        const element=mount.current;
+        let renderer;
+        try {renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});}
+        catch {setFallback(true);return undefined;}
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+        element.appendChild(renderer.domElement);
+        const scene=new THREE.Scene();
+        const camera=new THREE.PerspectiveCamera(38,1,.1,100);
+        camera.position.set(0,.3,7.8);
+        const core=new THREE.Group();scene.add(core);
+        const shell=new THREE.Mesh(new THREE.IcosahedronGeometry(1.08,2),new THREE.MeshPhongMaterial({color:0x267d99,emissive:0x062b3c,shininess:100,transparent:true,opacity:.85,flatShading:true}));
+        const lattice=new THREE.Mesh(new THREE.IcosahedronGeometry(1.12,2),new THREE.MeshBasicMaterial({color:0x87eafa,wireframe:true,transparent:true,opacity:.28}));
+        core.add(shell,lattice);
+        const rings=[];
+        for(let i=0;i<3;i++){
+            const ring=new THREE.Mesh(new THREE.TorusGeometry(1.55+i*.24,.009,6,100),new THREE.MeshBasicMaterial({color:i===1?0xb8d4ff:0x6cdff2,transparent:true,opacity:.6-i*.1}));
+            ring.rotation.set(.65+i*.75,.3+i*.55,i*.6);core.add(ring);rings.push(ring);
+        }
+        const points=[];
+        for(let i=0;i<180;i++){const a=i*2.399963,r=2.2+(i%11)*.16,y=1-(i/179)*2;points.push(Math.cos(a)*Math.sqrt(1-y*y)*r,y*r,Math.sin(a)*Math.sqrt(1-y*y)*r);}
+        const dust=new THREE.Points(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(points,3)),new THREE.PointsMaterial({color:0x86dce9,size:.018,transparent:true,opacity:.55}));scene.add(dust);
+        scene.add(new THREE.AmbientLight(0x6faec9,1.7));
+        const key=new THREE.PointLight(0x9ef3ff,14,15);key.position.set(-3,3,4);scene.add(key);
+        const rim=new THREE.PointLight(0x6279ff,10,15);rim.position.set(3,-2,1);scene.add(rim);
+        const resize=()=>{const box=element.getBoundingClientRect();renderer.setSize(Math.max(1,box.width),Math.max(1,box.height));camera.aspect=Math.max(1,box.width)/Math.max(1,box.height);camera.updateProjectionMatrix();};
+        const observer=new ResizeObserver(resize);observer.observe(element);resize();
+        const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+        let frame,last=0,elapsed=0;
+        const pointer={x:0,y:0};
+        const move=event=>{const box=element.getBoundingClientRect();pointer.x=(event.clientX-box.left)/box.width-.5;pointer.y=(event.clientY-box.top)/box.height-.5;};
+        const reset=()=>{pointer.x=pointer.y=0;};
+        element.addEventListener('pointermove',move);element.addEventListener('pointerleave',reset);
+        const draw=time=>{
+            frame=requestAnimationFrame(draw);
+            if(document.hidden||time-last<33)return;
+            const delta=Math.min((time-last)/1000,.05);last=time;
+            if(!reduced.matches){elapsed+=delta;core.rotation.y=elapsed*.12+pointer.x*.2;core.rotation.x=pointer.y*.12;dust.rotation.y=-elapsed*.025;rings[0].rotation.z=elapsed*.12;rings[2].rotation.x=elapsed*.09;}
+            const amplitude=Math.max(0,Math.min(1,Number(signal.current.intensity)||0));
+            shell.scale.setScalar(1+amplitude*.16);lattice.scale.setScalar(1+amplitude*.18);
+            shell.material.emissiveIntensity=signal.current.isListening?1.8:1;
+            renderer.render(scene,camera);
+        };draw(0);
+        return ()=>{cancelAnimationFrame(frame);observer.disconnect();element.removeEventListener('pointermove',move);element.removeEventListener('pointerleave',reset);scene.traverse(object=>{object.geometry?.dispose();if(object.material)object.material.dispose();});renderer.dispose();renderer.domElement.remove();};
+    },[active]);
+    return <div className="spatial-core" style={{width,height}}><div ref={mount} className="spatial-core-scene" aria-hidden="true"/>{fallback&&<div className="spatial-core-fallback" aria-hidden="true"/>}<span className="spatial-core-caption">{isListening?'Voice channel open':'Voice standby'}</span></div>;
+}

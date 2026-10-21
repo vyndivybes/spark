@@ -138,9 +138,11 @@ the one-off Obsidian UI patch script are now tracked. CI dependency note: the
 offline intelligence suites import `google.genai` types directly, so
 `requirements-test.txt` pins it to the runtime range.
 
-PR #43 (read-only Jarvis bridge and bounded backend recovery) is tracked
-separately with passing checks. The evolution work after the Jarvis bridge is
-included on branch `codex/openjarvis-intelligence` and lands alongside it.
+PR #43's server-side variant of the VAOS Jarvis bridge was superseded by the
+desktop bridge and closed; PR #44 merged the full evolution branch (through the
+HOLO/Brain Map launch fix) into `main`. A live check on the development machine
+confirmed the backend serves `GET /status`, Socket.IO polling, and `/docs` with
+Gemini and Groq configured.
 
 
 ## Deliverables index (old section 12)

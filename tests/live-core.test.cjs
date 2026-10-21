@@ -6,11 +6,11 @@ const root=path.join(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 
 test('SPARK uses supported Gemini Live model and true real-time audio send',()=>{
-  const ada=read('backend/ada.py');
-  assert.match(ada,/MODEL\s*=\s*live_model\(\)/);
-  assert.match(ada,/send_realtime_input\(\s*audio=/);
-  assert.match(ada,/audio\/pcm;rate=16000/);
-  assert.doesNotMatch(ada,/MODEL\s*=\s*["']models\/gemini-2\.5/);
+  const spark=read('backend/spark.py');
+  assert.match(spark,/MODEL\s*=\s*live_model\(\)/);
+  assert.match(spark,/send_realtime_input\(\s*audio=/);
+  assert.match(spark,/audio\/pcm;rate=16000/);
+  assert.doesNotMatch(spark,/MODEL\s*=\s*["']models\/gemini-2\.5/);
 });
 test('SPARK never reports model connected before Live handshake',()=>{
   const server=read('backend/server.py');

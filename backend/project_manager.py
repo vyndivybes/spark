@@ -143,7 +143,7 @@ class ProjectManager:
         Used to prime a fresh voice session so SPARK resumes as if the exchange
         never stopped, rather than greeting the user cold every launch. Returns
         an empty string when there is no history so callers can skip priming.
-        Older logs attributed SPARK's turns to "ADA"; both are treated as SPARK.
+        Assistant turns from older logs are also treated as SPARK.
         """
         history = self.get_recent_chat_history(limit)
         lines = []

@@ -23,7 +23,8 @@ import HealthConnectPanel from './components/HealthConnectPanel';
 import ReaAuditPanel from './components/ReaAuditPanel';
 import FocusPanel from './components/FocusPanel';
 import JarvisPanel from './components/JarvisPanel';
-import WorkspacePanel from './components/WorkspacePanel';
+import CommandCenter from './components/CommandCenter';
+import './command-center.css';
 import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
@@ -860,11 +861,11 @@ function App() {
     // The systems pane observes only existing local service health.
     // It never sends LLM requests or polls any paid external provider.
     useEffect(() => {
-        if (!showSystems || !socketConnected) return undefined;
+        if ((!showSystems && !showWorkspace) || !socketConnected) return undefined;
         socket.emit('get_diagnostics');
         const refresh = setInterval(() => socket.emit('get_diagnostics'), 10000);
         return () => clearInterval(refresh);
-    }, [showSystems, socketConnected]);
+    }, [showSystems, showWorkspace, socketConnected]);
 
     // Persist device selections to localStorage when they change
     useEffect(() => {
@@ -1697,7 +1698,7 @@ function App() {
     };
 
     return (
-        <div className="spark-cockpit h-screen w-screen text-cyan-100 overflow-hidden flex flex-col relative selection:bg-amber-700 selection:text-white">
+        <div className={`spark-cockpit ${showWorkspace ? 'command-mode' : 'voice-mode'} ${isModularMode ? 'modular-mode' : ''} h-screen w-screen text-cyan-100 overflow-hidden flex flex-col relative selection:bg-amber-700 selection:text-white`}>
 
             {/* --- PREMIUM UI LAYER --- */}
 
@@ -1754,7 +1755,7 @@ function App() {
                         SPARK
                     </h1>
                     <div className="text-[10px] text-cyan-700 border border-cyan-900 px-1 rounded">
-                        FUSION • SPARK CORE
+                        PERSONAL WORKSPACE
                     </div>
                     {/* FPS Counter */}
                     {isVideoOn && (
@@ -1783,7 +1784,9 @@ function App() {
                     <TopAudioBar audioData={micAudioData} />
                 </div>
 
-                <nav aria-label="Spark navigation" className="spark-nav-actions flex items-center gap-2 pr-2" style={{ WebkitAppRegion: 'no-drag' }}>
+                <div className="cockpit-navigation" style={{WebkitAppRegion:'no-drag'}}>
+                    <details className="cockpit-launcher"><summary>Workspace tools <span>⌄</span></summary>
+                <nav onClick={event=>{if(event.target.closest('button')) event.currentTarget.closest('details').open=false;}} aria-label="Spark navigation" className="spark-nav-actions flex items-center gap-2 pr-2" style={{ WebkitAppRegion: 'no-drag' }}>
                     <button
                         type="button"
                         onClick={()=>setShowExperiences(open=>!open)}
@@ -1845,6 +1848,8 @@ function App() {
                         title="Focus timer — runs locally, no window monitoring">
                         <Timer size={17}/> FOCUS
                     </button>
+
+                </nav>                    </details>
                     <button type="button"
                         onClick={() => {
                             setShowWorkspace(open=>!open);
@@ -1857,9 +1862,8 @@ function App() {
                         aria-controls="spark-workspace-panel"
                         className="flex items-center gap-2 rounded-lg border border-cyan-700/70 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-900/50"
                         title="Real ARKUS offline project knowledge and Skill Forge">
-                        <Search size={17}/> HOME / KNOWLEDGE
-                    </button>
-                </nav>
+                        <Search size={17}/> DASHBOARD
+                    </button>                </div>
                 <div className="spark-window-actions flex items-center gap-2" style={{WebkitAppRegion:'no-drag'}}>
                     {/* Live Clock */}
                     <div className="flex items-center gap-1.5 text-[11px] text-cyan-300/70 font-mono px-2">
@@ -1882,11 +1886,11 @@ function App() {
                 <FocusPanel visible={showFocus} onClose={() => setShowFocus(false)} />
             </div>
 
-            <div id="spark-workspace-panel" style={{WebkitAppRegion:'no-drag'}}>
-                <WorkspacePanel socket={socket} visible={showWorkspace}
-                    project={currentProject} onClose={() => setShowWorkspace(false)}
-                    onSettings={() => {setShowWorkspace(false);setShowSettings(true);}} />
-            </div>
+            {showWorkspace && <CommandCenter socket={socket} connected={socketConnected}
+                liveState={liveState} diagnostics={diagnostics} project={currentProject}
+                messages={messages} muted={isMuted} onCockpit={() => setShowWorkspace(false)}
+                onSettings={() => {setShowWorkspace(false); setShowSettings(true);}} onExperiences={() => setShowExperiences(true)}
+                onRefresh={() => socket.emit('get_diagnostics')}/>}
             <ReminderToast socket={socket} project={currentProject}
                 enabled={isConnected && isAuthenticated && liveState.state === 'connected'} />
 
@@ -1996,6 +2000,7 @@ function App() {
                     <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none mix-blend-overlay z-10"></div>
                     <div className="relative z-20">
                         <Visualizer
+                            active={!showWorkspace}
                             audioData={aiAudioData}
                             isListening={isConnected && !isMuted}
                             intensity={audioAmp}
@@ -2008,8 +2013,8 @@ function App() {
 
                 {/* Video Feed Overlay */}
                 {/* Floating Project Label */}
-                <div className="absolute top-[70px] left-1/2 -translate-x-1/2 text-cyan-500 text-xs font-mono tracking-widest pointer-events-none z-50 bg-black/50 px-2 py-1 rounded backdrop-blur-sm border border-cyan-500/20">
-                    PROJECT: {currentProject?.toUpperCase()}
+                <div className="cockpit-project-label absolute top-[70px] left-1/2 -translate-x-1/2 text-cyan-500 text-xs font-mono tracking-widest pointer-events-none z-50 bg-black/50 px-2 py-1 rounded backdrop-blur-sm border border-cyan-500/20">
+                    {currentProject}
                 </div>
 
                 <div

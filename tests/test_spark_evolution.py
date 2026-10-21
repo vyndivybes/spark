@@ -18,7 +18,7 @@ from spark_rea import ReaError
 from spark_evolution import ACTION_KEYS
 from spark_workbench import ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
-from spark_workspace_auth import workspace_client_allowed
+from spark_workspace_auth import workspace_client_allowed, workspace_access_allowed
 import os
 
 
@@ -197,7 +197,7 @@ class EvolutionSocketTests(unittest.IsolatedAsyncioTestCase):
         handler.decorator_list = []
         namespace = {
             "asyncio": asyncio, "sio": SimpleNamespace(emit=AsyncMock(),get_environ=lambda sid:{"HTTP_ORIGIN":"http://localhost:5173"}),
-            "workspace_client_allowed":workspace_client_allowed,"os":os,
+              "workspace_client_allowed":workspace_client_allowed,"workspace_access_allowed":workspace_access_allowed,"os":os,
             "audio_loop": SimpleNamespace(owner_sid=owner, session=object()),
             "SETTINGS": {"face_auth_enabled": True},
             "authenticator": SimpleNamespace(authenticated=authenticated),
