@@ -47,7 +47,7 @@ test('SPARK navigation keeps core destinations and gates specialized controls',(
   assert.match(panel,/advanced&&<>/);
   assert.match(panel,/Developer screens/);
   assert.match(panel,/Agent controls/);
-  assert.match(app,/onSettings=\{\(\)=>\s*\{setShowWorkspace\(false\);setShowSettings\(true\);\}\}/);
+  assert.ok(app.includes('onSettings={() => {setShowWorkspace(false);setShowSettings(true);}}'));
 });
 
 test('Personal and business storage boundaries remain unchanged',()=>{
