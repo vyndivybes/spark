@@ -147,6 +147,26 @@ class AutoEvolutionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AutoEvolutionError):
             self.control.queue_goal("Improve another module")
 
+    async def test_emergency_stop_while_testing_prevents_activation(self):
+        self.source.write_text("value = (\n", encoding="utf-8")
+        self.control.configure(enabled=True, allow_model_source=True)
+        entered, release = asyncio.Event(), asyncio.Event()
+        original_execute = self.engine.execute
+        async def blocked_execute(action, project, payload):
+            if action == "test_repair_candidate":
+                entered.set()
+                await release.wait()
+            return await original_execute(action, project, payload)
+        self.engine.execute = blocked_execute
+        running = asyncio.create_task(self.control.run_once("general"))
+        await asyncio.wait_for(entered.wait(), timeout=4)
+        self.control.emergency_stop()
+        release.set()
+        result = await running
+        self.assertNotEqual(result["status"], "applied")
+        self.assertFalse(self.control.status()["enabled"])
+        self.assertNotIn("activate_repair_candidate", [a for a, _ in self.engine.actions])
+
     async def test_emergency_stop_and_validation(self):
         self.control.configure(enabled=True, allow_model_source=True)
         self.control.emergency_stop()
