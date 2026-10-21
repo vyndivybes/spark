@@ -7,8 +7,7 @@ from pathlib import Path
 import sqlite3
 import time
 from contextlib import contextmanager
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 from spark_productivity import WorkbenchError
 
@@ -131,7 +130,7 @@ class IntegrationSync:
         """Read the latest LOCAL snapshots; never silently claim this is a live read."""
         status = self.status()
         now = self.clock()
-        today = datetime.fromtimestamp(now, ZoneInfo('Asia/Kolkata')).date().isoformat()
+        today = datetime.fromtimestamp(now, timezone(timedelta(hours=5, minutes=30))).date().isoformat()
         sources = {}
         results = {'gmail': [], 'google-calendar': [], 'google-drive': []}
         fields = {'gmail': 'messages', 'google-calendar': 'events',
