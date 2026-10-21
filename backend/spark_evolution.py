@@ -69,6 +69,8 @@ ACTION_KEYS = {
     "saee_autonomy_configure": {"enabled", "allow_model_source"},
     "saee_autonomy_cycle": set(),
     "saee_autonomy_stop": set(),
+    "saee_autonomy_goal": {"goal"},
+    "saee_autonomy_cancel_goal": set(),
     # A10 system connectivity classification (read-only).
     "connectivity_report": {"deep"},
     # A5 Windows management-agent inventories (read-only).
@@ -116,6 +118,10 @@ class Evolution:
                 return self.autonomy.configure(**payload)
             if action == 'saee_autonomy_stop':
                 return self.autonomy.emergency_stop()
+            if action == 'saee_autonomy_goal':
+                return self.autonomy.queue_goal(payload['goal'])
+            if action == 'saee_autonomy_cancel_goal':
+                return self.autonomy.cancel_goal()
             if action == 'saee_autonomy_cycle':
                 return await self.autonomy.run_once(project)
             if action == "saee_registry":
