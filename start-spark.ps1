@@ -88,6 +88,22 @@ function Get-SparkMcpServers {
         foreach ($entry in $configured.PSObject.Properties) { $servers[$entry.Name] = $entry.Value }
     }
 
+    # Upgrade only our own read-only Google adapter. Preserve user accounts,
+    # CLI paths and tokens; never grant tools to unrelated MCP services.
+    $googleAdapter = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'backend\spark_google_mcp.py'))
+    foreach ($service in @('gmail', 'google-calendar', 'google-drive')) {
+        if (-not $servers.Contains($service)) { continue }
+        $entry = $servers[$service]
+        $scriptArgs = @($entry.args)
+        if ($scriptArgs.Count -lt 1 -or -not ($entry.read_tools -contains 'google_list_items')) { continue }
+        try { $adapterPath = [IO.Path]::GetFullPath([string]$scriptArgs[0]) }
+        catch { continue }
+        if ($adapterPath -ieq $googleAdapter -and
+            -not ($entry.read_tools -contains 'google_daily_briefing')) {
+            $entry.read_tools = @($entry.read_tools) + @('google_daily_briefing')
+        }
+    }
+
     $graphifyMcp = Join-Path $PSScriptRoot '.venv\Scripts\graphify-mcp.exe'
     $graphPath = Join-Path $PSScriptRoot 'graphify-out\graph.json'
     if (Test-Path -LiteralPath $graphifyMcp) {
