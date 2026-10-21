@@ -13,6 +13,7 @@ export default function EvolutionPanel({socket, project}) {
     const [repairs, setRepairs] = useState([]);
     const [candidates, setCandidates] = useState([]);
     const [tools, setTools] = useState([]);
+    const [autonomy, setAutonomy] = useState(null);
     const [toolName, setToolName] = useState('');
     const [argumentsText, setArgumentsText] = useState('{}');
     const [repository, setRepository] = useState('');
@@ -38,6 +39,8 @@ export default function EvolutionPanel({socket, project}) {
             pending.current = null;
             setBusy(false);
             setResult(data.ok ? JSON.stringify(data.result, null, 2) : String(data.message));
+            if (data.ok && ['saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop'].includes(data.action)) setAutonomy(data.result);
+            if (data.ok && data.action === 'saee_autonomy_cycle') setAutonomy(current => current ? {...current,last_status:data.result?.status} : current);
             if (data.ok && data.action === 'rea_discover') {
                 setTools(data.result);
                 setToolName(data.result[0]?.name || '');
@@ -80,6 +83,24 @@ export default function EvolutionPanel({socket, project}) {
 
     const selected = tools.find(tool => tool.name === toolName);
     return <div className="mt-3 grid gap-4 lg:grid-cols-2">
+        <section aria-label="Autonomous self-evolution" className="space-y-3 rounded-xl border border-cyan-500/20 p-4 lg:col-span-2">
+            <h3 className="text-lg font-semibold">Self-Evolution and REA</h3>
+            <p className="text-sm text-slate-300">SPARK can inspect its own backend, check REA availability and repair eligible Python syntax errors on its own. One change per day maximum. Every code repair runs staged and live checks and retains a rollback journal. It never runs unknown REA tools automatically.</p>
+            <div className="flex flex-wrap gap-2">
+                <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_status')}>Check autonomy status</button>
+                <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_configure',{enabled:true,allow_model_source:false})}>Enable hourly checks</button>
+                <button type="button" className={button} disabled={busy} onClick={()=>{
+                    if(window.confirm('Permit SPARK to send bounded backend Python source to the configured model, then automatically test and activate eligible syntax repairs? Validation runs local code and is NOT an operating-system sandbox.'))
+                        request('saee_autonomy_configure',{enabled:true,allow_model_source:true});
+                }}>Enable autonomous repairs</button>
+                <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_cycle')}>Run inspection now</button>
+                <button type="button" className={button+' border-red-400/60 text-red-200'} disabled={busy} onClick={()=>request('saee_autonomy_stop')}>Emergency stop</button>
+            </div>
+            <p className="text-sm text-slate-300" role="status">Autonomy: {autonomy ? (autonomy.enabled?'Enabled':'Off')+' · '+(autonomy.allow_model_source?'Model-assisted repairs allowed':'No source sharing')+' · Last: '+autonomy.last_status : 'Status not checked'}.</p>
+            <details className="text-xs text-slate-400"><summary>Safety boundaries</summary>
+                Existing non-protected Python sources only; no new dependencies, new files, authentication changes, shell instructions, unrelated PC operations or arbitrary REA tool execution. The installed MCP catalog is inspected read-only. The standing grant stays on this PC and can be revoked with Emergency stop.
+            </details>
+        </section>
         <div className="space-y-3 rounded-xl border border-cyan-500/20 p-3 lg:col-span-2">
             <h3 className="font-semibold">Learn from a repository</h3>
             <p className="text-sm text-slate-300">Choose a local source checkout and describe an improvement to Spark. Analysis sends a bounded source sample to your configured Groq model. It returns source references and upgrade suggestions. Clone remote repositories locally first. Repository code is read, never executed during analysis.</p>
