@@ -1,6 +1,6 @@
 """Offline acceptance tests: real API-shaped payloads, no network or OAuth."""
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
 import sys
@@ -113,7 +113,7 @@ class Hub:
     async def execute(self,service,action,args):
         assert args["name"]=="google_daily_briefing"
         payload={"gmail":{"source":"gmail","date":datetime.now(timezone.utc).astimezone(
-                         __import__("zoneinfo").ZoneInfo("Asia/Kolkata")).date().isoformat(),
+                         timezone(timedelta(hours=5, minutes=30))).date().isoformat(),
                          "messages":[{"id":"x","priority":"urgent","subject":"Payment failure"}]},
                  "google-calendar":{"source":"google-calendar","events":[{"title":"Meeting"}]},
                  "google-drive":{"source":"google-drive","files":[{"name":"NDA","review_candidate":True}]}}
