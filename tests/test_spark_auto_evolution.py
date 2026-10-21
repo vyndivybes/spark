@@ -48,6 +48,12 @@ class FakeEvolution:
         self.actions = []
     async def execute(self, action, project, payload):
         self.actions.append((action, payload))
+        if action == "analyze_repository":
+            return {"id": "b" * 24, "opportunities": [
+                {"spark_paths": ["backend/calculator.py"], "verification": "calculator behavior"}]}
+        if action == "stage_repository_upgrade":
+            return {"id": "f" * 24, "status": "staged",
+                    "changes": [{"path": "backend/calculator.py"}]}
         if action == "heal_sources":
             return {"id": "f" * 24, "status": "staged"}
         if action == "test_repair_candidate":
@@ -114,6 +120,32 @@ class AutoEvolutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "rolled_back")
         self.assertFalse(self.control.status()["enabled"])
         self.assertEqual(self.engine.actions[-1][0], "rollback_repair")
+
+    async def test_queued_self_upgrade_uses_existing_repository_and_release_gates(self):
+        self.control.configure(enabled=True, allow_model_source=True)
+        self.control.queue_goal("Improve calculator source reliability")
+        outcome = await self.control.run_once("general")
+        self.assertEqual(outcome["status"], "applied")
+        self.assertEqual([action for action, _ in self.engine.actions],
+                         ["analyze_repository", "stage_repository_upgrade",
+                          "test_repair_candidate", "activate_repair_candidate"])
+        self.assertEqual(self.control.status()["queued_goal"], "")
+
+    async def test_queued_goal_never_shares_source_without_model_permission(self):
+        self.control.configure(enabled=True, allow_model_source=False)
+        self.control.queue_goal("Improve calculator source reliability")
+        outcome = await self.control.run_once("general")
+        self.assertEqual(outcome["status"], "awaiting_model_permission")
+        self.assertEqual(self.engine.actions, [])
+        self.assertTrue(self.control.status()["queued_goal"])
+
+    async def test_invalid_or_overlapping_upgrade_requests_are_rejected(self):
+        for bad in ("", "short", "a"*601, None):
+            with self.assertRaises(AutoEvolutionError):
+                self.control.queue_goal(bad)
+        self.control.queue_goal("Improve calculator source reliability")
+        with self.assertRaises(AutoEvolutionError):
+            self.control.queue_goal("Improve another module")
 
     async def test_emergency_stop_and_validation(self):
         self.control.configure(enabled=True, allow_model_source=True)
