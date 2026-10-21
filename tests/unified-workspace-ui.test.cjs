@@ -8,9 +8,9 @@ const read=path=>fs.readFileSync(path,'utf8');
 test('VAYU inline application scripts remain syntactically valid',()=>{
   const html=read('vendor/vayu-workspace/VAYU-Knowledge-Sphere-Live.html');
   let parsed=0;
-  for(const match of html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)){
+  for(const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)){
     const [,attributes,body]=match;
-    if(/type="(?:module|application\\/json)"/i.test(attributes)||!body.trim())continue;
+    if(/type="(?:module|application\/json)"/i.test(attributes)||!body.trim())continue;
     new vm.Script(body,{filename:'VAYU-Knowledge-Sphere-Live.html'});
     parsed++;
   }
@@ -19,10 +19,10 @@ test('VAYU inline application scripts remain syntactically valid',()=>{
 
 test('VAYU departmental pages do not repeat the founder KPI dashboard',()=>{
   const html=read('vendor/vayu-workspace/VAYU-Knowledge-Sphere-Live.html');
-  assert.match(html,/sectionItems=page==='today'\\|\\|page==='intelligence'/);
-  assert.match(html,/page==='today'\\?\\x60<div class="wmetrics">/);
+  assert.match(html,/sectionItems=page==='today'\|\|page==='intelligence'/);
+  assert.match(html,/page==='today'\?\x60<div class="wmetrics">/);
   assert.match(html,/class="wcompact"/);
-  assert.match(html,/Related knowledge references \\(historical\\)/);
+  assert.match(html,/Related knowledge references \(historical\)/);
   assert.match(html,/source references, not verified live business records/);
   assert.match(html,/Saved on this PC/);
 });
@@ -44,7 +44,7 @@ test('SPARK navigation keeps core destinations and gates specialized controls',(
   assert.match(panel,/advanced&&<>/);
   assert.match(panel,/Developer screens/);
   assert.match(panel,/Agent controls/);
-  assert.match(app,/onSettings=\\{\\(\\)=>\\s*\\{setShowWorkspace\\(false\\);setShowSettings\\(true\\);\\}\\}/);
+  assert.match(app,/onSettings=\{\(\)=>\s*\{setShowWorkspace\(false\);setShowSettings\(true\);\}\}/);
 });
 
 test('Personal and business storage boundaries remain unchanged',()=>{
@@ -52,6 +52,6 @@ test('Personal and business storage boundaries remain unchanged',()=>{
   const start=read('vendor/vayu-workspace/start.py');
   assert.match(vayu,/data-space="business"/);
   assert.match(vayu,/data-space="personal"/);
-  assert.match(vayu,/api\\/workspace\\?space=/);
+  assert.match(vayu,/api\/workspace\?space=/);
   assert.match(start,/personal','business/);
 });
