@@ -219,7 +219,7 @@ class GoogleReader:
             return {"ok": True, "account": self.account, "service": service,
                     "read_only": True, "data": data}
         except (OSError, subprocess.TimeoutExpired, ValueError, json.JSONDecodeError):
-            return {"ok": False, "state": "authorization_or_api_unavailable",
+            return {"ok": False, "state": "authorization_required",
                     "message": ("Google read unavailable. Check account, local OAuth login, "
                                 "service access and API scopes; no results were invented.")}
 
