@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import IntegrationSyncPanel from './IntegrationSyncPanel';
 
 const IntelligenceConsole = React.lazy(() => import('./IntelligenceConsole'));
 
@@ -567,6 +568,7 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
             </>}
 
             {page === 'System Connectivity' && <>
+                <IntegrationSyncPanel socket={socket}/>
                 <div className={card}>
                     <h4 className="font-semibold">Existing system connectivity</h4>
                     <p className="text-sm text-slate-300">Every external service is classified from registration, audit history, install markers and credential presence. A probed report runs live discovery of each registered MCP service. No secrets are shown.</p>

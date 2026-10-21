@@ -33,6 +33,12 @@ from tools import tools_list
 from spark_desktop import launch_allowed_app
 from spark_grounding import extract_grounding_sources
 from spark_cinematic_tools import allowed_live_tool, tool_confirmation_required, get_system_status
+from spark_autonomous_engine import (inspect_self, list_project_files, read_source_file,
+                                     search_source_code, inspect_github_repository,
+                                     create_upgrade_branch, write_upgrade_patch,
+                                     execute_development_command, run_upgrade_tests,
+                                     diagnose_and_repair, verify_upgrade, stage_upgrade,
+                                     rollback_upgrade)
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -243,9 +249,48 @@ MCP_VOICE_TOOLS = {
     "search_obsidian_notes": {
         "argument": "query", "minimum": 1, "maximum": 120,
         "label": "Obsidian", "callback": "on_obsidian_search", "timeout": 30},
+    "inspect_self": {
+        "argument": "prompt", "minimum": 1, "maximum": 200,
+        "label": "Inspect Self", "callback": "on_inspect_self", "timeout": 30},
+    "list_project_files": {
+        "argument": "allowed_dirs", "minimum": 0, "maximum": 10,
+        "label": "List Project Files", "callback": "on_list_project_files", "timeout": 30},
+    "read_source_file": {
+        "argument": "file_path", "minimum": 1, "maximum": 300,
+        "label": "Read Source File", "callback": "on_read_source_file", "timeout": 30},
+    "search_source_code": {
+        "argument": "pattern", "minimum": 1, "maximum": 200,
+        "label": "Search Source Code", "callback": "on_search_source_code", "timeout": 30},
+    "inspect_github_repo": {
+        "argument": "repo_name", "minimum": 1, "maximum": 100,
+        "label": "Inspect GitHub Repo", "callback": "on_inspect_github_repo", "timeout": 60},
+    "create_upgrade_branch": {
+        "argument": "branch_name", "minimum": 1, "maximum": 60,
+        "label": "Create Upgrade Branch", "callback": "on_create_upgrade_branch", "timeout": 30},
+    "write_upgrade_patch": {
+        "argument": "patch_spec", "minimum": 1, "maximum": 500,
+        "label": "Write Upgrade Patch", "callback": "on_write_upgrade_patch", "timeout": 30},
+    "execute_dev_command": {
+        "argument": "command", "minimum": 1, "maximum": 300,
+        "label": "Execute Dev Command", "callback": "on_execute_dev_command", "timeout": 120},
+    "run_upgrade_tests": {
+        "argument": "test_filter", "minimum": 0, "maximum": 50,
+        "label": "Run Upgrade Tests", "callback": "on_run_upgrade_tests", "timeout": 180},
+    "diagnose_and_repair": {
+        "argument": "failure_summary", "minimum": 1, "maximum": 500,
+        "label": "Diagnose and Repair", "callback": "on_diagnose_and_repair", "timeout": 120},
+    "verify_upgrade": {
+        "argument": "change_description", "minimum": 1, "maximum": 300,
+        "label": "Verify Upgrade", "callback": "on_verify_upgrade", "timeout": 60},
+    "stage_upgrade": {
+        "argument": "change_description", "minimum": 1, "maximum": 300,
+        "label": "Stage Upgrade", "callback": "on_stage_upgrade", "timeout": 60},
+    "rollback_upgrade": {
+        "argument": "", "minimum": 0, "maximum": 0,
+        "label": "Rollback Upgrade", "callback": "on_rollback_upgrade", "timeout": 30},
 }
-MCP_VOICE_BUDGET = 3
-MCP_VOICE_WINDOW = 60
+MCP_VOICE_BUDGET = 5
+MCP_VOICE_WINDOW = 90
 
 class AudioLoop:
     pc_access = None
@@ -272,6 +317,19 @@ class AudioLoop:
         self.on_graphiti_entity = on_graphiti_entity
         self.on_hermes_query = on_hermes_query
         self.on_obsidian_search = on_obsidian_search
+        self.on_inspect_self = on_inspect_self
+        self.on_list_project_files = on_list_project_files
+        self.on_read_source_file = on_read_source_file
+        self.on_search_source_code = on_search_source_code
+        self.on_inspect_github_repo = on_inspect_github_repo
+        self.on_create_upgrade_branch = on_create_upgrade_branch
+        self.on_write_upgrade_patch = on_write_upgrade_patch
+        self.on_execute_dev_command = on_execute_dev_command
+        self.on_run_upgrade_tests = on_run_upgrade_tests
+        self.on_diagnose_and_repair = on_diagnose_and_repair
+        self.on_verify_upgrade = on_verify_upgrade
+        self.on_stage_upgrade = on_stage_upgrade
+        self.on_rollback_upgrade = on_rollback_upgrade
         # Per-tool call timestamps and per-(tool, argument) answers, both bounded
         # to MCP_VOICE_WINDOW seconds.
         self._mcp_calls = {}
@@ -899,6 +957,110 @@ class AudioLoop:
              await self.session.send(input=f"System Notification: {result}", end_of_turn=True)
         except Exception as e:
              print(f"[SPARK DEBUG] [ERR] Failed to send fs result: {e}")
+
+
+    # --- Autonomous Engineering Tool Handlers ---
+    async def on_inspect_self(self, prompt: str = "") -> str:
+        try:
+            result = inspect_self()
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"inspect_self error: {e}"
+
+    async def on_list_project_files(self, allowed_dirs: str = "") -> str:
+        try:
+            dirs = [d.strip() for d in allowed_dirs.split(",") if d.strip()] if allowed_dirs else None
+            result = list_project_files(allowed_dirs=dirs)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"list_project_files error: {e}"
+
+    async def on_read_source_file(self, file_path: str = "") -> str:
+        try:
+            content, error = read_source_file(file_path)
+            if error:
+                return f"read_source_file error: {error}"
+            return f"--- {file_path} ---" + chr(10) + content
+        except Exception as e:
+            return f"read_source_file error: {e}"
+
+    async def on_search_source_code(self, pattern: str = "") -> str:
+        try:
+            result = search_source_code(pattern)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"search_source_code error: {e}"
+
+    async def on_inspect_github_repo(self, repo_name: str = "") -> str:
+        try:
+            result = inspect_github_repository(repo_name)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"inspect_github_repo error: {e}"
+
+    async def on_create_upgrade_branch(self, branch_name: str = "") -> str:
+        try:
+            name, error = create_upgrade_branch(branch_name)
+            if error:
+                return f"create_upgrade_branch error: {error}"
+            return f"Created branch: {name}"
+        except Exception as e:
+            return f"create_upgrade_branch error: {e}"
+
+    async def on_write_upgrade_patch(self, patch_spec: str = "") -> str:
+        try:
+            spec = json.loads(patch_spec)
+            msg, error = write_upgrade_patch(spec)
+            if error:
+                return f"write_upgrade_patch error: {error}"
+            return f"Patch applied: {msg}"
+        except Exception as e:
+            return f"write_upgrade_patch error: {e}"
+
+    async def on_execute_dev_command(self, command: str = "") -> str:
+        try:
+            result = execute_development_command(command)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"execute_development_command error: {e}"
+
+    async def on_run_upgrade_tests(self, test_filter: str = "") -> str:
+        try:
+            result = run_upgrade_tests(test_filter=test_filter if test_filter else None)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"run_upgrade_tests error: {e}"
+
+    async def on_diagnose_and_repair(self, failure_summary: str = "") -> str:
+        try:
+            result = diagnose_and_repair(failure_summary)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"diagnose_and_repair error: {e}"
+
+    async def on_verify_upgrade(self, change_description: str = "") -> str:
+        try:
+            result = verify_upgrade(change_description, {"failed": False})
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"verify_upgrade error: {e}"
+
+    async def on_stage_upgrade(self, change_description: str = "") -> str:
+        try:
+            result = stage_upgrade(change_description, {"failed": False})
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return f"stage_upgrade error: {e}"
+
+    async def on_rollback_upgrade(self, _: str = "") -> str:
+        try:
+            msg, error = rollback_upgrade()
+            if error:
+                return f"rollback_upgrade error: {error}"
+            return f"Rollback: {msg}"
+        except Exception as e:
+            return f"rollback_upgrade error: {e}"
+
 
     async def handle_web_agent_request(self, prompt):
         print(f"[SPARK DEBUG] [WEB] Web Agent Task: '{prompt}'")

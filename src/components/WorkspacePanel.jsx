@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import EvolutionPanel from './EvolutionPanel';
 import WorkbenchPanel from './WorkbenchPanel';
+import IntegrationSyncPanel from './IntegrationSyncPanel';
 const IntelligenceConsole=React.lazy(()=>import('./IntelligenceConsole'));
 const SparkScreens=React.lazy(()=>import('./SparkScreens'));
 
@@ -53,6 +54,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             setWorking(false);
             if(!data.ok) {setNotice(String(data.message||'Workspace action failed.'));return;}
             const result=data.result;
+            setNotice('Ready. Local workspace connected.');
             if(data.action==='list_documents') {setDocuments(Array.isArray(result)?result:[]);return;}
             if(data.action==='list_holo_notes') {setPublished(Array.isArray(result)?result:[]);return;}
             if(data.action==='list_skills') {setSkills(Array.isArray(result)?result:[]);return;}
@@ -141,6 +143,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             </div>
             </>}
             {(!embedded || ['knowledge','skills'].includes(tab)) && <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>}
+            {tab==='knowledge'&&<IntegrationSyncPanel socket={socket}/>}
             {(!embedded || tab==='knowledge') && <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Publish / refresh VAYU snapshot</button>
                 <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('unpublish_vayu_snapshot')}>Remove VAYU snapshot</button>

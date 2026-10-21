@@ -2,6 +2,7 @@
 # First run installs only the documented runtime packages. Large CAD/Playwright browser
 # binaries and machine-control permissions remain separate explicit choices.
 param(
+    [switch]$Desktop,
     [switch]$SkipBackendSetup,
     [switch]$UseArkusGeminiKey,
     [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
@@ -76,6 +77,16 @@ function Get-SparkMcpServers {
     # accepts executable paths from a socket; this is the only place they are set.
     param([string]$GraphitiPython, [string]$HermesPython)
     $servers = [ordered]@{}
+    # Keep host account adapters when adding bundled sidecars. Capture the
+    # private config internally; never echo commands, headers or credentials.
+    $privateJson = & $venvPython -c "import json; from dotenv import dotenv_values; print(dotenv_values('backend/.env').get('SPARK_MCP_SERVERS') or '{}')"
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read the private MCP configuration.' }
+    foreach ($source in @($privateJson, $env:SPARK_MCP_SERVERS)) {
+        if ([string]::IsNullOrWhiteSpace($source)) { continue }
+        try { $configured = $source | ConvertFrom-Json -ErrorAction Stop }
+        catch { throw 'Invalid host SPARK_MCP_SERVERS JSON. Fix the configuration before launch.' }
+        foreach ($entry in $configured.PSObject.Properties) { $servers[$entry.Name] = $entry.Value }
+    }
 
     $graphifyMcp = Join-Path $PSScriptRoot '.venv\Scripts\graphify-mcp.exe'
     $graphPath = Join-Path $PSScriptRoot 'graphify-out\graph.json'
@@ -118,6 +129,23 @@ if (-not (Test-Path $venvPython)) {
     Write-Host 'Creating dedicated SPARK Python environment (not modifying system Python)...' -ForegroundColor Cyan
     & $hostPython -m venv (Join-Path $PSScriptRoot '.venv')
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $venvPython)) { throw 'Could not create SPARK Python environment.' }
+}
+
+# Machine-specific selections persist outside source control. Command-line
+# switches take precedence; no provider credentials belong in this file.
+$preferencesPath = Join-Path $PSScriptRoot 'spark.local.json'
+if (Test-Path -LiteralPath $preferencesPath) {
+    $preferences = Get-Content -LiteralPath $preferencesPath -Raw | ConvertFrom-Json -ErrorAction Stop
+    foreach ($name in @('EnableGraphiti', 'EnableHermes', 'EnableObsidian')) {
+        $property = $preferences.PSObject.Properties[$name]
+        if ($property -and -not $PSBoundParameters.ContainsKey($name)) {
+            if ($property.Value -isnot [bool]) { throw "Local $name must be true or false." }
+            Set-Variable -Name $name -Value ([switch]$property.Value)
+        }
+    }
+    if (-not $PSBoundParameters.ContainsKey('ObsidianVault') -and $preferences.ObsidianVault) {
+        $ObsidianVault = [string]$preferences.ObsidianVault
+    }
 }
 
 # Explicit opt-in: reuse the user's existing local ARKUS Gemini key
@@ -254,6 +282,22 @@ if ($mcpServers) {
 }
 
 Write-Host 'Starting SPARK cockpit with original SPARK, HOLO and Brain Map experiences.' -ForegroundColor Green
-& npm.cmd run dev
-if ($LASTEXITCODE -ne 0) { throw 'SPARK launch failed. Check the first backend error above.' }
+if ($Desktop) {
+    if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'dist\index.html'))) {
+        & npm.cmd run build
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot build the SPARK desktop interface.' }
+    }
+    $env:NODE_ENV = 'production'
+    Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+    $desktopLogs = Join-Path $env:LOCALAPPDATA 'SPARK\logs'
+    New-Item -ItemType Directory -Path $desktopLogs -Force | Out-Null
+    $desktopProcess = Start-Process -FilePath (Join-Path $PSScriptRoot 'node_modules\electron\dist\electron.exe') `
+        -ArgumentList ('"' + $PSScriptRoot + '"') -WorkingDirectory $PSScriptRoot -Wait -PassThru `
+        -RedirectStandardOutput (Join-Path $desktopLogs "electron-$PID-output.log") `
+        -RedirectStandardError (Join-Path $desktopLogs "electron-$PID-error.log")
+    if ($desktopProcess.ExitCode -ne 0) { throw 'SPARK desktop failed. See the Electron logs in the SPARK logs folder.' }
+} else {
+    & npm.cmd run dev
+    if ($LASTEXITCODE -ne 0) { throw 'SPARK launch failed. Check the first backend error above.' }
+}
 Write-Host 'SPARK window closed normally.' -ForegroundColor Green

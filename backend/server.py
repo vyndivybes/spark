@@ -54,7 +54,7 @@ from spark_rea import ReaError
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
-from spark_workspace_auth import workspace_client_allowed
+from spark_workspace_auth import workspace_client_allowed, workspace_access_allowed
 from spark_pc_access import PcAccess
 from spark_jarvis import JarvisClient
 from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
@@ -103,6 +103,11 @@ def _hermes_registered():
     return _mcp_service_registered('hermes', 'hermes_learned_skills')
 
 @app.on_event("startup")
+async def start_integration_sync():
+    spark_workbench.sync.authorized=lambda: not SETTINGS.get('face_auth_enabled',False) or bool(authenticator and authenticator.authenticated)
+    await spark_workbench.sync.start()
+
+@app.on_event("startup")
 async def start_intelligence_scheduler():
     if os.environ.get('SPARK_INTELLIGENCE_ENABLED','1')=='0':
         return
@@ -113,6 +118,8 @@ async def start_intelligence_scheduler():
 
 @app.on_event("shutdown")
 async def close_rea_connection():
+    await spark_workbench.sync.close()
+    await spark_workbench.sync.integrations.close()
     await spark_evolution.rea.close()
     await spark_workbench.integrations.close()
     await spark_workbench.intelligence.close()
@@ -424,6 +431,19 @@ async def get_diagnostics(sid):
 
 
 @sio.event
+async def integration_sync_action(sid,data):
+    request_id=data.get('request_id') if isinstance(data,dict) else None
+    if not isinstance(request_id,str) or len(request_id)>64: return
+    allowed=workspace_access_allowed(data.get('workspace_token'),os.environ.get('SPARK_WORKSPACE_TOKEN'),
+        face_required=SETTINGS.get('face_auth_enabled',False),face_authenticated=bool(authenticator and authenticator.authenticated))
+    try:
+        if not allowed or not spark_workbench.sync.authorized(): raise WorkbenchError('Connect and authenticate to Spark to access synchronized sources.')
+        result=await spark_workbench.sync.execute(data.get('action'),data.get('payload'))
+        await sio.emit('integration_sync_result',{'request_id':request_id,'ok':True,'result':result},room=sid)
+    except Exception:
+        await sio.emit('integration_sync_result',{'request_id':request_id,'ok':False,'message':'Synchronization request unavailable. Check connection and inputs.'},room=sid)
+
+@sio.event
 async def workspace_action(sid, data):
     """Expose source-ported ARKUS engines to the owning SPARK cockpit only."""
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
@@ -441,10 +461,23 @@ async def workspace_action(sid, data):
         and (not SETTINGS.get("face_auth_enabled", False)
              or (authenticator and authenticator.authenticated))
     )
+    # Local documents and reviewed repository reads must remain available when
+    # voice is offline. Execution/device/upgrade actions retain the owner gate.
+    if not authorized and action in (
+        'list_documents','search_documents','list_holo_notes','list_skills',
+        'import_document','propose_skill','test_skill','activate_skill','run_skill',
+        'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
+        'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
+        'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
+        'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit'):
+        authorized=workspace_access_allowed(
+            data.get('workspace_token') if isinstance(data,dict) else None,os.environ.get('SPARK_WORKSPACE_TOKEN'),
+            face_required=SETTINGS.get('face_auth_enabled',False),
+            face_authenticated=bool(authenticator and authenticator.authenticated))
     if not authorized:
         await sio.emit("workspace_result", {
             "request_id":request_id,"action":action,"ok":False,
-            "message":"Connect and authenticate to SPARK before using the workspace."
+            "message":"Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first."
         },room=sid)
         return
     try:

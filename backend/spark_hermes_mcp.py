@@ -112,7 +112,10 @@ class LearnedExperience:
     def _invoke(self, name):
         argv = [str(self._cli()), *ALLOWED_COMMANDS[name]]
         try:
-            completed = subprocess.run(argv, capture_output=True, text=True, encoding='utf-8',
+            # The CLI must not inherit the live MCP stdin pipe. Hermes inspects
+            # piped input even for journey and otherwise waits forever for EOF.
+            completed = subprocess.run(argv, stdin=subprocess.DEVNULL,
+                                       capture_output=True, text=True, encoding='utf-8',
                                        errors='replace', timeout=CLI_TIMEOUT, shell=False,
                                        env=self._environment())
         except subprocess.TimeoutExpired:

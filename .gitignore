@@ -12,6 +12,7 @@ env/
 # SPARK Specific Local Data
 backend/reference.jpg
 backend/settings.json
+spark.local.json
 backend/last_cad_generation.json
 long_term_memory/
 projects/

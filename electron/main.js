@@ -6,7 +6,14 @@ const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
 const workspaceToken=require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
 const {createJarvisBridge}=require('./jarvis-bridge.cjs');
+const {createBusinessPortals}=require('./business-portals.cjs');
 const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
+
+// A desktop click reuses the current application instead of starting another
+// frontend/backend pair and competing for Chromium's cache and loopback ports.
+if (!app.requestSingleInstanceLock()) {
+    app.quit();
+} else {
 
 // Use ANGLE D3D11 backend - more stable on Windows while keeping WebGL working
 // This fixes "GPU state invalid after WaitForGetOffsetInRange" error
@@ -18,9 +25,17 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let mainWindow;
+app.on('second-instance', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+    }
+});
 let pythonProcess;
 let experienceManager;
 let jarvisBridge,jarvisBridgeUrl;
+let businessPortals;
 let lastReaInventory=null;
 
 // Packaged builds place backend/public/vendor under process.resourcesPath via
@@ -120,12 +135,16 @@ function startPythonBackend() {
 }
 
 app.whenReady().then(async () => {
-    jarvisBridge=createJarvisBridge({BrowserWindow,session,token:workspaceToken,origin:process.env.SPARK_VAOS_URL});
+    businessPortals=createBusinessPortals({BrowserWindow,session});
+    jarvisBridge=createJarvisBridge({BrowserWindow,session,token:workspaceToken,origin:process.env.SPARK_VAOS_URL,
+        businessRead:id=>businessPortals.read(id)});
     jarvisBridgeUrl=await jarvisBridge.listen();
     ipcMain.handle('spark:jarvis',async(event,request)=>{
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
             throw Error('Jarvis access requires the root SPARK cockpit.');
         switch(request?.action){
+            case 'open-portal':return businessPortals.open(request.portal);
+            case 'read-portal':return businessPortals.read(request.portal);
             case 'open':return jarvisBridge.open();
             case 'status':return jarvisBridge.status();
             case 'ask':return jarvisBridge.ask(request.question);
@@ -312,6 +331,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
     jarvisBridge?.close();
+    businessPortals?.close();
     experienceManager?.stopAll();
     console.log('App closing... Killing Python backend.');
     if (pythonProcess) {
@@ -331,3 +351,4 @@ app.on('will-quit', () => {
         pythonProcess = null;
     }
 });
+}

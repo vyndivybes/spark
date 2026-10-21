@@ -9,6 +9,8 @@ from spark_integrations import Integrations
 from spark_intelligence.service import Intelligence, ACTION_KEYS as INTELLIGENCE_ACTIONS
 from spark_intelligence.runtime import PolicyError
 from spark_vayu_data import VayuExports
+from spark_sync import IntegrationSync
+from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
     **INTELLIGENCE_ACTIONS,
@@ -45,6 +47,8 @@ class Workbench:
         self.productivity = Productivity(workspace.skills.root.parent, workspace.skills)
         self.office = Office(self.productivity)
         self.integrations = integrations or Integrations(audit_dir=workspace.skills.root.parent/'integrations')
+        self.sync = IntegrationSync(workspace.skills.root.parent,
+            Integrations(config=getattr(self.integrations,'config',None),audit_dir=workspace.skills.root.parent/'integrations'),local=obsidian.snapshot)
         self.intelligence = Intelligence(workspace,integrations=self.integrations)
         self.vayu = VayuExports(workspace,self.productivity,None)
 

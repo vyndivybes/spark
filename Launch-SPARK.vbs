@@ -5,9 +5,9 @@ Dim shell, fso, root, script, cmd
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
-script = fso.BuildPath(root, "start-spark.ps1")
+script = fso.BuildPath(root, "scripts\launch-desktop.ps1")
 If Not fso.FileExists(script) Then
-    MsgBox "SPARK launcher could not find start-spark.ps1 next to Launch-SPARK.vbs.", vbCritical, "SPARK"
+    MsgBox "SPARK launcher could not find scripts\launch-desktop.ps1.", vbCritical, "SPARK"
     WScript.Quit 1
 End If
 cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File """ & script & """"

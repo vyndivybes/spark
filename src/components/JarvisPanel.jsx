@@ -6,15 +6,18 @@ export default function JarvisPanel({onClose,invoke,socket,project}){
     const [state,setState]=useState(null);
     const [question,setQuestion]=useState('What is the current digital workforce status?');
     const [answer,setAnswer]=useState(null);
+    const [reference,setReference]=useState(null);
     const [notice,setNotice]=useState('Sign in directly to VAOS, then ask Jarvis a question.');
     const [busy,setBusy]=useState(false);
-    const run=async(action)=>{
+    const run=async(action,portal)=>{
         setBusy(true);
         try{
-            const result=await invoke({action,...(action==='ask'?{question}:{})});
+            const result=await invoke({action,...(action==='ask'?{question}:{}),...(portal?{portal}:{})});
             if(action==='status')setState(result);
             if(action==='ask'){setAnswer(result);setNotice(result.ok?'VAOS advisory received. No business action was executed.':result.message);}
             if(action==='open')setNotice('Sign in to VAOS in its window, then return here and refresh the connection.');
+            if(action==='open-portal')setNotice(`${result.name} opened in its isolated portal. Account sign-in stays there; business data access requires its governed API connection.`);
+            if(action==='read-portal'){setReference(result);setNotice(result.ok?result.limitation:result.message);}
             if(action==='disconnect'){setState(null);setAnswer(null);setNotice('VAOS session removed from Spark.');}
         }catch(error){setNotice(String(error?.message||'Jarvis connection failed.'));}
         finally{setBusy(false);}
@@ -27,6 +30,21 @@ export default function JarvisPanel({onClose,invoke,socket,project}){
             <button type="button" disabled={busy} className="rounded border border-cyan-500/50 px-3 py-2 text-sm" onClick={()=>run('open')}>Open VAOS / sign in</button>
             <button type="button" disabled={busy} className="rounded border border-slate-600 px-3 py-2 text-sm" onClick={()=>run('status')}>Refresh connection</button>
             <button type="button" disabled={busy} className="rounded border border-slate-600 px-3 py-2 text-sm" onClick={()=>run('disconnect')}>Disconnect VAOS</button>
+        </div>
+        <div className="my-4 rounded border border-slate-700 p-3">
+            <h3 className="font-semibold">Linked business portals</h3>
+            <p className="my-2 text-xs text-slate-400">Sign in to each workspace directly. Read its engineering references below; source release holds remain in force. These reads do not synchronize business records.</p>
+            <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={busy} className="rounded border border-slate-600 px-3 py-2 text-sm" onClick={()=>run('open-portal','vyndi-os')}>Open VYNDI OS</button>
+                <button type="button" disabled={busy} className="rounded border border-slate-600 px-3 py-2 text-sm" onClick={()=>run('open-portal','vedm')}>Open VEDM</button>
+                <button type="button" disabled={busy} className="rounded border border-cyan-500/50 px-3 py-2 text-sm" onClick={()=>run('read-portal','vyndi-os')}>Read VYNDI authority</button>
+                <button type="button" disabled={busy} className="rounded border border-cyan-500/50 px-3 py-2 text-sm" onClick={()=>run('read-portal','vedm')}>Read VEDM library</button>
+            </div>
+            {reference?.ok&&<article className="mt-3 text-sm" aria-label="Business reference result">
+                <p className="font-semibold">{reference.sourceSystem} · {reference.sourceKind}</p>
+                <p className="my-2 text-amber-200">{reference.limitation}</p>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-900 p-3 text-xs">{JSON.stringify(reference.data,null,2)}</pre>
+            </article>}
         </div>
         <form onSubmit={event=>{event.preventDefault();run('ask');}}>
             <label className="block text-sm" htmlFor="jarvis-question">Ask Jarvis</label>

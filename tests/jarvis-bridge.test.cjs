@@ -3,6 +3,21 @@ const assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events');
 const {createJarvisBridge,jarvisOrigin,validateQuestion,normalizeReply}=require('../electron/jarvis-bridge.cjs');
 
+test('business bridge authenticates and accepts only fixed portal reads',async()=>{
+  const calls=[];
+  const bridge=createJarvisBridge({session:{fromPartition:()=>({})},token:'c'.repeat(64),
+    businessRead:async portal=>{calls.push(portal);return {ok:true,readOnly:true};}});
+  try{
+    const base=await bridge.listen();
+    const request=body=>fetch(base+'/business-read',{method:'POST',headers:{Authorization:'Bearer '+'c'.repeat(64)},body:JSON.stringify(body)});
+    assert.equal((await fetch(base+'/business-read',{method:'POST',body:'{}'})).status,403);
+    assert.equal((await request({portal:'https://example.com'})).status,400);
+    assert.equal((await request({portal:'vedm',url:'https://example.com'})).status,400);
+    assert.equal((await request({portal:'vedm'})).status,200);
+    assert.deepEqual(calls,['vedm']);
+  }finally{bridge.close();}
+});
+
 test('VAOS origin/question validation rejects credentials, redirects and oversized inputs',()=>{
   assert.equal(jarvisOrigin(),'https://vaos.vayushastr.workers.dev');
   for(const value of ['http://example.com','https://user:password@example.com','https://example.com/path','https://example.com/?q=1'])assert.throws(()=>jarvisOrigin(value));

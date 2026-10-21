@@ -10,6 +10,7 @@ from spark_intelligence.policy import CircuitBreaker
 from spark_rea import ReaClient, ReaError
 from spark_productivity import WorkbenchError
 from spark_jarvis import JarvisClient, JARVIS_TOOL
+from spark_business import BusinessClient, BUSINESS_TOOLS
 
 ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack')
 
@@ -22,6 +23,7 @@ class Integrations:
         self.audit = []
         self.audit_dir=Path(audit_dir) if audit_dir is not None else None
         self.jarvis=JarvisClient(enabled=lambda: True)
+        self.business=BusinessClient(enabled=lambda: True)
 
     def _audit_db(self):
         self.audit_dir.mkdir(parents=True,exist_ok=True)
@@ -79,12 +81,27 @@ class Integrations:
                 'state':'session-managed','read_tools':['ask_vaos_jarvis'],
                 'setup':'Sign in from Experience Deck → VAOS Jarvis. Each question verifies the VAOS founder session.'})
         names={item['name'] for item in configured}
+        if self.business.configured():
+            for name,tool in BUSINESS_TOOLS.items():
+                if name not in names:
+                    configured.append({'name':name,'transport':'electron-session','configured':True,
+                        'state':'session-managed','read_tools':[tool['name']]})
+                    names.add(name)
         return configured+[{'name':name,'configured':False,'state':'unconnected','read_tools':[],
                            'setup':'Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger.'}
                           for name in ADAPTERS if name not in names]
 
     async def execute(self, server, action, args):
         config = self.catalog()
+        if server in BUSINESS_TOOLS and server not in config and self.business.configured():
+            tool=BUSINESS_TOOLS[server]
+            if action=='mcp_discover':
+                return [{**tool,'inputSchema':{'type':'object','properties':{},'additionalProperties':False}}]
+            if action!='mcp_call' or args.get('name')!=tool['name'] or args.get('arguments')!={}:
+                raise WorkbenchError('Select the configured read-only business reference tool with empty arguments.')
+            result=await self.business.read(server)
+            self._record({'server':server,'action':action,'tool':tool['name'],'ok':result.get('ok') is True})
+            return {'content':[{'type':'text','text':json.dumps(result)}],'isError':result.get('ok') is not True}
         if server=='vaos-jarvis' and server not in config and self.jarvis.configured():
             if action=='mcp_discover':
                 return [{'name':JARVIS_TOOL['name'],'description':JARVIS_TOOL['description'],
