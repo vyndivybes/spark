@@ -10,6 +10,19 @@ def parse_workbench_command(value, now=None):
     value = re.sub(r"^spark,?\s+", "", value, flags=re.I)
 
     utterance = re.sub(r"^(?:jarvis|spark),?\s+", "", value, flags=re.I)
+    # Explicit natural-language read-only executive briefing intents.
+    # No model may invent an email or calendar item without this source read.
+    if re.fullmatch(
+        r"(?:what (?:important (?:emails?|mails?) (?:did i receive|came in) today|"
+        r"(?:emails?|mails?) (?:need|require) my attention|"
+        r"(?:is )?my schedule tomorrow|needs my attention)|"
+        r"(?:show|give|read) (?:me )?(?:my |the )?(?:daily |today'?s? )?"
+        r"(?:executive |google )?briefing|"
+        r"(?:brief me|daily executive briefing|"
+        r"summarize (?:my )?(?:gmail|calendar|google drive|gmail calendar and drive)))",
+        utterance, re.I):
+        return {"action": "executive_briefing", "payload": {}}
+
     # A named SPARK source artifact is always an architecture question, even
     # inside temporal phrasing: "what did we decide about spark.py" belongs to
     # Graphify, which can read the file, not to a memory graph that cannot.
