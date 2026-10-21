@@ -14,6 +14,7 @@ export default function EvolutionPanel({socket, project}) {
     const [candidates, setCandidates] = useState([]);
     const [tools, setTools] = useState([]);
     const [autonomy, setAutonomy] = useState(null);
+    const [upgradeGoal, setUpgradeGoal] = useState("");
     const [toolName, setToolName] = useState('');
     const [argumentsText, setArgumentsText] = useState('{}');
     const [repository, setRepository] = useState('');
@@ -39,7 +40,7 @@ export default function EvolutionPanel({socket, project}) {
             pending.current = null;
             setBusy(false);
             setResult(data.ok ? JSON.stringify(data.result, null, 2) : String(data.message));
-            if (data.ok && ['saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop'].includes(data.action)) setAutonomy(data.result);
+            if (data.ok && ['saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop','saee_autonomy_goal','saee_autonomy_cancel_goal'].includes(data.action)) setAutonomy(data.result);
             if (data.ok && data.action === 'saee_autonomy_cycle') setAutonomy(current => current ? {...current,last_status:data.result?.status} : current);
             if (data.ok && data.action === 'rea_discover') {
                 setTools(data.result);
@@ -95,6 +96,17 @@ export default function EvolutionPanel({socket, project}) {
                 }}>Enable autonomous repairs</button>
                 <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_cycle')}>Run inspection now</button>
                 <button type="button" className={button+' border-red-400/60 text-red-200'} disabled={busy} onClick={()=>request('saee_autonomy_stop')}>Emergency stop</button>
+            </div>
+            <label className="block text-sm text-slate-200">Autonomous upgrade goal
+                <textarea aria-label="Autonomous upgrade goal" className={input} value={upgradeGoal}
+                    onChange={e=>setUpgradeGoal(e.target.value)}
+                    placeholder="Example: Improve spark_task_planner reliability while preserving existing behavior" />
+            </label>
+            <div className="flex flex-wrap gap-2">
+                <button type="button" className={button} disabled={busy || upgradeGoal.trim().length<10}
+                    onClick={()=>request('saee_autonomy_goal',{goal:upgradeGoal.trim()})}>Queue upgrade</button>
+                <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_cancel_goal')}>Cancel queued upgrade</button>
+                {autonomy?.queued_goal&&<span className="text-sm text-cyan-200">Queued: {autonomy.queued_goal}</span>}
             </div>
             <p className="text-sm text-slate-300" role="status">Autonomy: {autonomy ? (autonomy.enabled?'Enabled':'Off')+' · '+(autonomy.allow_model_source?'Model-assisted repairs allowed':'No source sharing')+' · Last: '+autonomy.last_status : 'Status not checked'}.</p>
             <details className="text-xs text-slate-400"><summary>Safety boundaries</summary>
