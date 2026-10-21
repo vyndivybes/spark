@@ -25,6 +25,9 @@ test('VAYU departmental pages do not repeat the founder KPI dashboard',()=>{
   assert.match(html,/Related knowledge references \(historical\)/);
   assert.match(html,/source references, not verified live business records/);
   assert.match(html,/Saved on this PC/);
+  assert.match(html,/Search business knowledge/);
+  assert.match(html,/No records for this selection/);
+  assert.match(html,/page==='knowledge'\?'':`<div class="wcompact"/);
 });
 
 test('Four main analytics choices preserve specialist capabilities',()=>{
