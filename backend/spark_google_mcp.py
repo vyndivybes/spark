@@ -14,9 +14,9 @@ from pathlib import Path
 import re
 import subprocess
 from urllib.parse import quote
-from zoneinfo import ZoneInfo
 
-TIMEZONE = os.environ.get("SPARK_GOOGLE_TIMEZONE", "Asia/Kolkata")
+TIMEZONE = "Asia/Kolkata"  # Fixed-offset IST needs no tzdata installation on Windows.
+IST = timezone(timedelta(hours=5, minutes=30))
 MAIL_LIMIT = 20
 FILE_LIMIT = 25
 EVENT_LIMIT = 30
@@ -33,7 +33,7 @@ REVIEW = re.compile(r"\b(review|approval|draft|nda|contract|proposal|sign(?:atur
 
 
 def local_window(now=None):
-    local = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo(TIMEZONE))
+    local = (now or datetime.now(timezone.utc)).astimezone(IST)
     day = local.replace(hour=0, minute=0, second=0, microsecond=0)
     return day, day + timedelta(days=1), day + timedelta(days=2)
 
