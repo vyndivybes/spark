@@ -9,6 +9,7 @@ from spark_rea import ReaClient, ReaError
 from spark_repo_upgrade import RepositoryUpgrades, snapshot
 from spark_repo_import import RepoImportError, import_evidence, parse_github_url
 from spark_saee import AutonomousEvolutionEngine, SAEEError
+from spark_auto_evolution import AutoEvolution, AutoEvolutionError
 from spark_security_scan import scan_sources, scan_secrets, scan_code
 from spark_self_healing import (
     RepairGate, SelfHealingError, diagnose, disk_forecast,
@@ -64,6 +65,12 @@ ACTION_KEYS = {
     "saee_record_attempt": {"request_id", "stage", "outcome", "evidence"},
     "saee_record_error_signature": {"signature", "repair", "verified"},
     "saee_record_benchmark": {"name", "before", "after"},
+    "saee_autonomy_status": set(),
+    "saee_autonomy_configure": {"enabled", "allow_model_source"},
+    "saee_autonomy_cycle": set(),
+    "saee_autonomy_stop": set(),
+    "saee_autonomy_goal": {"goal"},
+    "saee_autonomy_cancel_goal": set(),
     # A10 system connectivity classification (read-only).
     "connectivity_report": {"deep"},
     # A5 Windows management-agent inventories (read-only).
@@ -97,6 +104,7 @@ class Evolution:
         self.repositories = RepositoryUpgrades(self.maintenance, self.generator)
         self.rea = rea or ReaClient()
         self.saee = AutonomousEvolutionEngine(workspace, evolution=self)
+        self.autonomy = AutoEvolution(self, workspace.skills.root.parent)
         self.lock = asyncio.Lock()
 
     async def _saee(self, action, project, payload):
@@ -104,6 +112,18 @@ class Evolution:
         # deploy source; that still flows through the maintenance/repo gates.
         saee = self.saee
         try:
+            if action == 'saee_autonomy_status':
+                return self.autonomy.status()
+            if action == 'saee_autonomy_configure':
+                return self.autonomy.configure(**payload)
+            if action == 'saee_autonomy_stop':
+                return self.autonomy.emergency_stop()
+            if action == 'saee_autonomy_goal':
+                return self.autonomy.queue_goal(payload['goal'])
+            if action == 'saee_autonomy_cancel_goal':
+                return self.autonomy.cancel_goal()
+            if action == 'saee_autonomy_cycle':
+                return await self.autonomy.run_once(project)
             if action == "saee_registry":
                 return await asyncio.to_thread(saee.registry, project)
             if action == "saee_inventory":
@@ -126,7 +146,7 @@ class Evolution:
                 return await asyncio.to_thread(
                     saee.record_benchmark, project, payload["name"],
                     payload["before"], payload["after"])
-        except SAEEError as error:
+        except (SAEEError, AutoEvolutionError) as error:
             raise MaintenanceError(str(error)) from None
         raise MaintenanceError("Unknown SAEE action.")
 

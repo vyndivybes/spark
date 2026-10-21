@@ -111,9 +111,15 @@ async def start_intelligence_scheduler():
     except Exception:
         print('[SPARK] Optional intelligence scheduler unavailable; voice remains available.')
 
+@app.on_event("startup")
+async def start_saee_autonomy_scheduler():
+    # The loop remains idle until an authenticated owner enables it.
+    await spark_evolution.autonomy.start_scheduler()
+
 @app.on_event("shutdown")
 async def close_rea_connection():
     await spark_evolution.rea.close()
+    await spark_evolution.autonomy.stop_scheduler()
     await spark_workbench.integrations.close()
     await spark_workbench.intelligence.close()
 # Only the last project explicitly opened by this session is available by voice.

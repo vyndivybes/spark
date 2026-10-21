@@ -49,7 +49,7 @@ class Maintenance:
                 or not path.is_file() or path.is_symlink() or path.parent.is_symlink()
                 or not path.resolve().is_relative_to(self.root)):
             raise MaintenanceError("Only existing backend Python source files can be repaired.")
-        if path.name in {"spark_maintenance.py", "spark_rea.py", "server.py", "spark_evolution.py", "spark_repo_upgrade.py"}:
+        if path.name in {"spark_maintenance.py", "spark_rea.py", "server.py", "spark_evolution.py", "spark_repo_upgrade.py", "spark_auto_evolution.py", "spark_saee.py", "spark_security_scan.py", "spark_workspace_auth.py"}:
             raise MaintenanceError("Recovery and authorization code requires a reviewed manual upgrade.")
         return path
 
