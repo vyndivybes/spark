@@ -48,6 +48,7 @@ import signal
 import time
 from spark_diagnostics import safe_diagnostics
 from spark_host_vitals import collect_host_vitals
+from spark_google_briefing_voice import spoken_briefing
 from spark_workspace import SparkWorkspace, WorkspaceError
 from spark_evolution import Evolution, ACTION_KEYS as EVOLUTION_ACTIONS
 from spark_rea import ReaError
@@ -156,6 +157,21 @@ async def mcp_voice_call(sid, service, tool, arguments, timeout=40):
         return None
     return response
 
+
+async def executive_voice_briefing(sid):
+    """Read source-attributed local snapshots, never synthesize provider data."""
+    if (audio_loop is None
+            or getattr(audio_loop, "owner_sid", None) != sid
+            or not sio.manager.is_connected(sid, "/")
+            or (SETTINGS.get("face_auth_enabled", False)
+                and not (authenticator and authenticator.authenticated))):
+        return "Unlock and authenticate to SPARK to see your Google executive briefing."
+    try:
+        # This is a snapshot read. Missing or outdated sources must be reported,
+        # not presented as today's verified live mailbox.
+        return spoken_briefing(spark_workbench.sync.briefing())
+    except (OSError, ValueError, TypeError):
+        return "The Google briefing could not be read from the local store. Open SPARK Home and refresh."
 
 async def graphify_voice_query(sid, question):
     """Answer a SPARK architecture question from the local Graphify graph."""
@@ -639,6 +655,8 @@ async def start_groq_audio(sid, data=None):
             # MCP-backed intents share one authorization and transport path with
             # the Gemini Live tools, so the Groq loop cannot end up carrying a
             # weaker guard than the Gemini one.
+            if command.get("action") == "executive_briefing":
+                return await executive_voice_briefing(sid)
             intent = MCP_VOICE_INTENTS.get(command.get("action"))
             if intent is not None:
                 handler, field, limit = intent
@@ -832,6 +850,9 @@ async def start_audio(sid, data=None):
     async def on_obsidian_search(query):
         return await obsidian_search(sid, query)
 
+    async def on_executive_briefing():
+        return await executive_voice_briefing(sid)
+
     # Callback to send Transcription data to frontend
     def on_transcription(data):
         # data = {"sender": "User"|"SPARK", "text": "..."}
@@ -904,6 +925,7 @@ async def start_audio(sid, data=None):
             on_graphiti_entity=on_graphiti_entity,
             on_hermes_query=on_hermes_query,
             on_obsidian_search=on_obsidian_search,
+            on_executive_briefing=on_executive_briefing,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,
