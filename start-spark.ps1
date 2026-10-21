@@ -270,6 +270,9 @@ if ($EnableHermes) {
     if ($hermesPython) { Write-Host 'Hermes Agent ready: own environment, read-only journey query, no inference.' -ForegroundColor Cyan }
 }
 $mcpServers = Get-SparkMcpServers -GraphitiPython $graphitiPython -HermesPython $hermesPython
+# Offer the Google briefing to Gemini only for an explicitly configured,
+# read-only native adapter. Never infer a grant from a UI "connected" label.
+$env:SPARK_ENABLE_GOOGLE_BRIEFING = if ($mcpServers -and $mcpServers -match '"google_daily_briefing"') { '1' } else { '0' }
 # These two switches are what Gemini Live reads when it builds its tool
 # declarations, so a sidecar that failed to install is never advertised to the
 # model. Like SPARK_ENABLE_GOOGLE_SEARCH they are set only here, only for this
