@@ -35,6 +35,11 @@ export default function EvolutionPanel({socket, project}) {
         setRepairs([]);
         setResult('Ready. Select an operation.');
         const listener = data => {
+            if (data?.action==='saee_autonomy_stop' && String(data.request_id).startsWith('emergency-stop-')) {
+                setResult(data.ok?'Autonomous evolution stopped. In-flight work cannot activate additional changes.':String(data.message||'Emergency stop failed.'));
+                if(data.ok)setAutonomy(data.result);
+                return;
+            }
             if (data?.request_id !== pending.current) return;
             clearTimeout(deadline.current);
             pending.current = null;
@@ -82,6 +87,13 @@ export default function EvolutionPanel({socket, project}) {
         socket.emit('workspace_action', {workspace_token:socket.workspaceToken,request_id: pending.current, action, project, payload});
     }
 
+    function emergencyStop() {
+        if (!socket.connected) {setResult('Cannot reach SPARK backend to stop autonomy. Stop the backend to halt operations.'); return;}
+        socket.emit('workspace_action',{
+            workspace_token:socket.workspaceToken, request_id:'emergency-stop-'+Date.now(),
+            action:'saee_autonomy_stop',project,payload:{}
+        });
+    }
     const selected = tools.find(tool => tool.name === toolName);
     return <div className="mt-3 grid gap-4 lg:grid-cols-2">
         <section aria-label="Autonomous self-evolution" className="space-y-3 rounded-xl border border-cyan-500/20 p-4 lg:col-span-2">
@@ -95,7 +107,7 @@ export default function EvolutionPanel({socket, project}) {
                         request('saee_autonomy_configure',{enabled:true,allow_model_source:true});
                 }}>Enable autonomous repairs</button>
                 <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_cycle')}>Run inspection now</button>
-                <button type="button" className={button+' border-red-400/60 text-red-200'} disabled={busy} onClick={()=>request('saee_autonomy_stop')}>Emergency stop</button>
+                <button type="button" className={button+' border-red-400/60 text-red-200'} disabled={!socket.connected} onClick={emergencyStop}>Emergency stop</button>
             </div>
             <label className="block text-sm text-slate-200">Autonomous upgrade goal
                 <textarea aria-label="Autonomous upgrade goal" className={input} value={upgradeGoal}
