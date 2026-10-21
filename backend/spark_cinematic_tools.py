@@ -52,6 +52,15 @@ CINEMATIC_FUNCTIONS = [
             },
             "required": ["question"]
         }
+    },
+    {
+        "name": "read_executive_briefing",
+        "description": (
+            "Read the last verified local Gmail, Google Calendar and Drive executive briefing. "
+            "Use for important emails today, messages needing attention, upcoming meetings, "
+            "schedule tomorrow and Drive reviews. Never invent provider records or claim "
+            "that a cached snapshot is a fresh live read."
+        )
     }
 ]
 _ALLOWED = frozenset(x["name"] for x in CINEMATIC_FUNCTIONS)
