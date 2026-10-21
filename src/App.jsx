@@ -1884,7 +1884,8 @@ function App() {
 
             <div id="spark-workspace-panel" style={{WebkitAppRegion:'no-drag'}}>
                 <WorkspacePanel socket={socket} visible={showWorkspace}
-                    project={currentProject} onClose={() => setShowWorkspace(false)} />
+                    project={currentProject} onClose={() => setShowWorkspace(false)}
+                    onSettings={() => {setShowWorkspace(false);setShowSettings(true);}} />
             </div>
             <ReminderToast socket={socket} project={currentProject}
                 enabled={isConnected && isAuthenticated && liveState.state === 'connected'} />
