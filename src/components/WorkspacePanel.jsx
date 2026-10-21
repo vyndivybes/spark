@@ -125,9 +125,9 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             role="region" aria-label="SPARK knowledge and skill workspace">
             <div className="flex items-center justify-between gap-2">
                 <div>
-                    <div className="text-xs tracking-widest text-cyan-400">SPARK HOME</div>
-                    <h2 className="text-xl font-bold">Knowledge &amp; Intelligence</h2>
-                    <p className="text-sm text-slate-300">Project: <strong>{project}</strong> · Documents stay local · Generation uses your configured model</p>
+                    <div className="text-xs tracking-widest text-cyan-400">SPARK / {project}</div>
+                    <h2 className="text-xl font-bold">Your SPARK workspace</h2>
+                    <p className="text-sm text-slate-300">Tasks, knowledge, tools and improvements in one place. Current project: <strong>{project}</strong></p>
                 </div>
                 <button type="button" className={buttonStyle} onClick={onClose}>Voice cockpit</button>
             </div>
@@ -146,11 +146,11 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 </>}
             </nav>
             <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Publish / refresh VAYU snapshot</button>
+            {(tab==='knowledge'||advanced)&&<div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Share selected notes with Vāyú</button>
                 <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('unpublish_vayu_snapshot')}>Remove VAYU snapshot</button>
-                <span className="text-xs text-slate-400">Shares published notes and task states for this project only.</span>
-            </div>
+                <span className="text-xs text-slate-400">Shares published notes and task states for this project only; it is not a live business connection.</span>
+            </div>}
             {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
                 <div><h3 className="text-2xl font-semibold">What would you like SPARK to do?</h3><p className="mt-1 text-slate-300">Ask SPARK, or select a starting point below.</p><button type="button" className={buttonStyle+' mt-3'} onClick={onClose}>Open voice and chat</button></div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
