@@ -8,6 +8,7 @@ autonomously because the catalog can expose mutating operations.
 import ast
 import asyncio
 import json
+import re
 import time
 from pathlib import Path
 
@@ -44,6 +45,7 @@ class AutoEvolution:
             "last_cycle": 0,
             "last_upgrade_day": "",
             "last_status": "not_run",
+            "queued_goal": "",
         }
         if self.file.exists():
             if self.file.is_symlink() or self.root.is_symlink():
@@ -91,6 +93,20 @@ class AutoEvolution:
     def emergency_stop(self):
         return self.configure(enabled=False, allow_model_source=False)
 
+    def queue_goal(self, goal):
+        if not isinstance(goal, str) or not 10 <= len(goal.strip()) <= 600:
+            raise AutoEvolutionError("Describe a single upgrade goal in 10–600 characters.")
+        if self.state["queued_goal"]:
+            raise AutoEvolutionError("An upgrade goal is already queued. Run or cancel it first.")
+        self.state["queued_goal"] = goal.strip()
+        self._persist()
+        return self.status()
+
+    def cancel_goal(self):
+        self.state["queued_goal"] = ""
+        self._persist()
+        return self.status()
+
     def _diagnose_syntax(self):
         root = self.evolution.maintenance.root
         backend = root / "backend"
@@ -117,6 +133,107 @@ class AutoEvolution:
             # A broken ledger cannot suppress emergency rollback.
             pass
 
+    async def _run_goal(self, project, rea, now):
+        goal = self.state["queued_goal"]
+        if not self.state["allow_model_source"]:
+            self.state["last_status"] = "awaiting_model_permission"
+            self._persist()
+            return {"status": "awaiting_model_permission", "queued_goal": goal, "rea": rea}
+        day = time.strftime("%Y-%m-%d", time.gmtime(now))
+        if self.state["last_upgrade_day"] == day:
+            self.state["last_status"] = "daily_limit"
+            self._persist()
+            return {"status": "daily_limit", "queued_goal": goal, "rea": rea}
+        root = self.evolution.maintenance.root
+        targets = []
+        for path in sorted((root / "backend").glob("*.py")):
+            if path.name in PROTECTED or path.is_symlink():
+                continue
+            name = "backend/" + path.name
+            if hasattr(self.evolution.maintenance, "_target"):
+                try:
+                    self.evolution.maintenance._target(name)
+                except Exception:
+                    continue
+            targets.append(name)
+        words = set(re.findall(r"[a-z0-9]+", goal.lower()))
+        def score(name):
+            tokens = set(re.findall(r"[a-z0-9]+", Path(name).stem.lower())) - {"spark"}
+            return len(tokens & words)
+        ranked = sorted(targets, key=lambda name: (-score(name), name))
+        if not ranked or score(ranked[0]) == 0:
+            self.state["last_status"] = "needs_target"
+            self._persist()
+            return {"status": "needs_target", "queued_goal": goal,
+                    "reason": "Name the SPARK module to improve for bounded autonomous changes.", "rea": rea}
+        target = ranked[0]
+        source = root / target
+        if not source.is_file() or scan_secrets(source.read_text(encoding="utf-8-sig"), target):
+            self.state["last_status"] = "manual_review"
+            self._persist()
+            return {"status": "manual_review", "reason": "Source is unavailable or sensitive.", "rea": rea}
+        repair_id = None
+        try:
+            analysis = await self.evolution.execute("analyze_repository", project, {
+                "repository": str(root), "goal": goal, "reference_paths": [target]})
+            opportunities = analysis.get("opportunities", []) if isinstance(analysis, dict) else []
+            # Never allow the model to widen the automatically selected source scope.
+            indexes = [i for i, item in enumerate(opportunities)
+                       if isinstance(item, dict) and item.get("spark_paths") == [target]]
+            if not indexes:
+                self.state["last_status"] = "manual_review"
+                self._persist()
+                self._record(project, "risk_check", "no safely scoped improvement", {"target": target})
+                return {"status": "manual_review", "reason": "No single-file supported upgrade.",
+                        "queued_goal": goal, "rea": rea}
+            candidate = await self.evolution.execute("stage_repository_upgrade", project, {
+                "analysis_id": analysis["id"], "opportunity": indexes[0]})
+            if not isinstance(candidate, dict) or candidate.get("status") != "staged":
+                raise AutoEvolutionError("Repository upgrade was not staged.")
+            changes = candidate.get("changes")
+            if changes is not None and (len(changes) != 1 or
+                                        any(x.get("path") != target for x in changes)):
+                raise AutoEvolutionError("Upgrade modified files outside the selected scope.")
+            tested = await self.evolution.execute("test_repair_candidate", project, {
+                "id": candidate["id"], "approved": True})
+            if not isinstance(tested, dict) or tested.get("status") != "tested":
+                raise AutoEvolutionError("Repository candidate did not pass staged tests.")
+            applied = await self.evolution.execute("activate_repair_candidate", project, {
+                "id": candidate["id"], "approved": True})
+            if not isinstance(applied, dict) or applied.get("status") != "applied":
+                raise AutoEvolutionError("Repository candidate did not activate.")
+            repair_id = applied["id"]
+            self.state["last_upgrade_day"] = day
+            self._persist()
+            result = await asyncio.to_thread(self.evolution.maintenance.detect)
+            if not result.get("healthy"):
+                await self.evolution.execute("rollback_repair", project, {"id": repair_id})
+                self.emergency_stop()
+                self.state["last_status"] = "rolled_back"
+                self._persist()
+                self._record(project, "monitor", "automatic upgrade rolled back",
+                             {"repair_id": repair_id})
+                return {"status": "rolled_back", "repair_id": repair_id, "rea": rea}
+            self.state["queued_goal"] = ""
+            self.state["last_status"] = "applied"
+            self._persist()
+            self._record(project, "verify", "queued upgrade applied and verified",
+                         {"target": target, "repair_id": repair_id})
+            return {"status": "applied", "target": target, "repair_id": repair_id,
+                    "restart_required": True, "rea": rea}
+        except Exception as error:
+            if repair_id:
+                try:
+                    await self.evolution.execute("rollback_repair", project, {"id": repair_id})
+                finally:
+                    self.emergency_stop()
+            self.state["last_status"] = "failed"
+            self._persist()
+            self._record(project, "test", "queued upgrade failed", {
+                "target": target, "exception_type": type(error).__name__})
+            return {"status": "failed", "reason": type(error).__name__,
+                    "queued_goal": goal, "rea": rea}
+
     async def run_once(self, project="general"):
         self.evolution.workspace.skills._file(project)
         if not self.state["enabled"]:
@@ -142,6 +259,8 @@ class AutoEvolution:
             except Exception:
                 rea["status"] = "unavailable"
             findings = self._diagnose_syntax()
+            if not findings and self.state["queued_goal"]:
+                return await self._run_goal(project, rea, now)
             if not findings:
                 self.state["last_status"] = "healthy"
                 self._persist()
