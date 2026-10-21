@@ -15,9 +15,10 @@ function cleanProject(name) {
 
 // Genuine ARKUS-powered, offline project knowledge and declarative skill controls.
 // Operations go only through the currently authorized local SPARK Socket.IO owner.
-export default function WorkspacePanel({socket,visible,project:rawProject,onClose}) {
+export default function WorkspacePanel({socket,visible,project:rawProject,onClose,onSettings}) {
     const project=useMemo(() => cleanProject(rawProject),[rawProject]);
     const [tab,setTab]=useState('home');
+    const [advanced,setAdvanced]=useState(false);
     const [intelligencePage,setIntelligencePage]=useState('Agents');
     const openIntelligence=page=>{setIntelligencePage(page);setTab('intelligence');};
     const [query,setQuery]=useState('');
@@ -124,42 +125,41 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             role="region" aria-label="SPARK knowledge and skill workspace">
             <div className="flex items-center justify-between gap-2">
                 <div>
-                    <div className="text-xs tracking-widest text-cyan-400">SPARK HOME</div>
-                    <h2 className="text-xl font-bold">Knowledge &amp; Intelligence</h2>
-                    <p className="text-sm text-slate-300">Project: <strong>{project}</strong> · Documents stay local · Generation uses your configured model</p>
+                    <div className="text-xs tracking-widest text-cyan-400">SPARK / {project}</div>
+                    <h2 className="text-xl font-bold">Your SPARK workspace</h2>
+                    <p className="text-sm text-slate-300">Tasks, knowledge, tools and improvements in one place. Current project: <strong>{project}</strong></p>
                 </div>
                 <button type="button" className={buttonStyle} onClick={onClose}>Voice cockpit</button>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2" role="tablist">
-                <button type="button" role="tab" aria-selected={tab==='home'} className={buttonStyle} onClick={()=>setTab('home')}>Home</button>
-                <button type="button" role="tab" aria-selected={tab==='screens'} className={buttonStyle} onClick={()=>setTab('screens')}>Command Center</button>
-                <button type="button" role="tab" aria-selected={tab==='knowledge'} className={buttonStyle} onClick={()=>setTab('knowledge')}>Document knowledge</button>
-                <button type="button" role="tab" aria-selected={tab==='skills'} className={buttonStyle} onClick={()=>setTab('skills')}>Skill Forge</button>
-                <button type="button" role="tab" aria-selected={tab==='evolution'} className={buttonStyle} onClick={()=>setTab('evolution')}>Recovery &amp; REA</button>
-                <button type="button" role="tab" aria-selected={tab==='workbench'} className={buttonStyle} onClick={()=>setTab('workbench')}>Workbench</button>
-                <button type="button" role="tab" aria-selected={tab==='intelligence'} className={buttonStyle} onClick={()=>setTab('intelligence')}>Intelligence</button>
-            </div>
+            <nav className="mt-4 flex flex-wrap items-center gap-2" aria-label="SPARK workspace navigation">
+                {[["home","Home"],["workbench","Workspace"],["knowledge","Knowledge"],
+                  ["skills","Tools"],["evolution","Improve SPARK"]].map(([id,label])=>
+                  <button key={id} type="button" aria-current={tab===id?"page":undefined}
+                    className={buttonStyle+(tab===id?" ring-2 ring-cyan-400":"")} onClick={()=>setTab(id)}>{label}</button>)}
+                <button type="button" className={buttonStyle} onClick={onClose}>Ask SPARK</button>
+                <button type="button" className={buttonStyle} onClick={()=>onSettings ? onSettings() : openIntelligence("Models")}>Settings</button>
+                <button type="button" className="ml-auto rounded-lg border border-white/20 px-3 py-2 text-sm text-slate-200"
+                    aria-expanded={advanced} onClick={()=>setAdvanced(value=>!value)}>{advanced?"Hide advanced":"Advanced"}</button>
+                {advanced&&<>
+                    <button type="button" className={buttonStyle} onClick={()=>setTab("screens")}>Developer screens</button>
+                    <button type="button" className={buttonStyle} onClick={()=>openIntelligence("Agents")}>Agent controls</button>
+                </>}
+            </nav>
             <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Publish / refresh VAYU snapshot</button>
+            {(tab==='knowledge'||advanced)&&<div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Share selected notes with Vāyú</button>
                 <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('unpublish_vayu_snapshot')}>Remove VAYU snapshot</button>
-                <span className="text-xs text-slate-400">Shares published notes and task states for this project only.</span>
-            </div>
+                <span className="text-xs text-slate-400">Shares published notes and task states for this project only; it is not a live business connection.</span>
+            </div>}
             {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
-                <div><h3 className="text-2xl font-semibold">Your project starts here</h3><p className="mt-1 text-slate-300">Bring in knowledge, run reviewed agents, and inspect Spark's health.</p></div>
+                <div><h3 className="text-2xl font-semibold">What would you like SPARK to do?</h3><p className="mt-1 text-slate-300">Ask SPARK, or select a starting point below.</p><button type="button" className={buttonStyle+' mt-3'} onClick={onClose}>Open voice and chat</button></div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
-                        ['Command Center','The ten SPARK operating screens, one per capability.',()=>setTab('screens')],
-                        ['Document knowledge','Import and search project documents.',()=>setTab('knowledge')],
-                        ['Agents','Create, approve, and run a plan. Inspect saved results.',()=>openIntelligence('Agents')],
-                        ['Memory','Save and retrieve project context.',()=>openIntelligence('Memory')],
-                        ['Skill Forge','Create, test, and activate calculation skills.',()=>setTab('skills')],
-                        ['Recovery & REA','Review repairs, rollback, and REA tool calls.',()=>setTab('evolution')],
-                        ['Upgrades','Inspect versions and stage reviewed changes.',()=>openIntelligence('Upgrades')],
-                        ['System health','Inspect diagnostics and resource readings.',()=>openIntelligence('System health')],
-                        ['Models','Inspect and probe configured task models.',()=>openIntelligence('Models')],
-                        ['Integrations','Inspect MCP connections and connection audit.',()=>openIntelligence('Integrations')],
-                        ['Schedules','Review scheduled workloads and execution history.',()=>openIntelligence('Autonomy')],
+                        ['Tasks and schedules','Create, review and schedule actions.',()=>openIntelligence('Agents')],
+                        ['Your documents','Import and search project documents.',()=>setTab('knowledge')],
+                        ['Your tools','Use and manage SPARK skills.',()=>setTab('skills')],
+                        ['Improve SPARK','Review repairs and learn from repositories.',()=>setTab('evolution')],
+                        ['Connections','Check the status of configured services.',()=>openIntelligence('Integrations')],
                     ].map(([label,description,open])=><button key={label} type="button" onClick={open} className={`${panelStyle} text-left hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300`}><span className="block font-semibold text-cyan-100">{label}</span><span className="mt-1 block text-sm text-slate-300">{description}</span></button>)}
                 </div>
                 <p className="text-sm text-slate-400">Choose a plan to review before execution. Models and external connections use your existing configuration.</p>
@@ -212,7 +212,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         </div>
                     </div>
                 </div>
-            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project} initialPage={intelligencePage}/></React.Suspense> : (
+            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole key={intelligencePage} socket={socket} project={project} initialPage={intelligencePage}/></React.Suspense> : (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Skill specification (declarative JSON only)</h3>
