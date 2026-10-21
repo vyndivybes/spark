@@ -7,13 +7,17 @@ from pathlib import Path
 import sqlite3
 import time
 from contextlib import contextmanager
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from spark_productivity import WorkbenchError
 
 # Closed host policy: new MCP tools are never automatically scheduled.
 READS = {
-    'gmail':['google_list_items'], 'google-drive':['google_list_items'],
-    'google-calendar':['google_list_items'], 'slack':['slack_list_channels'],
+    'gmail':['google_daily_briefing','google_list_items'],
+    'google-drive':['google_daily_briefing','google_list_items'],
+    'google-calendar':['google_daily_briefing','google_list_items'],
+    'slack':['slack_list_channels'],
     'github':['github_repository_status','github_list_pull_requests','github_list_issues'],
     'hermes':['hermes_learned_skills','hermes_memory_cards'],
     'graphiti':['graph_status'],
@@ -78,6 +82,9 @@ class IntegrationSync:
             if not item.get('configured'): continue
             service=item['name']; approved=item.get('read_tools',[])
             tools=[tool for tool in READS.get(service,[]) if tool in approved]
+            # Prefer a meaningful structured read over the legacy IDs-only list.
+            if service in ('gmail','google-calendar','google-drive') and 'google_daily_briefing' in tools:
+                tools=['google_daily_briefing']
             for tool in tools:
                 result.append((service,tool,'status' if service=='graphiti' else 'data'))
             if not tools: result.append((service,'__catalog__','status'))
@@ -119,6 +126,62 @@ class IntegrationSync:
                 if index>=0: hits.append({'id':row['id'],'service':row['service'],'last_success':row['last_success'],
                     'state':row['state'],'snippet':text[max(0,index-100):index+500],'untrusted_source':True})
         return {'results':hits[:20],'mode':'local integration cache'}
+
+    def briefing(self):
+        """Read the latest LOCAL snapshots; never silently claim this is a live read."""
+        status = self.status()
+        now = self.clock()
+        today = datetime.fromtimestamp(now, ZoneInfo('Asia/Kolkata')).date().isoformat()
+        sources = {}
+        results = {'gmail': [], 'google-calendar': [], 'google-drive': []}
+        fields = {'gmail': 'messages', 'google-calendar': 'events',
+                  'google-drive': 'files'}
+        for service in fields:
+            rows = [item for item in status['sources'] if item['service'] == service]
+            item = next((row for row in rows
+                         if row['tool'] == 'google_daily_briefing'), None)
+            if not item:
+                sources[service] = {
+                    'state': 'not_configured' if not rows else 'upgrade_required',
+                    'message': ('Register the read-only google_daily_briefing MCP tool '
+                                'for this Google service. Connection alone is insufficient.')}
+                continue
+            source = {
+                'state': item['state'], 'last_success': item['last_success'],
+                'stale': item['stale'], 'error': item.get('error'),
+                'mode': 'cached, read-only', 'message': None}
+            if not item['last_success']:
+                source['message'] = 'No verified read yet. Select Refresh now.'
+                sources[service] = source
+                continue
+            try:
+                cached = self.cached(item['id'])['data']
+                data = cached.get('data') if isinstance(cached, dict) else None
+                if not isinstance(data, dict) or data.get('source') != service:
+                    raise ValueError('Unsupported cached source.')
+                value = data.get(fields[service], [])
+                if not isinstance(value, list):
+                    raise ValueError('Invalid cached items.')
+                results[service] = value
+                source['possibly_truncated'] = bool(data.get('possibly_truncated'))
+                source['note'] = data.get('note')
+                source['account'] = cached.get('account')
+                if service == 'gmail' and data.get('date') != today:
+                    source['state'] = 'outdated'
+                    source['message'] = 'Cached email window is from a different day. Refresh now.'
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                source['state'] = 'invalid'
+                source['message'] = 'Cached response cannot be interpreted.'
+            sources[service] = source
+        return {'timezone': 'Asia/Kolkata', 'date': today,
+                'generated_at': now, 'mode': 'cached Google reads, not live',
+                'sources': sources,
+                'emails': results['gmail'], 'events': results['google-calendar'],
+                'documents': results['google-drive'],
+                'attention_count': sum(mail.get('priority') in ('urgent', 'action')
+                                       for mail in results['gmail']
+                                       if isinstance(mail, dict)),
+                'read_only': True}
 
     async def pull(self,service,tool):
         if service=='obsidian': return await asyncio.to_thread(self.local)
@@ -190,10 +253,11 @@ class IntegrationSync:
 
     async def execute(self,action,data):
         keys={'sync_status':set(),'sync_configure':{'enabled','interval_seconds'},'sync_now':set(),
-              'sync_cached':{'id'},'sync_search':{'query'}}
+              'sync_cached':{'id'},'sync_search':{'query'},'sync_briefing':set()}
         if action not in keys or not isinstance(data,dict) or set(data)!=keys[action]: raise WorkbenchError('Invalid synchronization request.')
         if action=='sync_configure': return self.configure(**data)
         if action=='sync_cached': return self.cached(data['id'])
+        if action=='sync_briefing': return self.briefing()
         if action=='sync_search': return self.search(data['query'])
         if action=='sync_now':
             # Refresh successful sources now; failed sources keep their backoff.
