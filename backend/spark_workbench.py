@@ -21,6 +21,9 @@ from spark_opencode_agent import OpenCodeAgent, OpenCodeError
 from spark_deep_research import ResearchEngine, ResearchError, ResearchSource
 from spark_proactive_agent import ProactiveAgent, ProactiveError, Proposal
 from spark_monitor_agents import MonitorAgents, MonitorError
+from spark_trace_learning import (TraceStore, AdaptiveRouter, LearningEngine,
+                                  LearningError, policy_always_local,
+                                  policy_latency_smallest)
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -80,6 +83,15 @@ ACTION_KEYS = {
     "monitor_cancel": {"name"},
     "monitor_deliver": {"name"},
     "monitor_acknowledge": {"key"},
+    "trace_capture": {"task_class", "model", "payload", "latency_ms", "success"},
+    "trace_label": {"key", "success"},
+    "trace_labeled": {"task_class", "limit"},
+    "trace_status": set(),
+    "router_select": {"task_class", "apply_policy"},
+    "learning_propose": {"name", "policy", "task_class"},
+    "learning_activate": {"key", "approved_by"},
+    "learning_rollback": {"key"},
+    "learning_status": set(),
 }
 
 
@@ -114,6 +126,16 @@ class Workbench:
         self.monitors.register("snapshot-freshness", "workspace",
                                self._snapshot_freshness_check, interval=600)
         self._notifications = workspace.skills.root / "monitor-notifications.jsonl"
+        # Capabilities 07 & 12: evidence-first trace learning and local-first
+        # routing. Only registered policies can ever be proposed or activated,
+        # and activation is owner-approved with rollback to the baseline.
+        self.learning_store = TraceStore(workspace.skills.root.parent)
+        self.router = AdaptiveRouter(self.learning_store)
+        self.learning = LearningEngine(self.learning_store)
+        self.learning_policies = {
+            "always-local": policy_always_local,
+            "latency-smallest": policy_latency_smallest,
+        }
 
     def _snapshot_freshness_check(self):
         """Persistent monitor: report stale read-only integration snapshots."""
@@ -328,8 +350,87 @@ class Workbench:
         except DigestError as error:
             raise WorkbenchError(str(error)) from None
 
+    @staticmethod
+    def _measured_flag(value):
+        """Convert the workbench string flag into a measured boolean or None."""
+        if value in (None, ""):
+            return None
+        lower = str(value).strip().lower()
+        if lower == "true":
+            return True
+        if lower == "false":
+            return False
+        raise LearningError("Measured outcomes are booleans or unmeasured.")
+
+    def _candidate_policy(self, key):
+        """Resolve an activated candidate back to its registered policy."""
+        row = next((c for c in self.learning.candidates() if c["key"] == key), None)
+        if not row:
+            raise LearningError("Candidate not found.")
+        policy = self.learning_policies.get(row["definition"])
+        if policy is None:
+            raise LearningError("Candidate policy is not registered on this "
+                                "host: " + str(row["definition"]))
+        return policy
+
+    def _learning_action(self, action, data):
+        """Capabilities 07 & 12 dispatch; LearningError stays workbench-shaped."""
+        try:
+            if action == "trace_capture":
+                return self.learning_store.capture(
+                    data["task_class"], data["model"], data["payload"],
+                    float(data["latency_ms"]),
+                    success=self._measured_flag(data["success"]))
+            if action == "trace_label":
+                success = self._measured_flag(data["success"])
+                if success is None:
+                    raise LearningError("Label with a measured boolean outcome only.")
+                return self.learning_store.label(data["key"], success=success)
+            if action == "trace_labeled":
+                return self.learning_store.labeled(
+                    task_class=data["task_class"] or None,
+                    limit=int(data["limit"] or 200))
+            if action == "trace_status":
+                return {"summary": self.learning_store.model_summary()}
+            if action == "router_select":
+                return self.router.select(data["task_class"],
+                                          apply_policy=bool(data["apply_policy"]))
+            if action == "learning_propose":
+                name = str(data["policy"] or "")
+                policy = self.learning_policies.get(name)
+                if policy is None:
+                    raise LearningError("Only a policy registered on this host "
+                                        "can be proposed: " + name)
+                return self.learning.propose(data["name"], policy,
+                                             data["task_class"])
+            if action == "learning_activate":
+                policy = self._candidate_policy(data["key"])
+                result = self.learning.activate(data["key"],
+                                                approved_by=data["approved_by"])
+                self.router.set_policy(policy)
+                return result
+            if action == "learning_rollback":
+                result = self.learning.rollback(data["key"])
+                self.router.set_policy(policy_always_local)
+                return result
+            # learning_status
+            registered = {row["definition"] for row in self.learning.candidates()
+                          if row["definition"] in self.learning_policies}
+            return {"candidates": self.learning.candidates(),
+                    "measured_summary": self.learning_store.model_summary(),
+                    "active_policy": getattr(self.router.current_policy,
+                                             "__name__", "policy"),
+                    "registered_policies": sorted(registered)}
+        except (LearningError, ValueError, TypeError) as error:
+            # LearningError is a ValueError subclass; both stay workbench-shaped.
+            raise WorkbenchError(str(error)) from None
+
     def _execute(self, action, project, data):
         p, o = self.productivity, self.office
+        if action in ("trace_capture", "trace_label", "trace_labeled",
+                      "trace_status", "router_select", "learning_propose",
+                      "learning_activate", "learning_rollback", "learning_status"):
+            return self._learning_action(action, data)
         if action == "digest_status": return self.digest.status()
         if action == "proactive_inbox": return self.proactive.inbox(
             state=data["state"] or None, limit=data["limit"] or 50)
