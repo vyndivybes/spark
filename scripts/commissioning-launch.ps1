@@ -56,6 +56,14 @@ if ($env:SPARK_WORKSPACE_TOKEN -notmatch '^[a-f0-9]{64}$') { throw 'Invalid isol
 $env:SPARK_BACKEND_PORT = '8010'
 $env:SPARK_WORKSPACE_DATA_ROOT = Join-Path $isolation 'data'
 $env:SPARK_NOTES_DIR = Join-Path $isolation 'notes'
+$env:SPARK_SETTINGS_FILE = Join-Path $isolation 'settings.json'
+if (-not (Test-Path -LiteralPath $env:SPARK_SETTINGS_FILE)) {
+    $settings = Get-Content -LiteralPath (Join-Path $repo 'backend\settings.json') -Raw | ConvertFrom-Json
+    $settings.pc_autonomy_enabled = $false
+    $settings.printers = @()
+    $settings.kasa_devices = @()
+    $settings | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $env:SPARK_SETTINGS_FILE
+}
 $env:SPARK_MCP_SERVERS = '{}'
 $env:SPARK_PYTHON = $PythonPath
 $env:PYTHONDONTWRITEBYTECODE = '1'

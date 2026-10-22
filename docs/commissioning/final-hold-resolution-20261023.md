@@ -2,6 +2,18 @@
 
 Production readiness remains **HOLD**. Local commissioning is complete to the available configuration and authorization boundaries. Live voice, Google, and several owner sessions remain unaccepted. No provider or hardware success is inferred from UI wiring or fixture tests.
 
+## Subsequent owner-authorized acceptance
+
+The owner then authorized using the existing host credentials, confirmed Gemini billing is disabled, and consented to a brief real microphone/speaker test. The following results supersede the earlier voice/Google/digest HOLD rows below:
+
+- Gemini Live connected using `gemini-3.8-live`, voice profile and browser AEC. Real microphone speech and a response were observed; the owner explicitly confirmed hearing SPARK clearly. The microphone was muted and the session ended afterward. No transcript is included in evidence.
+- The RC's Google adapters reused the existing authorized host account, with `--allow-writes` removed and empty `write_tools`. Gmail, Calendar and Drive profile/briefing reads passed. Gmail and Calendar returned empty current windows; Drive returned 25 files. All three runtime snapshots reached `current`, `stale=false`, with recorded successful reads.
+- Morning Digest then returned `status=completed`, with all three Google sources current, 25 documents and one triage candidate. No message was sent and no business record was changed.
+- A genuine pre-refresh defect was found: registered sources still in `waiting` could produce a completed digest. A regression test first failed for both `waiting` and `unknown`; the classifier now treats both as unavailable. The 24 composition tests, 31 digest tests including wiring, three offline-owner access tests and ten PC boundary tests passed.
+- An inherited RC PC-autonomy setting permitted one read-only home-directory listing during the voice session. The audit recorded no writes. The session was stopped. Commissioning now uses `SPARK_SETTINGS_FILE` under the isolated data root, with PC autonomy and configured device discovery disabled. The tracked settings file was restored; active-install settings are not copied over during integration.
+
+The owner subsequently requested a local merge into the active SPARK checkout. That authorizes local source integration and an owned restart; it does not authorize merging GitHub PR #51, deploying, changing billing, or writing live business data. OpenCode model-backed and optional-provider acceptance remains unverified.
+
 Source baseline is `1a36a7b`, offline texture fix `62ebccc`, and startup/recovery fix `687e676`. This report and evidence accompany those changes on `release/openjarvis-reconcile`, draft PR #51. The earlier [capture](5p-final-commissioning-62ebccc.md) remains historical evidence.
 
 ## Plan and prepare

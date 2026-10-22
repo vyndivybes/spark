@@ -406,7 +406,7 @@ groq_pending_approvals = {}
 authenticator = None
 kasa_agent = KasaAgent()
 AUDIO_TRANSPORT = select_transport(os.environ.get("SPARK_AUDIO_TRANSPORT"))
-SETTINGS_FILE = "settings.json"
+SETTINGS_FILE = os.environ.get("SPARK_SETTINGS_FILE", "settings.json")
 
 DEFAULT_SETTINGS = {
     "pc_autonomy_enabled": False,

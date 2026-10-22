@@ -26,7 +26,8 @@ MAX_NEWS_BYTES = 100_000
 NEWS_TIMEOUT = 10
 MAX_SPEECH = 2400
 FINAL_STATES = ("completed", "failed")
-UNAVAILABLE_STATES = ("not_configured", "failed", "forbidden", "invalid", "upgrade_required")
+UNAVAILABLE_STATES = ("not_configured", "failed", "forbidden", "invalid", "upgrade_required",
+                      "waiting", "unknown")
 
 
 class DigestError(ValueError):

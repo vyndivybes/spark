@@ -1,0 +1,75 @@
+{
+  "mode": "real host-authenticated Google reads through RC adapter; write flag removed",
+  "services": {
+    "gmail": {
+      "discovered_tools": [
+        "google_account_status",
+        "google_daily_briefing",
+        "google_list_items",
+        "google_pending_email"
+      ],
+      "profile_ok": true,
+      "profile_state": null,
+      "read_only": true,
+      "briefing_ok": true,
+      "briefing_state": null,
+      "data_keys": [
+        "source",
+        "date",
+        "timezone",
+        "account",
+        "messages",
+        "returned",
+        "estimated_total",
+        "possibly_truncated",
+        "note"
+      ],
+      "item_counts": {
+        "messages": 0
+      }
+    },
+    "google-calendar": {
+      "discovered_tools": [
+        "google_account_status",
+        "google_daily_briefing",
+        "google_list_items"
+      ],
+      "profile_ok": true,
+      "profile_state": null,
+      "read_only": true,
+      "briefing_ok": true,
+      "briefing_state": null,
+      "data_keys": [
+        "source",
+        "timezone",
+        "events",
+        "possibly_truncated",
+        "note"
+      ],
+      "item_counts": {
+        "events": 0
+      }
+    },
+    "google-drive": {
+      "discovered_tools": [
+        "google_account_status",
+        "google_daily_briefing",
+        "google_list_items"
+      ],
+      "profile_ok": true,
+      "profile_state": null,
+      "read_only": true,
+      "briefing_ok": true,
+      "briefing_state": null,
+      "data_keys": [
+        "source",
+        "files",
+        "possibly_truncated",
+        "note"
+      ],
+      "item_counts": {
+        "files": 25
+      }
+    }
+  }
+}

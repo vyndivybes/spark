@@ -105,6 +105,18 @@ class DigestCompositionTests(unittest.TestCase):
         self.assertIn("not_configured", json.dumps(result["sources"]))
         self.assertEqual(engine.status()["latest_run"]["status"], "failed")
 
+    def test_registered_sources_without_a_first_read_do_not_complete(self):
+        for state in ("waiting", "unknown"):
+            with self.subTest(state=state):
+                payload = {"sources": {service: {"state": state, "stale": True,
+                                                "last_success": None}
+                                       for service in ("gmail", "google-calendar", "google-drive")},
+                           "emails": [], "events": [], "documents": []}
+                engine = DigestEngine(self.temp, FakeSync(payload), clock=lambda: self.now)
+                self.assertEqual(engine.run()["status"], "failed")
+                with self.assertRaises(DigestError):
+                    engine.acknowledge()
+
     def test_invalid_briefing_fails_fast_with_recorded_error(self):
         class BrokenSync:
             def briefing(self):
