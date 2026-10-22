@@ -3,7 +3,13 @@ const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
-const workspaceToken=require('node:crypto').randomBytes(32).toString('hex');
+// Honor a deterministic launcher-provided token (parallel installs and
+// vesting harnesses); otherwise generate a fresh per-launch token.
+const workspaceToken=(process.env.SPARK_WORKSPACE_TOKEN
+      && process.env.SPARK_WORKSPACE_TOKEN.length===64
+      && /^[0-9a-f]+$/.test(process.env.SPARK_WORKSPACE_TOKEN))
+    ? process.env.SPARK_WORKSPACE_TOKEN
+    : require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
 const {createJarvisBridge}=require('./jarvis-bridge.cjs');
 const {createBusinessPortals}=require('./business-portals.cjs');
