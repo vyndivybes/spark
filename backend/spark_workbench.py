@@ -1,8 +1,11 @@
 """Owner-gated workspace features independently implemented for SPARK."""
 import asyncio
 import os
+from pathlib import Path
 
 from spark_productivity import Productivity, WorkbenchError, transform_text, text
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 from spark_office import Office
 from spark_robotics import simulate, route
 from spark_integrations import Integrations
@@ -12,6 +15,7 @@ from spark_vayu_data import VayuExports
 from spark_sync import IntegrationSync
 from spark_morning_digest import DigestEngine, DigestError, NewsSource
 from spark_messaging_hub import MessagingHub, HubError
+from spark_opencode_agent import OpenCodeAgent, OpenCodeError
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -55,6 +59,10 @@ ACTION_KEYS = {
     "hub_send": {"channel", "approval_id"},
     "hub_receive": {"channel"},
     "hub_history": {"limit"},
+    "opencode_status": set(),
+    "opencode_run": {"prompt", "cwd", "timeout"},
+    "opencode_diff": {"session"},
+    "opencode_test": {"command", "cwd"},
 }
 
 
@@ -69,6 +77,9 @@ class Workbench:
         self.vayu = VayuExports(workspace,self.productivity,None)
         self.digest = DigestEngine(workspace.skills.root.parent, self.sync)
         self.messaging = MessagingHub(workspace.skills.root.parent)
+        # The scoped OpenCode root is SPARK's own repository: sessions may
+        # only work inside it, and every other path is refused.
+        self.opencode = OpenCodeAgent(REPOSITORY_ROOT)
 
     async def _hub(self, action, payload):
         """Network-capable hub calls run off the event loop; errors stay mine."""
@@ -129,6 +140,30 @@ class Workbench:
         if action in ("hub_configure", "hub_disconnect", "hub_approve", "hub_send",
                       "hub_receive", "hub_history"):
             return await self._hub(action, payload)
+        if action == "opencode_run":
+            if not payload["cwd"] or payload["cwd"] == "REPO_ROOT":
+                cwd = None
+            else:
+                cwd = payload["cwd"]
+            try:
+                return await asyncio.to_thread(
+                    self.opencode.run, payload["prompt"], cwd=cwd,
+                    timeout=int(payload["timeout"]))
+            except OpenCodeError as error:
+                raise WorkbenchError(str(error)) from None
+        if action == "opencode_diff":
+            try:
+                return await asyncio.to_thread(
+                    self.opencode.diff, payload["session"] or None)
+            except OpenCodeError as error:
+                raise WorkbenchError(str(error)) from None
+        if action == "opencode_test":
+            target = payload["cwd"] or None
+            try:
+                return await asyncio.to_thread(self.opencode.run_tests,
+                                               payload["command"], cwd=target)
+            except OpenCodeError as error:
+                raise WorkbenchError(str(error)) from None
         if action in ("digest_run", "digest_speak"):
             # One digest per day; speech is a local-only, explicitly
             # requested Windows System.Speech call.
@@ -183,6 +218,7 @@ class Workbench:
     def _execute(self, action, project, data):
         p, o = self.productivity, self.office
         if action == "digest_status": return self.digest.status()
+        if action == "opencode_status": return self.opencode.status()
         if action == "hub_status": return self.messaging.status()
         if action == "digest_history": return self._digest_history(data["limit"])
         if action == "digest_ack": return self._digest_ack(data["digest"])
