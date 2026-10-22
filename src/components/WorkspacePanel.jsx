@@ -2,6 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import EvolutionPanel from './EvolutionPanel';
 import WorkbenchPanel from './WorkbenchPanel';
 import IntegrationSyncPanel from './IntegrationSyncPanel';
+import ExecutiveBriefingPanel from './ExecutiveBriefingPanel';
 const IntelligenceConsole=React.lazy(()=>import('./IntelligenceConsole'));
 const SparkScreens=React.lazy(()=>import('./SparkScreens'));
 
@@ -151,6 +152,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             </div>
             }
             {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose} initialPage={initialScreen} compactNavigation={embedded}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
+                <ExecutiveBriefingPanel socket={socket}/>
                 <div><h3 className="text-2xl font-semibold">Your project starts here</h3><p className="mt-1 text-slate-300">Bring in knowledge, run reviewed agents, and inspect Spark's health.</p></div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
