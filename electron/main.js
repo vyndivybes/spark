@@ -74,10 +74,11 @@ function createWindow() {
     const isDev = process.env.NODE_ENV !== 'production';
 
     const loadFrontend = (retries = 3) => {
+        const backendPort = process.env.SPARK_BACKEND_PORT || '8000';
         const url = isDev ? 'http://localhost:5173' : null;
         const loadPromise = isDev
             ? mainWindow.loadURL(url)
-            : mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+            : mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), {query: {sparkBackendPort: backendPort}});
 
         loadPromise
             .then(() => {
@@ -253,9 +254,10 @@ app.whenReady().then(async () => {
         if (mainWindow) mainWindow.close();
     });
 
-    checkBackendPort(8000).then((isTaken) => {
+    const backendPortNumber = Number(process.env.SPARK_BACKEND_PORT) || 8000;
+    checkBackendPort(backendPortNumber).then((isTaken) => {
         if (isTaken) {
-            console.log('Port 8000 is taken. Assuming backend is already running manually.');
+            console.log('Port '+backendPortNumber+' is taken. Assuming backend is already running manually.');
             waitForBackend().then(createWindow);
         } else {
             startPythonBackend();
@@ -306,7 +308,8 @@ function waitForBackend() {
         };
         const check=()=>{
             if(completed)return;
-            const request=require('http').get('http://127.0.0.1:8000/status',res=>{
+            const backendPort=process.env.SPARK_BACKEND_PORT||'8000';
+            const request=require('http').get(`http://127.0.0.1:${backendPort}/status`,res=>{
                 res.resume();
                 if(res.statusCode===200)ready(true);
                 else retry();
