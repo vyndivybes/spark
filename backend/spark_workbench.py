@@ -1,6 +1,8 @@
 """Owner-gated workspace features independently implemented for SPARK."""
 import asyncio
+import json
 import os
+import time
 from pathlib import Path
 
 from spark_productivity import Productivity, WorkbenchError, transform_text, text
@@ -17,6 +19,8 @@ from spark_morning_digest import DigestEngine, DigestError, NewsSource
 from spark_messaging_hub import MessagingHub, HubError
 from spark_opencode_agent import OpenCodeAgent, OpenCodeError
 from spark_deep_research import ResearchEngine, ResearchError, ResearchSource
+from spark_proactive_agent import ProactiveAgent, ProactiveError, Proposal
+from spark_monitor_agents import MonitorAgents, MonitorError
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -65,6 +69,17 @@ ACTION_KEYS = {
     "opencode_diff": {"session"},
     "opencode_test": {"command", "cwd"},
     "research_run": {"question", "max_hops"},
+    "proactive_propose": {"source", "kind", "tier", "detail"},
+    "proactive_decide": {"dedupe_key", "approved", "remember"},
+    "proactive_execute": {"dedupe_key"},
+    "proactive_undo": {"dedupe_key"},
+    "proactive_inbox": {"state", "limit"},
+    "proactive_summary": set(),
+    "monitor_status": set(),
+    "monitor_run": {"name", "force"},
+    "monitor_cancel": {"name"},
+    "monitor_deliver": {"name"},
+    "monitor_acknowledge": {"key"},
 }
 
 
@@ -86,6 +101,58 @@ class Workbench:
             ResearchSource("local-snapshots", self._snapshot_docs),
             ResearchSource("obsidian-vault", self._obsidian_docs),
         ])
+        self.proactive = ProactiveAgent(workspace.skills.root.parent)
+        self.proactive.register_executor(
+            "search.obsidian", "obsidian-vault",
+            run=lambda detail: {"matches": obsidian.search(detail, limit=5)},
+            undo=lambda payload: None)  # read-only effect: nothing to reverse
+        self.proactive.register_executor(
+            "search.snapshots", "workbench",
+            run=lambda detail: self.sync.search(detail).get("results", [])[:5],
+            undo=lambda payload: None)
+        self.monitors = MonitorAgents(workspace.skills.root.parent)
+        self.monitors.register("snapshot-freshness", "workspace",
+                               self._snapshot_freshness_check, interval=600)
+        self._notifications = workspace.skills.root / "monitor-notifications.jsonl"
+
+    def _snapshot_freshness_check(self):
+        """Persistent monitor: report stale read-only integration snapshots."""
+        events = []
+        try:
+            sync = self.sync.status()
+        except (ValueError, OSError):
+            return events
+        for source in sync.get("sources", []):
+            if source.get("stale"):
+                events.append({"kind": "snapshot.stale", "id": source["id"],
+                               "state": source.get("state"),
+                               "last_success": source.get("last_success")})
+        return events
+
+    def _dispatch_offloop(self, action, payload):
+        if action == "proactive_propose":
+            proposal = Proposal(payload["source"], payload["kind"],
+                                payload["tier"], payload["detail"])
+            return self.proactive.propose(proposal)
+        if action == "proactive_decide":
+            return self.proactive.decide(payload["dedupe_key"],
+                                         approved=bool(payload["approved"]),
+                                         remember=bool(payload["remember"]))
+        if action == "proactive_execute":
+            return self.proactive.execute(payload["dedupe_key"])
+        if action == "proactive_undo":
+            return self.proactive.undo(payload["dedupe_key"])
+        if action == "monitor_run":
+            return self.monitors.run_once(payload["name"], force=bool(payload["force"]))
+        if action == "monitor_deliver":
+            return self.monitors.deliver(payload["name"], self._notify_channel)
+        raise WorkbenchError("Unsupported off-loop action.")
+
+    def _notify_channel(self, key):
+        """Local notification channel: append one line, no external service."""
+        path = self._notifications
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps({"key": key, "at": time.time()}) + "\n")
 
     def _snapshot_docs(self, query):
         """Verified local integration snapshot search as a research corpus."""
@@ -204,6 +271,12 @@ class Workbench:
                                                payload["question"], max_hops=budget)
             except ResearchError as error:
                 raise WorkbenchError(str(error)) from None
+        if action in ("proactive_execute", "proactive_undo", "proactive_decide",
+                      "proactive_propose", "monitor_run", "monitor_deliver"):
+            try:
+                return await asyncio.to_thread(self._dispatch_offloop, action, payload)
+            except (ProactiveError, MonitorError, ValueError, OSError) as error:
+                raise WorkbenchError(str(error)) from None
         if action in ("digest_run", "digest_speak"):
             # One digest per day; speech is a local-only, explicitly
             # requested Windows System.Speech call.
@@ -258,6 +331,13 @@ class Workbench:
     def _execute(self, action, project, data):
         p, o = self.productivity, self.office
         if action == "digest_status": return self.digest.status()
+        if action == "proactive_inbox": return self.proactive.inbox(
+            state=data["state"] or None, limit=data["limit"] or 50)
+        if action == "proactive_summary": return self.proactive.daily_summary()
+        if action == "monitor_status": return self.monitors.status()
+        if action == "monitor_cancel": return self.monitors.cancel(data["name"])
+        if action == "monitor_acknowledge": return self.monitors.acknowledge(
+            data["key"])
         if action == "opencode_status": return self.opencode.status()
         if action == "hub_status": return self.messaging.status()
         if action == "digest_history": return self._digest_history(data["limit"])
