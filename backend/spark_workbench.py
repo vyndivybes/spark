@@ -16,6 +16,7 @@ from spark_sync import IntegrationSync
 from spark_morning_digest import DigestEngine, DigestError, NewsSource
 from spark_messaging_hub import MessagingHub, HubError
 from spark_opencode_agent import OpenCodeAgent, OpenCodeError
+from spark_deep_research import ResearchEngine, ResearchError, ResearchSource
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -63,6 +64,7 @@ ACTION_KEYS = {
     "opencode_run": {"prompt", "cwd", "timeout"},
     "opencode_diff": {"session"},
     "opencode_test": {"command", "cwd"},
+    "research_run": {"question", "max_hops"},
 }
 
 
@@ -80,6 +82,37 @@ class Workbench:
         # The scoped OpenCode root is SPARK's own repository: sessions may
         # only work inside it, and every other path is refused.
         self.opencode = OpenCodeAgent(REPOSITORY_ROOT)
+        self.research = ResearchEngine([
+            ResearchSource("local-snapshots", self._snapshot_docs),
+            ResearchSource("obsidian-vault", self._obsidian_docs),
+        ])
+
+    def _snapshot_docs(self, query):
+        """Verified local integration snapshot search as a research corpus."""
+        try:
+            results = self.sync.search(query).get("results", [])
+        except (WorkbenchError, ValueError):
+            results = []
+        from spark_deep_research import SourceDoc
+        return [SourceDoc(source=f"snapshot:{result.get('service', 'integration')}",
+                          title=result.get("id", "integration snapshot"),
+                          body=result.get("snippet", ""),
+                          url=result.get("untrusted_source") and "",
+                          retrieved_at=result.get("last_success") or 0)
+                for result in results]
+
+    def _obsidian_docs(self, query):
+        """Saved vault notes only; never writes or fetches remote content."""
+        from spark_deep_research import SourceDoc
+        try:
+            matches = obsidian.search(query, limit=10)
+        except (ValueError, OSError):
+            return []
+        return [SourceDoc(source="obsidian-vault",
+                          title=(match.get("path") or "vault note")[:120],
+                          body=(match.get("snippet") or "")[:4000],
+                          url="", retrieved_at=0)
+                for match in matches if isinstance(match, dict)]
 
     async def _hub(self, action, payload):
         """Network-capable hub calls run off the event loop; errors stay mine."""
@@ -163,6 +196,13 @@ class Workbench:
                 return await asyncio.to_thread(self.opencode.run_tests,
                                                payload["command"], cwd=target)
             except OpenCodeError as error:
+                raise WorkbenchError(str(error)) from None
+        if action == "research_run":
+            try:
+                budget = payload["max_hops"] or None
+                return await asyncio.to_thread(self.research.research,
+                                               payload["question"], max_hops=budget)
+            except ResearchError as error:
                 raise WorkbenchError(str(error)) from None
         if action in ("digest_run", "digest_speak"):
             # One digest per day; speech is a local-only, explicitly
