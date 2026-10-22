@@ -1,0 +1,16 @@
+﻿# Sanitized startup excerpt from the isolated Electron + Python run (port 8010).
+# Paths are placeholders; raw logs remain in the temporary commissioning workspace.
+
+--- electron-out.log ---
+Starting Python backend: <rc>\backend\server.py
+Frontend loaded successfully!
+
+--- electron-err.log (selected) ---
+[25552:1023/005241.821:WARNING:electron_api_native_image.cc(194)] Failed to load image from path '<rc>\public\spark.ico'
+SPARK core backend offline. Launching UI anyway; check Python dependencies.
+[Python Error]: INFO:     Started server process [22168]
+[Python Error]: INFO:     Application startup complete.
+[Python Error]: INFO:     Uvicorn running on http://127.0.0.1:8010 (Press CTRL+C to quit)
+
+# Post-fix scan of both logs: 0 matches for grainy-gradients/noise.svg/HTTP 402;
+# 0 matches for Traceback/FATAL. The offline line is emitted before Uvicorn binds.

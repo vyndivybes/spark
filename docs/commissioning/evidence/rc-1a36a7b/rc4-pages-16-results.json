@@ -1,0 +1,163 @@
+[
+  {
+    "num": "01",
+    "title": "Morning Digest",
+    "notice": "digest status completed for default.",
+    "statusSummary": "Status loaded.",
+    "lastResult": "{\"schema\":\"spark.morning_digest.v1\",\"schedule_ist\":null,\"news_enabled\":false,\"news_url\":null,\"news_policy\":\"opt-in only; free RSS feed; bounded size and timeout\",\"latest_run\":{\"date\":\"2026-10-23\",\"status\":\"failed\",\"created_at\":1792694797.3507884,\"last_fetched\":1792694797.3640494,\"speech\":null,\"acknowledged\":false,\"acknowledged_at\":null},\"final_states\":[\"completed\",\"failed\"],\"tts\":{\"engine\":\"Windows System.Speech (local, built-in)\",\"network_free\":true,\"requires_explicit_request\":true}}",
+    "clicks": [
+      "01 · Morning Digest"
+    ]
+  },
+  {
+    "num": "02",
+    "title": "WhatsApp Gateway",
+    "notice": "hub status completed for default.",
+    "statusSummary": "allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default · providers: 7",
+    "lastResult": "{\"schema\":\"spark.messaging_hub.v1\",\"channels\":{},\"providers\":[\"discord\",\"signal\",\"slack\",\"teams\",\"telegram\",\"whatsapp\",\"whatsapp_bridge\"],\"policy\":\"allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default\"}",
+    "clicks": [
+      "02 · WhatsApp Gateway"
+    ]
+  },
+  {
+    "num": "03",
+    "title": "Proactive Agent",
+    "notice": "proactive summary completed for default.",
+    "statusSummary": "Status loaded.",
+    "lastResult": "{\"proposed\":0,\"approved\":0,\"executed\":0,\"denied\":0,\"failed\":0,\"day\":\"2026-10-22\"}",
+    "clicks": [
+      "03 · Proactive Agent"
+    ]
+  },
+  {
+    "num": "04",
+    "title": "OpenCode Agent",
+    "notice": "opencode status completed for default.",
+    "statusSummary": "scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval",
+    "lastResult": "{\"discovery\":{\"binary\":\"<opencode-binary>\",\"installed\":true,\"version\":null,\"status\":\"installed\",\"message\":\"Ready for headless sessions.\"},\"root\":\"<rc>\",\"sessions\":{\"count\":0,\"latest\":null},\"policy\":\"scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval\"}",
+    "clicks": [
+      "04 · OpenCode Agent"
+    ]
+  },
+  {
+    "num": "05",
+    "title": "Deep Research",
+    "notice": "research run completed for default.",
+    "statusSummary": "Status loaded.",
+    "lastResult": "{\"question\":\"What local SPARK documents and capabilities are available?\",\"hops\":4,\"budget\":4,\"documents\":0,\"citations\":[],\"trace\":[{\"hop\":1,\"query\":\"What local SPARK documents and capabilities are available?\",\"sources\":[],\"documents\":0},{\"hop\":2,\"query\":\"What local SPARK documents and capabilities are available? (local)\",\"sources\":[],\"documents\":0},{\"hop\":3,\"query\":\"What local SPARK documents and capabilities are available? (SPARK)\",\"sources\":[],\"documents\":0},{\"hop\":4,\"query\":\"What local SPARK documents and capabilities are available? (documents)\",\"sources\":[],\"documents\":0}],\"answer\":{\"text\":\"No evidence retrieved from the approved sources; stopping rather than inventing.\",\"verified\":false,\"unverified_terms\":[\"local\",\"SPARK\",\"documents\",\"capabilities\",\"available\"]},\"contradictions\":[],\"verified\":false}",
+    "clicks": [
+      "05 · Deep Research",
+      "Run research"
+    ]
+  },
+  {
+    "num": "06",
+    "title": "Messaging Hub",
+    "notice": "hub status completed for default.",
+    "statusSummary": "allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default · providers: 7",
+    "lastResult": "{\"schema\":\"spark.messaging_hub.v1\",\"channels\":{},\"providers\":[\"discord\",\"signal\",\"slack\",\"teams\",\"telegram\",\"whatsapp\",\"whatsapp_bridge\"],\"policy\":\"allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default\"}",
+    "clicks": [
+      "06 · Messaging Hub"
+    ]
+  },
+  {
+    "num": "07",
+    "title": "Trace Learning",
+    "notice": "trace status completed for default.",
+    "statusSummary": "Status loaded.",
+    "lastResult": "{\"summary\":[]}",
+    "clicks": [
+      "07 · Trace Learning"
+    ]
+  },
+  {
+    "num": "08",
+    "title": "Spec Search",
+    "notice": "spec search status completed for default.",
+    "statusSummary": "runs recorded: 0 · planner: owner-granted only (never auto-configured)",
+    "lastResult": "{\"runs_recorded\":0,\"active_spec\":null,\"active_since\":null,\"planner\":\"owner-granted only (never auto-configured)\"}",
+    "clicks": [
+      "08 · Spec Search"
+    ]
+  },
+  {
+    "num": "09",
+    "title": "Skill Ecosystem",
+    "notice": "skill status completed for default.",
+    "statusSummary": "Status loaded.",
+    "lastResult": "{\"by_status\":{},\"operations\":[\"search.obsidian\",\"search.snapshots\"],\"max_pipeline_steps\":12,\"integrity_model\":\"sha256 digest match (integrity only, not signature-based trust)\"}",
+    "clicks": [
+      "09 · Skill Ecosystem"
+    ]
+  },
+  {
+    "num": "10",
+    "title": "Agent Runtimes",
+    "notice": "agents status completed for default.",
+    "statusSummary": "Not an OS-level sandbox; bounded interpreter and tool grants by construction only · adapters: 3",
+    "lastResult": "{\"adapters\":[\"react\",\"codeact\",\"recursive\"],\"tools_registered\":[\"obsidian.search\",\"search.snapshots\"],\"side_effect_tools\":[\"obsidian.search\",\"search.snapshots\"],\"max_steps\":12,\"max_depth\":2,\"codeact_scope\":\"AST allowlisted pure expressions; no imports, calls, attributes or I/O\",\"sandbox_note\":\"Not an OS-level sandbox; bounded interpreter and tool grants by construction only\"}",
+    "clicks": [
+      "10 · Agent Runtimes"
+    ]
+  },
+  {
+    "num": "11",
+    "title": "Continuous Monitors",
+    "notice": "monitor status completed for default.",
+    "statusSummary": "scoped check callbacks only; deduplicated events; exponential backoff; owner receipts; resume via persisted checkpoints before and after restart · monitors listed: 1",
+    "lastResult": "{\"schema\":\"spark.monitor_agents.v1\",\"monitors\":[{\"name\":\"snapshot-freshness\",\"scope\":\"workspace\",\"interval\":600,\"last_run\":null,\"last_success\":null,\"next_due\":1792694096.9777236,\"failures\":0,\"cancelled\":false,\"state\":\"configured, untested\"}],\"checks\":[\"snapshot-freshness\"],\"policy\":\"scoped check callbacks only; deduplicated events; exponential backoff; owner receipts; resume via persisted checkpoints before and after restart\"}",
+    "clicks": [
+      "11 · Continuous Monitors"
+    ]
+  },
+  {
+    "num": "12",
+    "title": "Adaptive Routing",
+    "notice": "learning status completed for default.",
+    "statusSummary": "active policy: policy_always_local",
+    "lastResult": "{\"candidates\":[],\"measured_summary\":[],\"active_policy\":\"policy_always_local\",\"registered_policies\":[]}",
+    "clicks": [
+      "12 · Adaptive Routing"
+    ]
+  },
+  {
+    "num": "13",
+    "title": "Connector Catalog",
+    "notice": "connector status completed for default.",
+    "statusSummary": "connector states: 7",
+    "lastResult": "{\"by_state\":{\"disabled\":2},\"states\":[\"disabled\",\"configured\",\"account_validated\",\"verified_read\",\"stale\",\"failed\",\"revoked\"],\"rate_limit_seconds\":2,\"adapters_attached\":[\"obsidian-vault\",\"workspace-search\"],\"cloud_connectors\":\"account adapters require the founder's consented, credentialed session (capability-02 readers); they are never attached automatically\"}",
+    "clicks": [
+      "13 · Connector Catalog"
+    ]
+  },
+  {
+    "num": "14",
+    "title": "Standardized Evaluations",
+    "notice": "eval status completed for default.",
+    "statusSummary": "fixture runs only; live model runs need an owner-attached runner · runs recorded: 0 · suites: 7",
+    "lastResult": "{\"suites\":[\"agent_tool_policy\",\"email_triage\",\"meeting_inference\",\"memory_retrieval\",\"research_citations\",\"safe_code_modification\",\"self_repair\"],\"runs_recorded\":0,\"candidates\":[],\"honesty\":\"fixture runs only; live model runs need an owner-attached runner\"}",
+    "clicks": [
+      "14 · Standardized Evaluations"
+    ]
+  },
+  {
+    "num": "15",
+    "title": "Inference Telemetry",
+    "notice": "telemetry status completed for default.",
+    "statusSummary": "entries: 0 · energy: not_measured (no hardware meter; estimates refused)",
+    "lastResult": "{\"entries\":0,\"ttft\":\"recorded only for streamed measurements\",\"energy\":\"not_measured (no hardware meter; estimates refused)\",\"sampler\":\"injected (psutil-backed in production)\"}",
+    "clicks": [
+      "15 · Inference Telemetry"
+    ]
+  },
+  {
+    "num": "16",
+    "title": "Inference Backends",
+    "notice": "backend describe completed for default.",
+    "statusSummary": "engines: 6",
+    "lastResult": "{\"engines\":[{\"engine\":\"ollama\",\"implemented\":true,\"cloud\":false,\"transport\":\"local http /api/tags + /api/generate\",\"state\":\"not_configured\"},{\"engine\":\"gemini\",\"implemented\":true,\"cloud\":true,\"transport\":\"cloud v1beta generateContent\",\"state\":\"not_configured\"},{\"engine\":\"groq\",\"implemented\":true,\"cloud\":true,\"transport\":\"cloud chat/completions\",\"state\":\"not_configured\"},{\"engine\":\"llamacpp-local\",\"state\":\"declared_not_active\",\"note\":\"optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded\"},{\"engine\":\"vllm-local\",\"state\":\"declared_not_active\",\"note\":\"optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded\"},{\"engine\":\"sglang-local\",\"state\":\"declared_not_active\",\"note\":\"optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded\"}],\"downloads\":\"refused (no automatic model downloads)\",\"fallback\":\"refused (no automatic cloud fallback)\"}",
+    "clicks": [
+      "16 · Inference Backends"
+    ]
+  }
+]

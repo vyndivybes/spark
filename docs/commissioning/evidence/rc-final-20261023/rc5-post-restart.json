@@ -1,0 +1,184 @@
+{
+  "captured_at": "2026-10-22T20:31:10.850Z",
+  "status": {
+    "status": "running",
+    "service": "SPARK Core",
+    "conversation_memory": {
+      "revision": 3,
+      "persistent": true,
+      "explicit_details": true
+    },
+    "gemini_configured": false,
+    "groq_configured": false,
+    "ai_provider": "gemini",
+    "pc_autonomy_enabled": true,
+    "jarvis_bridge_configured": true,
+    "pc_autonomy_session_authorized": false,
+    "live_model": "gemini-3.8-live",
+    "live_profile": "cinematic",
+    "audio_transport": "browser_aec",
+    "groq_vision_available": false,
+    "graphify_ready": false,
+    "graphiti_ready": false,
+    "hermes_ready": false,
+    "obsidian_ready": false,
+    "file_organizer_ready": false,
+    "file_intelligence_ready": true,
+    "hands_free_ready": false,
+    "live_state": "setup_required",
+    "live_message": "Configure the SPARK Gemini key.",
+    "live_error_code": null
+  },
+  "memory": {
+    "action": "memory_search",
+    "ok": true,
+    "message": null,
+    "result": {
+      "mode": "fts5",
+      "semantic_available": false,
+      "fallback_reason": "No local embedding index configured",
+      "results": [],
+      "document_results": [],
+      "fused": []
+    }
+  },
+  "skills": {
+    "action": "list_code_skills",
+    "ok": true,
+    "message": null,
+    "result": [
+      {
+        "name": "count_passed_rows",
+        "description": "Count row totals and passing rows in a JSON list.",
+        "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+        "tests": [
+          {
+            "inputs": [
+              {
+                "name": "a",
+                "passed": true
+              },
+              {
+                "name": "b",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 2,
+              "passed": 1
+            }
+          },
+          {
+            "inputs": [
+              {
+                "name": "c",
+                "passed": true
+              },
+              {
+                "name": "d",
+                "passed": true
+              },
+              {
+                "name": "e",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 3,
+              "passed": 2
+            }
+          }
+        ],
+        "id": "86dac63709a8b931a8b6fe46",
+        "status": "inactive",
+        "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+        "provenance": {},
+        "test_results": [
+          {
+            "passed": true
+          },
+          {
+            "passed": true
+          }
+        ]
+      }
+    ]
+  },
+  "opencode": {
+    "action": "opencode_status",
+    "ok": true,
+    "message": null,
+    "result": {
+      "discovery": {
+        "binary": "<home>\\AppData\\Roaming\\npm\\opencode.CMD",
+        "installed": true,
+        "version": null,
+        "status": "installed",
+        "message": "Ready for headless sessions."
+      },
+      "root": "<rc>",
+      "sessions": {
+        "count": 0,
+        "latest": null
+      },
+      "policy": "scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval"
+    }
+  },
+  "saee": {
+    "action": "saee_autonomy_status",
+    "ok": true,
+    "message": null,
+    "result": {
+      "enabled": false,
+      "allow_model_source": false,
+      "last_cycle": 0,
+      "last_upgrade_day": "",
+      "last_status": "not_run",
+      "queued_goal": "",
+      "interval_seconds": 3600,
+      "max_upgrades_per_day": 1,
+      "running": false,
+      "interval_minutes": 60,
+      "scope": "existing non-protected backend Python files only",
+      "rea_mode": "discovery only (no autonomous REA tool calls)",
+      "review_required": "new files, dependencies, security, external data or PC operations"
+    }
+  },
+  "ui": {
+    "url": "file:///<rc>/dist/index.html?sparkBackendPort=8010",
+    "body": "SPARK\nPERSONAL WORKSPACE\n2 Printers\nWorkspace tools\n\u2304\nDASHBOARD\n02:01 AM\nSPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.\nSPARK\nSPARK\nSPARK\nSPARK\nSPARK\nSPARK\nSPARK\nNEURAL UNIVERSE\nNeural Atlas snapshot \u00b7 239 nodes \u00b7 292 links\nMIC MUTED \u00b7 GALAXY DRIFT\n80\u2013300 Hz\n300\u20131500 Hz\n1.5\u20135 kHz\n5\u201310 kHz\ndefault\nCAM_01 \u00b7 LOCAL PREVIEW\nSHARE WITH GEMINI\nConversation\nYour current session\n[2:01:06 AM] System\nConnected to SPARK Core backend\n[2:01:06 AM] System\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.\nMic muted",
+    "hasRemoteNoise": false,
+    "hasSparkNoise": true
+  },
+  "websockets": [
+    "ws://localhost:8010/socket.io/?EIO=4&transport=websocket&sid=<redacted>"
+  ],
+  "logErrors": [
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zvml9qbq"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zvpb2e5x"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zvs6x8b4"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zvw1kskf"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zw1qg7kj"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zw7ebczx"
+    }
+  ],
+  "failedRequests": [],
+  "screenshot": "<commission-temp>\\evidence\\rc5-restart-dashboard.png"
+}

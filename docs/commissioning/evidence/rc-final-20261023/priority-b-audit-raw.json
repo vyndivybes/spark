@@ -1,0 +1,797 @@
+{
+  "captured_at": "2026-10-22T20:22:49.046Z",
+  "results": [
+    {
+      "action": "connectivity_report",
+      "ok": true,
+      "message": null,
+      "result": {
+        "entries": [
+          {
+            "name": "Graphify",
+            "state": "not installed",
+            "evidence": "No graphify-mcp.exe install and no registration found."
+          },
+          {
+            "name": "Graphiti",
+            "state": "not installed",
+            "evidence": "No optional Graphiti environment and no registration found."
+          },
+          {
+            "name": "Hermes",
+            "state": "not installed",
+            "evidence": "No optional Hermes environment and no registration found."
+          },
+          {
+            "name": "REA",
+            "state": "installed but disconnected",
+            "evidence": "No SPARK_REA_COMMAND; the default npx route is available on PATH. The catalog loads only when a session calls REA tools, outside this MCP registration. Live probing is left to the REA tools screen."
+          },
+          {
+            "name": "Obsidian",
+            "state": "not installed",
+            "evidence": "No vault at <home>\\Documents\\Obsidian Vault and no environment override."
+          },
+          {
+            "name": "VAOS",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "VYNDI OS",
+            "state": "installed but disconnected",
+            "evidence": "Electron session read of a seeded authority reference; not a live ledger. No successful audited call in the last 7 days; run the probed report to verify.",
+            "server": "vyndi-os"
+          },
+          {
+            "name": "VEDM",
+            "state": "partially operational",
+            "evidence": "Published engineering-library reference read; not synchronization or release approval. Successful audited call recorded within the last 7 days.",
+            "server": "vedm"
+          },
+          {
+            "name": "VAOS Jarvis",
+            "state": "installed but disconnected",
+            "evidence": "Session-managed advisory; each question verifies the VAOS founder session from this authorized client. No successful audited call in the last 7 days; run the probed report to verify.",
+            "server": "vaos-jarvis"
+          },
+          {
+            "name": "GitHub",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Google Drive",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Gmail",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Google Calendar",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Slack",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "LLM providers",
+            "state": "not installed",
+            "evidence": "Groq and Gemini keys control text and multimodal generation. Groq: missing; Gemini: missing. Credentials are never echoed; no API call is made from this report."
+          },
+          {
+            "name": "Voice and multimodal services",
+            "state": "installed but disconnected",
+            "evidence": "Local hands-free audio runs in the authorized session. Cloud voice needs Groq (missing) and Gemini (missing). Live session state belongs to runtime diagnostics, not this static report."
+          }
+        ],
+        "deep": false,
+        "probed": 0,
+        "note": "Static classification only: registration, audit history, install markers and credential presence. Run the probed report for live verification of configured MCP services."
+      },
+      "elapsed_ms": 81
+    },
+    {
+      "action": "list_integrations",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "name": "vaos-jarvis",
+          "transport": "electron-session",
+          "configured": true,
+          "state": "session-managed",
+          "read_tools": [
+            "ask_vaos_jarvis"
+          ],
+          "setup": "Sign in from Experience Deck \u2192 VAOS Jarvis. Each question verifies the VAOS founder session."
+        },
+        {
+          "name": "vyndi-os",
+          "transport": "electron-session",
+          "configured": true,
+          "state": "session-managed",
+          "read_tools": [
+            "read_vyndi_engineering_authority"
+          ]
+        },
+        {
+          "name": "vedm",
+          "transport": "electron-session",
+          "configured": true,
+          "state": "session-managed",
+          "read_tools": [
+            "read_vedm_library"
+          ]
+        },
+        {
+          "name": "vaos",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "gmail",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "google-drive",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "google-calendar",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "github",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "slack",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        }
+      ],
+      "elapsed_ms": 13
+    },
+    {
+      "action": "mcp_audit",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792700500.8135352
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792700155.1860344
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792699845.4124987
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792699376.3177965
+        },
+        {
+          "server": "vyndi-os",
+          "action": "mcp_call",
+          "tool": "read_vyndi_engineering_authority",
+          "ok": false,
+          "at": 1792698852.6119928
+        },
+        {
+          "server": "vaos-jarvis",
+          "action": "mcp_call",
+          "tool": "ask_vaos_jarvis",
+          "ok": false,
+          "at": 1792698851.3938642
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792698640.4462323
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 125,
+          "at": 1792698640.332326
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792698339.3422122
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 141,
+          "at": 1792698339.231585
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792698038.3285604
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 203,
+          "at": 1792698038.1296308
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792697736.5606742
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 109,
+          "at": 1792697736.4441714
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792697435.052776
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 203,
+          "at": 1792697434.8133051
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792697133.2070236
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 8141,
+          "at": 1792697130.3682282
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792696804.4880307
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 1250,
+          "at": 1792696798.9768167
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792696487.546476
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 3641,
+          "at": 1792696486.076648
+        },
+        {
+          "server": "vyndi-os",
+          "action": "mcp_call",
+          "tool": "read_vyndi_engineering_authority",
+          "ok": false,
+          "at": 1792696449.877526
+        },
+        {
+          "server": "vaos-jarvis",
+          "action": "mcp_call",
+          "tool": "ask_vaos_jarvis",
+          "ok": false,
+          "at": 1792696447.565476
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792696172.5354035
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 13219,
+          "at": 1792696169.9740145
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792695848.143508
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 141,
+          "at": 1792695848.0370927
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792695545.9162152
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 438,
+          "at": 1792695545.7015243
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792695239.428155
+        },
+        {
+          "server": "vyndi-os",
+          "action": "mcp_call",
+          "tool": "read_vyndi_engineering_authority",
+          "ok": false,
+          "at": 1792695239.3152468
+        },
+        {
+          "server": "vaos-jarvis",
+          "action": "mcp_call",
+          "tool": "ask_vaos_jarvis",
+          "ok": false,
+          "at": 1792695238.03664
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 172,
+          "at": 1792695237.9127834
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792694936.8673768
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 563,
+          "at": 1792694936.320454
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792694635.128565
+        },
+        {
+          "server": "vyndi-os",
+          "action": "mcp_call",
+          "tool": "read_vyndi_engineering_authority",
+          "ok": false,
+          "at": 1792694635.0668967
+        },
+        {
+          "server": "vaos-jarvis",
+          "action": "mcp_call",
+          "tool": "ask_vaos_jarvis",
+          "ok": false,
+          "at": 1792694634.1365473
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 360,
+          "at": 1792694633.9893882
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792694333.0193336
+        },
+        {
+          "server": "vyndi-os",
+          "action": "mcp_call",
+          "tool": "read_vyndi_engineering_authority",
+          "ok": false,
+          "at": 1792694331.3371062
+        },
+        {
+          "server": "vaos-jarvis",
+          "action": "mcp_call",
+          "tool": "ask_vaos_jarvis",
+          "ok": false,
+          "at": 1792694329.847804
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 8453,
+          "at": 1792694329.6271448
+        }
+      ],
+      "elapsed_ms": 9
+    },
+    {
+      "action": "opencode_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "discovery": {
+          "binary": "<home>\\AppData\\Roaming\\npm\\opencode.CMD",
+          "installed": true,
+          "version": null,
+          "status": "installed",
+          "message": "Ready for headless sessions."
+        },
+        "root": "<rc>",
+        "sessions": {
+          "count": 0,
+          "latest": null
+        },
+        "policy": "scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval"
+      },
+      "elapsed_ms": 35
+    },
+    {
+      "action": "digest_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "schema": "spark.morning_digest.v1",
+        "schedule_ist": null,
+        "news_enabled": false,
+        "news_url": null,
+        "news_policy": "opt-in only; free RSS feed; bounded size and timeout",
+        "latest_run": {
+          "date": "2026-10-23",
+          "status": "failed",
+          "created_at": 1792699485.7713306,
+          "last_fetched": 1792699485.7849967,
+          "speech": null,
+          "acknowledged": false,
+          "acknowledged_at": null
+        },
+        "final_states": [
+          "completed",
+          "failed"
+        ],
+        "tts": {
+          "engine": "Windows System.Speech (local, built-in)",
+          "network_free": true,
+          "requires_explicit_request": true
+        }
+      },
+      "elapsed_ms": 21
+    },
+    {
+      "action": "digest_history",
+      "ok": true,
+      "message": null,
+      "result": {
+        "runs": [
+          {
+            "date": "2026-10-23",
+            "status": "failed",
+            "created_at": 1792699485.7713306,
+            "last_fetched": 1792699485.7849967,
+            "triage_count": 0,
+            "delta": {
+              "today": {
+                "emails": 0,
+                "events": 0,
+                "documents": 0,
+                "triage": 0
+              },
+              "previous": {},
+              "email_change": null
+            },
+            "speech": null,
+            "acknowledged": false,
+            "acknowledged_at": null
+          }
+        ],
+        "count": 1
+      },
+      "elapsed_ms": 8
+    },
+    {
+      "action": "saee_autonomy_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "enabled": false,
+        "allow_model_source": false,
+        "last_cycle": 0,
+        "last_upgrade_day": "",
+        "last_status": "not_run",
+        "queued_goal": "",
+        "interval_seconds": 3600,
+        "max_upgrades_per_day": 1,
+        "running": false,
+        "interval_minutes": 60,
+        "scope": "existing non-protected backend Python files only",
+        "rea_mode": "discovery only (no autonomous REA tool calls)",
+        "review_required": "new files, dependencies, security, external data or PC operations"
+      },
+      "elapsed_ms": 8
+    },
+    {
+      "action": "python_tools_policy",
+      "ok": true,
+      "message": null,
+      "result": {
+        "enabled": false,
+        "auto_forge": false
+      },
+      "elapsed_ms": 13
+    },
+    {
+      "action": "list_python_tools",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 13
+    },
+    {
+      "action": "list_code_skills",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "name": "count_passed_rows",
+          "description": "Count row totals and passing rows in a JSON list.",
+          "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+          "tests": [
+            {
+              "inputs": [
+                {
+                  "name": "a",
+                  "passed": true
+                },
+                {
+                  "name": "b",
+                  "passed": false
+                }
+              ],
+              "expected": {
+                "total": 2,
+                "passed": 1
+              }
+            },
+            {
+              "inputs": [
+                {
+                  "name": "c",
+                  "passed": true
+                },
+                {
+                  "name": "d",
+                  "passed": true
+                },
+                {
+                  "name": "e",
+                  "passed": false
+                }
+              ],
+              "expected": {
+                "total": 3,
+                "passed": 2
+              }
+            }
+          ],
+          "id": "86dac63709a8b931a8b6fe46",
+          "status": "inactive",
+          "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+          "provenance": {},
+          "test_results": [
+            {
+              "passed": true
+            },
+            {
+              "passed": true
+            }
+          ]
+        }
+      ],
+      "elapsed_ms": 14
+    },
+    {
+      "action": "agent_snapshot",
+      "ok": true,
+      "message": null,
+      "result": {
+        "jobs": [],
+        "schedules": [],
+        "traces": []
+      },
+      "elapsed_ms": 11
+    },
+    {
+      "action": "digest_run",
+      "ok": true,
+      "message": null,
+      "result": {
+        "date": "2026-10-23",
+        "status": "failed",
+        "created_at": 1792700568.9865127,
+        "last_fetched": 1792700568.9906695,
+        "sources": {
+          "gmail": {
+            "state": "not_configured",
+            "stale": false,
+            "last_success": null,
+            "message": "Register the read-only google_daily_briefing MCP tool for this Google service. Connection alone is insufficient.",
+            "error": null,
+            "account": null
+          },
+          "google-calendar": {
+            "state": "not_configured",
+            "stale": false,
+            "last_success": null,
+            "message": "Register the read-only google_daily_briefing MCP tool for this Google service. Connection alone is insufficient.",
+            "error": null,
+            "account": null
+          },
+          "google-drive": {
+            "state": "not_configured",
+            "stale": false,
+            "last_success": null,
+            "message": "Register the read-only google_daily_briefing MCP tool for this Google service. Connection alone is insufficient.",
+            "error": null,
+            "account": null
+          },
+          "tasks": {
+            "state": "not_configured",
+            "message": "No task source is enabled for this account."
+          }
+        },
+        "triage": [],
+        "delta": {
+          "today": {
+            "emails": 0,
+            "events": 0,
+            "documents": 0,
+            "triage": 0
+          },
+          "previous": {},
+          "email_change": null
+        },
+        "texts": {
+          "digest_text": "Morning digest 2026-10-23 (Asia/Kolkata). 0 attention items.\nUnavailable sources: gmail=not_configured, google-calendar=not_configured, google-drive=not_configured, tasks=not_configured."
+        },
+        "emails": [],
+        "events": [],
+        "documents": [],
+        "tasks": [],
+        "news": [],
+        "timezone": "Asia/Kolkata",
+        "read_only": true,
+        "speech_text": "Morning digest 2026-10-23 (Asia/Kolkata). 0 attention items.\nUnavailable sources: gmail=not_configured, google-calendar=not_configured, google-drive=not_configured, tasks=not_configured."
+      },
+      "elapsed_ms": 47
+    },
+    {
+      "action": "mcp_discover",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 3
+    },
+    {
+      "action": "mcp_discover",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 4
+    },
+    {
+      "action": "mcp_call",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 4
+    },
+    {
+      "action": "mcp_call",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 3
+    }
+  ]
+}

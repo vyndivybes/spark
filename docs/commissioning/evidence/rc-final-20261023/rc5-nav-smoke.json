@@ -1,0 +1,435 @@
+{
+  "captured_at": "2026-10-22T20:25:46.524Z",
+  "pages": [
+    {
+      "name": "Overview",
+      "click": {
+        "ok": true,
+        "group": null
+      },
+      "clicked": true,
+      "breadcrumb": "Overview",
+      "heading": "Everything in orbit.",
+      "status": "",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-01-overview.png"
+    },
+    {
+      "name": "Missions",
+      "click": {
+        "ok": true,
+        "group": "Workspace"
+      },
+      "clicked": true,
+      "breadcrumb": "Missions",
+      "heading": "Missions",
+      "status": "Ready. Operations stay in the selected project.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-02-missions.png"
+    },
+    {
+      "name": "Knowledge",
+      "click": {
+        "ok": true,
+        "group": "Workspace"
+      },
+      "clicked": true,
+      "breadcrumb": "Knowledge",
+      "heading": "Knowledge",
+      "status": "Ready. Local workspace connected. | Pull-only updates stay on this PC. Existing source limits and release holds apply.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-03-knowledge.png"
+    },
+    {
+      "name": "Memory",
+      "click": {
+        "ok": true,
+        "group": "Workspace"
+      },
+      "clicked": true,
+      "breadcrumb": "Memory",
+      "heading": "Memory",
+      "status": "Ready. Operations stay in the selected project. | Pull-only updates stay on this PC. Existing source limits and release holds apply.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-04-memory.png"
+    },
+    {
+      "name": "Capabilities Center",
+      "click": {
+        "ok": true,
+        "group": "Build"
+      },
+      "clicked": true,
+      "breadcrumb": "Capabilities Center",
+      "heading": "Capabilities Center",
+      "status": "digest status completed for default.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-05-capabilities-center.png"
+    },
+    {
+      "name": "Skill forge",
+      "click": {
+        "ok": true,
+        "group": "Build"
+      },
+      "clicked": true,
+      "breadcrumb": "Skill forge",
+      "heading": "Skill forge",
+      "status": "Ready. Local workspace connected.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-06-skill-forge.png"
+    },
+    {
+      "name": "Upgrade studio",
+      "click": {
+        "ok": true,
+        "group": "Evolution"
+      },
+      "clicked": true,
+      "breadcrumb": "Upgrade studio",
+      "heading": "Upgrade studio",
+      "status": "Ready. Every operation here stays read-only until you approve it. | Completed. Review the result. | Create, test, review and activate original code skills.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-07-upgrade-studio.png"
+    },
+    {
+      "name": "Repositories",
+      "click": {
+        "ok": true,
+        "group": "Build"
+      },
+      "clicked": true,
+      "breadcrumb": "Repositories",
+      "heading": "Repositories",
+      "status": "list repository analyses completed.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-08-repositories.png"
+    },
+    {
+      "name": "PC manager",
+      "click": {
+        "ok": true,
+        "group": "Systems"
+      },
+      "clicked": true,
+      "breadcrumb": "PC manager",
+      "heading": "PC manager",
+      "status": "Ready. Every operation here stays read-only until you approve it.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-09-pc-manager.png"
+    },
+    {
+      "name": "System health",
+      "click": {
+        "ok": true,
+        "group": "Systems"
+      },
+      "clicked": true,
+      "breadcrumb": "System health",
+      "heading": "System health",
+      "status": "Ready. Every operation here stays read-only until you approve it.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-10-system-health.png"
+    },
+    {
+      "name": "Connections",
+      "click": {
+        "ok": true,
+        "group": "Systems"
+      },
+      "clicked": true,
+      "breadcrumb": "Connections",
+      "heading": "Connections",
+      "status": "Ready. Every operation here stays read-only until you approve it. | Pull-only updates stay on this PC. Existing source limits and release holds apply.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-11-connections.png"
+    },
+    {
+      "name": "Approvals",
+      "click": {
+        "ok": true,
+        "group": "Governance"
+      },
+      "clicked": true,
+      "breadcrumb": "Approvals",
+      "heading": "Approvals",
+      "status": "Ready. Every operation here stays read-only until you approve it.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-12-approvals.png"
+    },
+    {
+      "name": "History",
+      "click": {
+        "ok": true,
+        "group": "Governance"
+      },
+      "clicked": true,
+      "breadcrumb": "History",
+      "heading": "History",
+      "status": "Ready. Every operation here stays read-only until you approve it.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-13-history.png"
+    },
+    {
+      "name": "Workbench",
+      "click": {
+        "ok": true,
+        "group": "Build"
+      },
+      "clicked": true,
+      "breadcrumb": "Workbench",
+      "heading": "Workbench",
+      "status": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-14-workbench.png"
+    },
+    {
+      "name": "Recovery & REA",
+      "click": {
+        "ok": true,
+        "group": "Evolution"
+      },
+      "clicked": true,
+      "breadcrumb": "Recovery & REA",
+      "heading": "Recovery & REA",
+      "status": "Autonomy: Status not checked. | Ready. Select an operation.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-15-recovery-rea.png"
+    },
+    {
+      "name": "Models",
+      "click": {
+        "ok": true,
+        "group": "Evolution"
+      },
+      "clicked": true,
+      "breadcrumb": "Models",
+      "heading": "Models",
+      "status": "Ready. Operations stay in the selected project.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-16-models.png"
+    },
+    {
+      "name": "Schedules",
+      "click": {
+        "ok": true,
+        "group": "Governance"
+      },
+      "clicked": true,
+      "breadcrumb": "Schedules",
+      "heading": "Schedules",
+      "status": "Ready. Operations stay in the selected project.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-17-schedules.png"
+    },
+    {
+      "name": "Learning",
+      "click": {
+        "ok": true,
+        "group": "Evolution"
+      },
+      "clicked": true,
+      "breadcrumb": "Learning",
+      "heading": "Learning",
+      "status": "Ready. Operations stay in the selected project.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-18-learning.png"
+    },
+    {
+      "name": "Benchmarks",
+      "click": {
+        "ok": true,
+        "group": "Evolution"
+      },
+      "clicked": true,
+      "breadcrumb": "Benchmarks",
+      "heading": "Benchmarks",
+      "status": "Ready. Operations stay in the selected project.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-19-benchmarks.png"
+    },
+    {
+      "name": "Integrations",
+      "click": {
+        "ok": true,
+        "group": "Systems"
+      },
+      "clicked": true,
+      "breadcrumb": "Integrations",
+      "heading": "Integrations",
+      "status": "Ready. Operations stay in the selected project.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-20-integrations.png"
+    },
+    {
+      "name": "Model upgrades",
+      "click": {
+        "ok": true,
+        "group": "Evolution"
+      },
+      "clicked": true,
+      "breadcrumb": "Model upgrades",
+      "heading": "Model upgrades",
+      "status": "Ready. Operations stay in the selected project. | Autonomy: Status not checked. | Ready. Select an operation.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-21-model-upgrades.png"
+    },
+    {
+      "name": "Agent skills",
+      "click": {
+        "ok": true,
+        "group": "Build"
+      },
+      "clicked": true,
+      "breadcrumb": "Agent skills",
+      "heading": "Agent skills",
+      "status": "Ready. Operations stay in the selected project.",
+      "alerts": [
+        {
+          "text": "SPARK CORE \u2014 GEMINI KEY REQUIRED\nSPARK Gemini key missing. Configure backend/.env or start with -UseArkusGeminiKey.",
+          "hidden": false
+        }
+      ],
+      "loading": false,
+      "screenshot": "<commission-temp>\\evidence\\rc5-nav-22-agent-skills.png"
+    }
+  ],
+  "requestUrls": [
+    "file:///<rc>/dist/assets/IntelligenceConsole-3Ht9Xfw7.js",
+    "file:///<rc>/dist/assets/SparkScreens-C52f9MvN.js",
+    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNSIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSJXaW5kb3dUZXh0IiBkPSJNMjAgM2gtMVYxaC0ydjJIN1YxSDV2Mkg0Yy0xLjEgMC0yIC45LTIgMnYxNmMwIDEuMS45IDIgMiAyaDE2YzEuMSAwIDItLjkgMi0yVjVjMC0xLjEtLjktMi0yLTJ6bTAgMThINFY4aDE2djEzeiIvPjxwYXRoIGZpbGw9Im5vbmUiIGQ9Ik0wIDBoMjR2MjRIMHoiLz48L3N2Zz4="
+  ],
+  "exceptions": [],
+  "logErrors": [],
+  "failedRequests": [],
+  "dom": {
+    "hasRemoteNoise": false,
+    "hasSparkNoise": true
+  }
+}

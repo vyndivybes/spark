@@ -1,0 +1,68 @@
+{
+  "captured_at": "2026-10-22T20:23:13.783235+00:00",
+  "mode": "isolated read-only copy; host MCP registration disabled in the running RC",
+  "source_path": "<original-spark>\\graphify-out\\graph.json",
+  "isolated_path": "<commission-temp>\\graphify-isolated\\graph.json",
+  "source_sha256_before": "1c7f96b32a44520422cd82b24ba778813669aa97d24119fb540ce994fb9b6263",
+  "isolated_sha256_before": "1c7f96b32a44520422cd82b24ba778813669aa97d24119fb540ce994fb9b6263",
+  "discovered_tools": [
+    "get_community",
+    "get_neighbors",
+    "get_node",
+    "get_pr_impact",
+    "god_nodes",
+    "graph_stats",
+    "list_prs",
+    "query_graph",
+    "shortest_path",
+    "triage_prs"
+  ],
+  "graph_stats": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Nodes: 2226\nEdges: 4642\nCommunities: 130\nEXTRACTED: 87%\nINFERRED: 13%\nAMBIGUOUS: 0%\nBuilt at commit: b74e65c6f33005ba57e6c1f4a0dd171524757958\n"
+      }
+    ],
+    "isError": false
+  },
+  "graph_stats_is_error": false,
+  "source_sha256_after": "1c7f96b32a44520422cd82b24ba778813669aa97d24119fb540ce994fb9b6263",
+  "isolated_sha256_after": "1c7f96b32a44520422cd82b24ba778813669aa97d24119fb540ce994fb9b6263",
+  "source_unchanged": true,
+  "isolated_unchanged": true,
+  "audit": [
+    {
+      "server": "graphify",
+      "action": "mcp_call",
+      "tool": "graph_stats",
+      "ok": true,
+      "elapsed_ms": 343,
+      "at": 1792700613.9172056
+    },
+    {
+      "server": "graphify",
+      "action": "mcp_discover",
+      "tool": null,
+      "ok": true,
+      "elapsed_ms": 19765,
+      "at": 1792700613.5516913
+    },
+    {
+      "server": "graphify",
+      "action": "mcp_call",
+      "tool": "graph_stats",
+      "ok": true,
+      "elapsed_ms": 203,
+      "at": 1792699578.2400777
+    },
+    {
+      "server": "graphify",
+      "action": "mcp_discover",
+      "tool": null,
+      "ok": true,
+      "elapsed_ms": 14062,
+      "at": 1792699578.0019212
+    }
+  ]
+}
