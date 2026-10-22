@@ -65,7 +65,7 @@ class OpenCodeAgent:
     """Bounded headless OpenCode sessions with review and test gates."""
 
     def __init__(self, root, *, runner=None):
-        self.root = Path(root)
+        self.root = Path(root).resolve()
         discovery = discover_opencode()
         self.binary = discovery["binary"]
         self.installed = discovery["installed"]
