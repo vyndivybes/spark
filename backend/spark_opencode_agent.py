@@ -76,11 +76,14 @@ class OpenCodeAgent:
     # -- session ----------------------------------------------------------
     def run(self, prompt, *, cwd=None, timeout=300):
         """Start and await one headless session; output is captured, masked."""
-        if not self.installed:
-            raise OpenCodeError("OpenCode is not installed on this machine.")
         if not isinstance(prompt, str) or not 10 <= len(prompt) <= 4000:
             raise OpenCodeError("Write a session prompt of 10-4000 characters.")
         workdir = self._scoped_dir(cwd)
+        # Applied only on the real execution path: an injected runner is a
+        # simulation transport, so the installed-binary gate must not depend
+        # on what is (or is not) installed on the test host.
+        if self._runner is None and not self.installed:
+            raise OpenCodeError("OpenCode is not installed on this machine.")
         command = [self.binary, "run", prompt]
         started = time.time()
         code, out, err = self._run(command, workdir, timeout)
