@@ -1,6 +1,6 @@
 # SPARK × OpenJarvis — 16-capability status matrix (A4 batch, 2026-10-22)
 
-Branch: `codex/openjarvis-all-16-integration` (worktree `C:\Users\ASUS\spark-openjarvis16`).
+Branch: `codex/openjarvis-all-16-integration` (worktree `C:\Users\ASUS\spark-openjarvis16`). CI: all three jobs green (verify, intelligence ubuntu, intelligence windows) at commit `b1b8529`.
 Definition-of-done framework: `docs/openjarvis-16-execution.md` (seven evidence gates).
 
 ## Score legend
@@ -40,7 +40,18 @@ Definition-of-done framework: `docs/openjarvis-16-execution.md` (seven evidence 
 
 ## Workbench superset
 
-`backend/spark_workbench.py` dispatches **143 owner-gated actions** — all 16 capabilities are reachable from SPARK's session/socket layer (the same `workspace_action` handler used by the UI/voice path).
+`backend/spark_workbench.py` dispatches **143 owner-gated actions** — all 16 capabilities are registered and dispatchable from SPARK's `workspace_action`/`integration_sync_action` socket handlers.
+
+## UI/voice reachability audit (2026-10-22, first green CI at 5b…/b1b8529)
+
+A full source sweep of `src/` (all React components), `electron/`, `android/`, and the backend voice grammar found that **the 16 capabilities have no UI or voice entry points today**; they are reachable over the socket layer only. Evidence:
+
+- Every frontend `workspace_action` emit carries hard-coded action names; no component discovers actions dynamically (no `get_actions`/catalog socket event exists — `ACTION_KEYS` is used server-side only).
+- Capability `digest_*`, `hub_*`, `opencode_*`, `research_run`, `proactive_*`, `monitor_*`, `trace_*`, `router_select`, `learning_*`, `spec_*`, `skill_*`, `agents_*`, `connector_*`, `eval_*`, `telemetry_*`, `backend_*` appear in **zero** frontend emit sites and **zero** `workspace_result` case handlers.
+- Voice path (`backend/spark_workbench_voice.py` grammar → `server.py` `on_workbench_command`) produces only `executive_briefing`, `workbench_snapshot`, `save_preference`, `add_agenda`, `agent_snapshot`, `intelligence_health`, and MCP intents — none of the 16 groups.
+- Partial exceptions: capability 01's *upstream briefing* (PR #48 Google snapshot) is surfaced through `ExecutiveBriefingPanel.jsx` (`sync_briefing`, `sync_now`) and `IntegrationSyncPanel.jsx` — but the `digest_*` actions themselves have no UI.
+
+This means the OpenJarvis-16 definition of done ("reachable from SPARK UI/voice, not only a registered adapter") is **not yet met**; the honest current state is *backend-implemented, test-verified, socket-dispatchable, UI/voice-pending*. Surfacing them requires adding UI panels/voice intents per capability family — no backend gating changes.
 
 ## Remaining acceptance blockers (founder-side)
 
