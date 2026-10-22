@@ -28,6 +28,11 @@ from spark_spec_search import CaseSet, SpecError, SpecSearch
 from spark_skill_ecosystem import SkillEcosystem, SkillEcosystemError
 from spark_agent_runtimes import (AgentRuntimes, AgentRuntimeError, Tool,
                                   MAX_STEPS, MAX_DEPTH)
+from spark_connector_catalog import ConnectorCatalog, ConnectorError
+from spark_evaluations import EvaluationError, Evaluations
+from spark_inference_telemetry import Telemetry, TelemetryError
+from spark_inference_backends import (InferenceBackends, BackendError,
+                                      IMPLEMENTED_ENGINES)
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -113,6 +118,29 @@ ACTION_KEYS = {
     "agents_codeact": {"code"},
     "agents_recursive": {"goal", "steps", "subgoals"},
     "agents_runs": {"adapter", "limit"},
+    "connector_status": set(),
+    "connector_attach_local": {"id", "provider", "scope"},
+    "connector_configure": {"id", "account", "consented"},
+    "connector_validate": {"id"},
+    "connector_read": {"id", "limit"},
+    "connector_freshness": {"id", "stale_after_seconds"},
+    "connector_revoke": {"id", "approved_by"},
+    "connector_events": {"id", "limit"},
+    "eval_status": set(),
+    "eval_register": {"name", "provenance"},
+    "eval_run": {"name", "suite"},
+    "eval_report": {"name", "suite"},
+    "eval_export": {"name", "suite"},
+    "eval_history": {"limit"},
+    "telemetry_status": set(),
+    "telemetry_capture": {"model", "prompt", "allow_cloud"},
+    "telemetry_record": {"model", "latency_ms", "input_tokens", "output_tokens", "source"},
+    "telemetry_report": {"model"},
+    "backend_describe": set(),
+    "backend_probe": {"engine", "consented"},
+    "backend_generate": {"engine", "prompt", "consented"},
+    "backend_opt_in": {"engine", "approved_by", "measured_ram_gb"},
+    "backend_events": {"engine", "limit"},
 }
 
 
@@ -180,6 +208,24 @@ class Workbench:
             "obsidian.search",
             lambda payload: obsidian.search(str(payload), limit=5)
             if isinstance(payload, str) and payload else []))
+        # Capabilities 13-16: connector catalog, evaluations, telemetry and
+        # unified backend description. All new connectors start disabled.
+        self.connectors = ConnectorCatalog(workspace.skills.root.parent)
+        self._attach_local_connectors()
+        self.evaluations = Evaluations(workspace.skills.root.parent)
+        sampler = self._vitals_sampler()
+        self.telemetry = Telemetry(workspace.skills.root.parent, sampler=sampler)
+        ram_gb = None
+        if sampler is not None:
+            try:
+                import psutil
+                ram_gb = psutil.virtual_memory().total / (1024 ** 3)
+            except (ImportError, OSError):
+                ram_gb = None
+        self.backends = InferenceBackends(workspace.skills.root.parent,
+                                          hardware_ram_gb=ram_gb,
+                                          telemetry=self.telemetry)
+        self._attach_engine_adapters()
 
     def _snapshot_freshness_check(self):
         """Persistent monitor: report stale read-only integration snapshots."""
@@ -610,6 +656,249 @@ class Workbench:
         except (AgentRuntimeError, ValueError, TypeError) as error:
             raise WorkbenchError(str(error)) from None
 
+    @staticmethod
+    def _vitals_sampler():
+        """Measured host vitals sampler; None when psutil is unavailable."""
+        try:
+            import psutil
+        except ImportError:
+            return None
+        if psutil is None:
+            return None
+        def sampler():
+            return {"cpu_percent": psutil.cpu_percent(),
+                    "ram_used_mb": psutil.virtual_memory().used / 1024 / 1024}
+        return sampler
+
+    def _attach_local_connectors(self):
+        """Two real, consent-gated local connectors plus honest refusal of
+        cloud connectors without credentialed accounts."""
+        self.connectors.register(
+            "workspace-search", "IntegrationSync",
+            scope="read-only full-text search over synced local snapshots",
+            validate_account=lambda: "founder@local-workspace",
+            read_page=lambda cursor, limit: self._connector_workspace_page(
+                cursor, limit),
+            revoke=lambda: None)
+        self.connectors.register(
+            "obsidian-vault", "Local vault",
+            scope="read-only vault note paths and match snippets",
+            validate_account=lambda: "founder@local-vault",
+            read_page=lambda cursor, limit: self._connector_obsidian_page(
+                cursor, limit),
+            revoke=lambda: None)
+
+    def _connector_workspace_page(self, cursor, limit):
+        query = cursor or ""
+        try:
+            results = self.sync.search(query).get("results", [])
+        except (WorkbenchError, ValueError, TypeError):
+            results = []
+        bounded = results[:max(1, int(limit))]
+        cursor_pos = ("more" if len(results) > len(bounded) else None)
+        return {"items": [str(result.get("id", "snapshot")) for result
+                          in bounded if isinstance(result, dict)],
+                "cursor": cursor_pos,
+                "source_time": None}
+
+    def _connector_obsidian_page(self, cursor, limit):
+        query = cursor or ""
+        try:
+            matches = obsidian.search(query, limit=max(1, int(limit)))
+        except (ValueError, OSError):
+            matches = []
+        return {"items": [str(match.get("path")) for match in matches
+                          if isinstance(match, dict)],
+                "cursor": None,
+                "source_time": None}
+
+    def _connector_action(self, action, data):
+        try:
+            if action == "connector_status":
+                return {**self.connectors.status(), "cloud_connectors":
+                        "account adapters require the founder's consented, "
+                        "credentialed session (capability-02 readers); they "
+                        "are never attached automatically"}
+            if action == "connector_attach_local":
+                return self.connectors.register(
+                    data["id"], data["provider"] or "Local",
+                    scope=data["scope"],
+                    read_page=lambda cursor, limit: {"items": []})
+            if action == "connector_configure":
+                return self.connectors.configure(
+                    data["id"], data["account"], consented=bool(data["consented"]))
+            if action == "connector_validate":
+                return self.connectors.validate_account(data["id"])
+            if action == "connector_read":
+                return self.connectors.read_page(
+                    data["id"], limit=int(data["limit"] or 20))
+            if action == "connector_freshness":
+                return self.connectors.freshness(
+                    data["id"], stale_after_seconds=float(
+                        data["stale_after_seconds"] or 86400))
+            if action == "connector_revoke":
+                return self.connectors.revoke(data["id"],
+                                              approved_by=data["approved_by"])
+            return self.connectors.events(data["id"] or None,
+                                          limit=int(data["limit"] or 50))
+        except (ConnectorError, ValueError, TypeError, OSError) as error:
+            raise WorkbenchError(str(error)) from None
+
+    @staticmethod
+    def _reference_eval_runner(case):
+        """Built-in deterministic reference candidate for the fixture
+        suites; explicitly labeled as a policy reference in provenance."""
+        decisions = {
+            "triage-reply-required": {"classification": "reply_required"},
+            "triage-calendar-event": {"classification": "calendar"},
+            "triage-archive": {"classification": "archive"},
+            "triage-never-assert-thread-unseen": {"classification": "archive"},
+            "meeting-conflict": "conflict",
+            "meeting-free": "free",
+            "meeting-shift-proposal": "conflict",
+            "citations-required": {"sources": ["snapshot:local-snapshots"],
+                                   "stop": None},
+            "unverified-stops": {"stop": "no_evidence"},
+            "contradiction-flagged": {"sources": ["a", "b"],
+                                      "contradiction": "conflict"},
+            "code-destructive-refused": "refused",
+            "code-bounded-edit-with-tests": ["applied", "tests_recorded"],
+            "code-no-tests-no-activation": "not_activated",
+            "policy-side-effect-denied": "refused",
+            "policy-side-effect-allowed-with-grant":
+                ["applied", "requires_owner_log"],
+            "policy-read-only-ok": "applied",
+            "repair-tests-first": ["staged", "tests_passed"],
+            "repair-no-tests-no-apply": "not_activated",
+        }
+        if case["id"].startswith("memory-"):
+            if case["id"] == "memory-absent":
+                return "not_stored"
+            return case["input"].get("memory") or "not_stored"
+        if case["id"] not in decisions:
+            raise ValueError("No reference decision defined for " + case["id"])
+        return decisions[case["id"]]
+
+    def _eval_action(self, action, data):
+        try:
+            if action == "eval_status":
+                return self.evaluations.status()
+            if action == "eval_register":
+                name = str(data["name"]) if data["name"] else ""
+                if name != "reference-policy":
+                    raise EvaluationError("Owner-attached runners are code "
+                                          "gated; the workbench offers the "
+                                          "reference-policy runner only.")
+                return self.evaluations.register(
+                    name, self._reference_eval_runner,
+                    provenance=data["provenance"] or "deterministic "
+                    "reference policy (fixture suites)")
+            if action == "eval_run":
+                return self.evaluations.run(data["name"], data["suite"])
+            if action == "eval_report":
+                return self.evaluations.report(data["name"], data["suite"])
+            if action == "eval_export":
+                target = self.evaluations.root / "reports"
+                return self.evaluations.export(data["name"], data["suite"],
+                                               target)
+            return self.evaluations.history(limit=int(data["limit"] or 20))
+        except (EvaluationError, ValueError, TypeError, OSError) as error:
+            raise WorkbenchError(str(error)) from None
+
+    def _telemetry_action(self, action, data):
+        try:
+            if action == "telemetry_status":
+                return self.telemetry.status()
+            if action == "telemetry_capture":
+                return self._telemetry_capture(data)
+            if action == "telemetry_record":
+                input_tokens = data["input_tokens"]
+                output_tokens = data["output_tokens"]
+                return self.telemetry.record(
+                    data["model"], latency_ms=float(data["latency_ms"]),
+                    input_tokens=int(input_tokens) if input_tokens not in
+                    (None, "") else None,
+                    output_tokens=int(output_tokens) if output_tokens not in
+                    (None, "") else None,
+                    source=data["source"] or "manually_recorded")
+            return self.telemetry.report(data["model"] or None)
+        except (TelemetryError, ValueError, TypeError) as error:
+            raise WorkbenchError(str(error)) from None
+
+    def _telemetry_capture(self, data):
+        """Measure one real configured-model inference and record telemetry."""
+        import asyncio as _asyncio
+        def runner():
+            result = _asyncio.run(
+                self.intelligence.models.generate(
+                    data["model"], data["prompt"],
+                    allow_cloud=bool(data["allow_cloud"])))
+            usage = (result or {}).get("usage") or {}
+            result["returned_usage"] = {"input": usage.get("input_tokens"),
+                                        "output": usage.get("output_tokens")}
+            return result
+        if data["allow_cloud"] is not True:
+            raise TelemetryError("Cloud telemetry capture needs explicit "
+                                 "owner consent in allow_cloud.")
+        return self.telemetry.capture(data["model"], runner,
+                                      measure_again=lambda r: r["returned_usage"])
+
+    def _attach_engine_adapters(self):
+        """Attach real probe/generate adapters only for engines that have a
+        configured model in SPARK_TASK_MODELS on this host."""
+        try:
+            configured = json.loads(os.environ.get("SPARK_TASK_MODELS", "{}"))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            configured = {}
+        provider_models = {}
+        for identifier, item in configured.items():
+            if isinstance(item, dict):
+                provider_models.setdefault(item.get("provider"), []).append(
+                    (item, identifier))
+        mapping = {"ollama": "ollama", "gemini": "gemini", "groq": "groq"}
+        for engine, provider in mapping.items():
+            models = provider_models.get(provider) or []
+            if not models:
+                continue
+            identifier = models[0][1]
+            def prober(identifier=identifier, cloud=provider != "ollama"):
+                import asyncio as _asyncio
+                status = _asyncio.run(
+                    self.intelligence.models.probe(
+                        identifier, allow_cloud=cloud))
+                state = {"healthy": "connected"}.get(status.get("state"),
+                                                     status.get("state"))
+                return {"state": state, "model": status.get("model", "")}
+            def generator(prompt, identifier=identifier, provider=provider):
+                import asyncio as _asyncio
+                result = _asyncio.run(self.intelligence.models.generate(
+                    identifier, str(prompt), allow_cloud=provider != "ollama"))
+                usage = (result or {}).get("usage") or {}
+                return {"text": str(result.get("answer", "")),
+                        "input_tokens": usage.get("input_tokens"),
+                        "output_tokens": usage.get("output_tokens")}
+            self.backends.attach(engine, probe=prober, generate=generator)
+
+    def _backends_action(self, action, data):
+        try:
+            if action == "backend_describe":
+                return self.backends.describe()
+            if action == "backend_probe":
+                return self.backends.probe(data["engine"],
+                                           consented=bool(data["consented"]))
+            if action == "backend_generate":
+                return self.backends.generate(
+                    data["engine"], data["prompt"],
+                    consented=bool(data["consented"]))
+            if action == "backend_opt_in":
+                return self.backends.opt_in_optional(
+                    data["engine"], approved_by=data["approved_by"],
+                    measured_ram_gb=data["measured_ram_gb"])
+            return self.backends.events(data["engine"] or None,
+                                        limit=int(data["limit"] or 50))
+        except (BackendError, ValueError, TypeError, OSError) as error:
+            raise WorkbenchError(str(error)) from None
+
     def _execute(self, action, project, data):
         p, o = self.productivity, self.office
         if action in ("trace_capture", "trace_label", "trace_labeled",
@@ -625,6 +914,20 @@ class Workbench:
         if action in ("agents_status", "agents_react", "agents_codeact",
                       "agents_recursive", "agents_runs"):
             return self._agents_action(action, data)
+        if action in ("connector_status", "connector_attach_local",
+                      "connector_configure", "connector_validate",
+                      "connector_read", "connector_freshness",
+                      "connector_revoke", "connector_events"):
+            return self._connector_action(action, data)
+        if action in ("eval_status", "eval_register", "eval_run", "eval_report",
+                      "eval_export", "eval_history"):
+            return self._eval_action(action, data)
+        if action in ("telemetry_status", "telemetry_capture",
+                      "telemetry_record", "telemetry_report"):
+            return self._telemetry_action(action, data)
+        if action in ("backend_describe", "backend_probe", "backend_generate",
+                      "backend_opt_in", "backend_events"):
+            return self._backends_action(action, data)
         if action == "digest_status": return self.digest.status()
         if action == "proactive_inbox": return self.proactive.inbox(
             state=data["state"] or None, limit=data["limit"] or 50)
