@@ -251,7 +251,12 @@ export default function CapabilitiesCenter({socket, visible=true, project:rawPro
         if(!visible) return;
         setStatusResult(null);
         setValues({});
-        if(socket.connected) request(page.status);
+        setLastResult(null);
+        if(page.status==='research_run'){
+            // research_run needs a real question; auto-dispatching with an
+            // empty one would only manufacture a refusal.
+            setNotice('Enter a research question and press Run.');
+        } else if(socket.connected) request(page.status);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     },[pageId,visible]);
 
