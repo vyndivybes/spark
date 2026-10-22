@@ -10,6 +10,7 @@ from spark_intelligence.service import Intelligence, ACTION_KEYS as INTELLIGENCE
 from spark_intelligence.runtime import PolicyError
 from spark_vayu_data import VayuExports
 from spark_sync import IntegrationSync
+from spark_morning_digest import DigestEngine, DigestError, NewsSource
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -39,6 +40,13 @@ ACTION_KEYS = {
     "analyze_snapshot": {"image", "question"},
     "publish_vayu_snapshot":set(),
     "unpublish_vayu_snapshot":set(),
+    "digest_status": set(),
+    "digest_run": set(),
+    "digest_history": {"limit"},
+    "digest_ack": {"digest"},
+    "digest_speech": {"digest"},
+    "digest_speak": {"digest"},
+    "digest_configure": {"schedule_ist", "news_enabled", "news_url"},
 }
 
 
@@ -51,6 +59,7 @@ class Workbench:
             Integrations(config=getattr(self.integrations,'config',None),audit_dir=workspace.skills.root.parent/'integrations'),local=obsidian.snapshot)
         self.intelligence = Intelligence(workspace,integrations=self.integrations)
         self.vayu = VayuExports(workspace,self.productivity,None)
+        self.digest = DigestEngine(workspace.skills.root.parent, self.sync)
 
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
@@ -92,6 +101,15 @@ class Workbench:
                                        ". At most 12 sections or 5 sheets. Use plain strings and finite numbers. Do not invent verified facts or citations.",
                                        {"request": prompt, "format": extension})
             return await asyncio.to_thread(self._execute, "create_office", project, {"format": extension, "spec": spec})
+        if action in ("digest_run", "digest_speak"):
+            # One digest per day; speech is a local-only, explicitly
+            # requested Windows System.Speech call.
+            try:
+                if action == "digest_run":
+                    return await asyncio.to_thread(self.digest.run)
+                return await asyncio.to_thread(self.digest.speak, payload["digest"] or None)
+            except DigestError as error:
+                raise WorkbenchError(str(error)) from None
         if action == "analyze_snapshot":
             if os.environ.get("SPARK_GROQ_VISION_ENABLED") != "1":
                 raise WorkbenchError("Enable SPARK_GROQ_VISION_ENABLED to analyze a selected screenshot or image.")
@@ -108,8 +126,39 @@ class Workbench:
                 raise WorkbenchError(str(error)) from None
         return await asyncio.to_thread(self._execute, action, project, payload)
 
+    def _digest_history(self, limit):
+        try:
+            return self.digest.history(limit=limit)
+        except DigestError as error:
+            raise WorkbenchError(str(error)) from None
+
+    def _digest_ack(self, digest):
+        try:
+            return self.digest.acknowledge(digest or None)
+        except DigestError as error:
+            raise WorkbenchError(str(error)) from None
+
+    def _digest_speech(self, digest):
+        try:
+            return self.digest.speech_payload(digest or None)
+        except DigestError as error:
+            raise WorkbenchError(str(error)) from None
+
+    def _digest_configure(self, data):
+        try:
+            return self.digest.configure(
+                schedule_ist=data["schedule_ist"], news_enabled=data["news_enabled"],
+                news_url=data["news_url"] or None)
+        except DigestError as error:
+            raise WorkbenchError(str(error)) from None
+
     def _execute(self, action, project, data):
         p, o = self.productivity, self.office
+        if action == "digest_status": return self.digest.status()
+        if action == "digest_history": return self._digest_history(data["limit"])
+        if action == "digest_ack": return self._digest_ack(data["digest"])
+        if action == "digest_speech": return self._digest_speech(data["digest"])
+        if action == "digest_configure": return self._digest_configure(data)
         try:
             if action == "workbench_snapshot": return p.snapshot(project)
             if action == "save_preference": return p.preference(project, data["key"], data["value"])
