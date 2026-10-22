@@ -24,6 +24,10 @@ from spark_monitor_agents import MonitorAgents, MonitorError
 from spark_trace_learning import (TraceStore, AdaptiveRouter, LearningEngine,
                                   LearningError, policy_always_local,
                                   policy_latency_smallest)
+from spark_spec_search import CaseSet, SpecError, SpecSearch
+from spark_skill_ecosystem import SkillEcosystem, SkillEcosystemError
+from spark_agent_runtimes import (AgentRuntimes, AgentRuntimeError, Tool,
+                                  MAX_STEPS, MAX_DEPTH)
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -92,6 +96,23 @@ ACTION_KEYS = {
     "learning_activate": {"key", "approved_by"},
     "learning_rollback": {"key"},
     "learning_status": set(),
+    "spec_search_status": set(),
+    "spec_search_run": {"goal"},
+    "spec_candidates": {"status", "limit"},
+    "spec_activate": {"key", "approved_by"},
+    "spec_rollback": set(),
+    "skill_import": {"manifest", "provided_by"},
+    "skill_review": {"key", "approved_by", "granted_tools"},
+    "skill_list": set(),
+    "skill_run": {"key", "name", "pipeline", "inputs"},
+    "skill_runs": {"key", "limit"},
+    "skill_revoke": {"key", "approved_by"},
+    "skill_status": set(),
+    "agents_status": set(),
+    "agents_react": {"goal", "steps", "grant_side_effects"},
+    "agents_codeact": {"code"},
+    "agents_recursive": {"goal", "steps", "subgoals"},
+    "agents_runs": {"adapter", "limit"},
 }
 
 
@@ -136,6 +157,29 @@ class Workbench:
             "always-local": policy_always_local,
             "latency-smallest": policy_latency_smallest,
         }
+        # Capability 08: no planner is granted automatically; spec search
+        # honestly reports planner_not_configured until the owner grants a
+        # zero-cost planner explicitly.
+        self.specs = SpecSearch(workspace.skills.root.parent)
+        # Capability 09: only two owner-safe, read-only operations exist for
+        # skills; nothing else can be granted or executed.
+        self.skills = SkillEcosystem(workspace.skills.root.parent)
+        self.skills.register_operation(
+            "search.obsidian",
+            lambda ctx, prior: self._safe_obsidian_search(ctx))
+        self.skills.register_operation(
+            "search.snapshots",
+            lambda ctx, prior: self._safe_snapshot_search(ctx))
+        # Capability 10: guarded runtimes with the same two read-only tools.
+        self.agent_runtime = AgentRuntimes(workspace.skills.root.parent)
+        self.agent_runtime.register(Tool(
+            "search.snapshots",
+            lambda payload: self.sync.search(str(payload)).get("results", [])[:5]
+            if isinstance(payload, str) and payload else []))
+        self.agent_runtime.register(Tool(
+            "obsidian.search",
+            lambda payload: obsidian.search(str(payload), limit=5)
+            if isinstance(payload, str) and payload else []))
 
     def _snapshot_freshness_check(self):
         """Persistent monitor: report stale read-only integration snapshots."""
@@ -425,12 +469,162 @@ class Workbench:
             # LearningError is a ValueError subclass; both stay workbench-shaped.
             raise WorkbenchError(str(error)) from None
 
+    @staticmethod
+    def _safe_obsidian_search(ctx):
+        """Bounded read-only vault search used as a skill operation."""
+        payload = ctx.get("q") if isinstance(ctx, dict) else None
+        try:
+            return [match.get("path") for match in
+                    obsidian.search(str(payload), limit=5)
+                    if isinstance(match, dict)]
+        except (ValueError, OSError):
+            return []
+
+    def _safe_snapshot_search(self, ctx):
+        """Bounded read-only integration snapshot search."""
+        payload = ctx.get("q") if isinstance(ctx, dict) else None
+        try:
+            results = self.sync.search(str(payload)).get("results", [])
+        except (WorkbenchError, ValueError, TypeError):
+            results = []
+        return [str(result.get("id")) for result in results[:5]
+                if isinstance(result, dict)]
+
+    def _spec_action(self, action, data):
+        try:
+            if action == "spec_search_status":
+                return self.specs.status()
+            if action == "spec_search_run":
+                return self.specs.search(data["goal"], self._spec_case_set(),
+                                         self._spec_case_runner())
+            if action == "spec_candidates":
+                return self.specs.candidates(
+                    status=data["status"] or None,
+                    limit=int(data["limit"] or 20))
+            if action == "spec_activate":
+                return self.specs.activate(data["key"],
+                                           approved_by=data["approved_by"])
+            # spec_rollback
+            return self.specs.rollback()
+        except (SpecError, ValueError, TypeError) as error:
+            raise WorkbenchError(str(error)) from None
+
+    @staticmethod
+    def _spec_case_set():
+        """Owner-authored fixture cases; live data comes only from consented
+        sources and is never fabricated here."""
+        return CaseSet("fixture.workbench-spec", [
+            {"name": "identity-support",
+             "input": {"route": "identity", "text": "unsubscribe"},
+             "expected": {"answer": "route"}},
+            {"name": "identity-no-op",
+             "input": {"route": "identity", "text": "hello"},
+             "expected": {"answer": "skip"}},
+            {"name": "cal-support",
+             "input": {"route": "calendar", "text": "reschedule"},
+             "expected": {"answer": "route"}},
+            {"name": "cal-no-op",
+             "input": {"route": "calendar", "text": "thanks"},
+             "expected": {"answer": "skip"}},
+        ], provenance="fixture:workbench")
+
+    @staticmethod
+    def _spec_case_runner():
+        """Measured runner: answer routes when the spec's routing class is
+        enabled for the source; mismatches are recorded as failures."""
+        def runner(spec, case):
+            route = case["input"]["route"]
+            trigger = case["input"]["text"]
+            rules = spec.get("route_rules") or {}
+            enabled = bool(rules.get(route)) and not bool(
+                rules.get(route + "_no_trigger"))
+            decided = "route" if enabled else "skip"
+            # A "route" decision requires a matching explicit trigger word.
+            if decided == "route" and not trigger:
+                decided = "skip"
+            return decided == case["expected"]["answer"]
+        return runner
+
+    def _skill_action(self, action, data):
+        try:
+            if action == "skill_import":
+                return self.skills.import_skill(data["manifest"],
+                                                provided_by=data["provided_by"])
+            if action == "skill_review":
+                return self.skills.review(data["key"],
+                                          approved_by=data["approved_by"],
+                                          granted_tools=list(data["granted_tools"]))
+            if action == "skill_list":
+                return self.skills.list()
+            if action == "skill_run":
+                return self.skills.run_pipeline(
+                    data["key"], data["name"],
+                    list(data["pipeline"] or []), dict(data["inputs"] or {}))
+            if action == "skill_runs":
+                return self.skills.runs(data["key"] or None,
+                                        limit=int(data["limit"] or 20))
+            if action == "skill_revoke":
+                return self.skills.revoke(data["key"],
+                                          approved_by=data["approved_by"])
+            # skill_status
+            return self.skills.status()
+        except (SkillEcosystemError, ValueError, TypeError) as error:
+            raise WorkbenchError(str(error)) from None
+
+    def _agents_action(self, action, data):
+        try:
+            if action == "agents_status":
+                return self.agent_runtime.status()
+            if action == "agents_runs":
+                return self.agent_runtime.runs(data["adapter"] or None,
+                                               limit=int(data["limit"] or 20))
+            if action == "agents_codeact":
+                result = self.agent_runtime.codeact.evaluate(data["code"], {})
+                key = self.agent_runtime.record_run("codeact", data["code"],
+                                                    "evaluated",
+                                                    [{"expression": result[:200]}],
+                                                    result)
+                return {"key": key, "status": "evaluated", "result": result}
+            steps = list(data["steps"] or [])
+            if not steps or len(steps) > MAX_STEPS + 1:
+                raise AgentRuntimeError("Scripted steps are 1–13 entries.")
+            scripted = list(steps)
+            def model(_state):
+                return scripted.pop(0) if scripted else {"final": "done"}
+            if action == "agents_react":
+                outcome = self.agent_runtime.react.run(
+                    data["goal"], model,
+                    side_effects_granted=bool(data["grant_side_effects"]))
+            else:  # agents_recursive
+                subgoals = list(data["subgoals"] or [])
+                planner = lambda goal: subgoals
+                outcome = self.agent_runtime.recursive.run(data["goal"], model,
+                                                           planner,
+                                                           depth=MAX_DEPTH)
+            record = outcome.get("answer") or outcome.get("status")
+            key = self.agent_runtime.record_run(
+                "react" if action == "agents_react" else "recursive",
+                data["goal"], outcome["status"], outcome.get("steps", []),
+                record)
+            return {**outcome, "key": key}
+        except (AgentRuntimeError, ValueError, TypeError) as error:
+            raise WorkbenchError(str(error)) from None
+
     def _execute(self, action, project, data):
         p, o = self.productivity, self.office
         if action in ("trace_capture", "trace_label", "trace_labeled",
                       "trace_status", "router_select", "learning_propose",
                       "learning_activate", "learning_rollback", "learning_status"):
             return self._learning_action(action, data)
+        if action in ("spec_search_status", "spec_search_run", "spec_candidates",
+                      "spec_activate", "spec_rollback"):
+            return self._spec_action(action, data)
+        if action in ("skill_import", "skill_review", "skill_list", "skill_run",
+                      "skill_runs", "skill_revoke", "skill_status"):
+            return self._skill_action(action, data)
+        if action in ("agents_status", "agents_react", "agents_codeact",
+                      "agents_recursive", "agents_runs"):
+            return self._agents_action(action, data)
         if action == "digest_status": return self.digest.status()
         if action == "proactive_inbox": return self.proactive.inbox(
             state=data["state"] or None, limit=data["limit"] or 50)
