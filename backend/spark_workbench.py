@@ -11,6 +11,7 @@ from spark_intelligence.runtime import PolicyError
 from spark_vayu_data import VayuExports
 from spark_sync import IntegrationSync
 from spark_morning_digest import DigestEngine, DigestError, NewsSource
+from spark_messaging_hub import MessagingHub, HubError
 from spark_obsidian_integration import obsidian
 
 ACTION_KEYS = {
@@ -47,6 +48,13 @@ ACTION_KEYS = {
     "digest_speech": {"digest"},
     "digest_speak": {"digest"},
     "digest_configure": {"schedule_ist", "news_enabled", "news_url"},
+    "hub_status": set(),
+    "hub_configure": {"channel", "config"},
+    "hub_disconnect": {"channel"},
+    "hub_approve": {"channel", "recipient", "text"},
+    "hub_send": {"channel", "approval_id"},
+    "hub_receive": {"channel"},
+    "hub_history": {"limit"},
 }
 
 
@@ -60,6 +68,23 @@ class Workbench:
         self.intelligence = Intelligence(workspace,integrations=self.integrations)
         self.vayu = VayuExports(workspace,self.productivity,None)
         self.digest = DigestEngine(workspace.skills.root.parent, self.sync)
+        self.messaging = MessagingHub(workspace.skills.root.parent)
+
+    async def _hub(self, action, payload):
+        """Network-capable hub calls run off the event loop; errors stay mine."""
+        notifier = {"hub_configure": lambda: self.messaging.configure(
+                        payload["channel"], payload["config"]),
+                    "hub_disconnect": lambda: self.messaging.disconnect(payload["channel"]),
+                    "hub_approve": lambda: self.messaging.approve_outbound(
+                        payload["channel"], payload["recipient"], payload["text"]),
+                    "hub_send": lambda: self.messaging.send(
+                        payload["channel"], payload["approval_id"]),
+                    "hub_receive": lambda: self.messaging.receive(payload["channel"]),
+                    "hub_history": lambda: self.messaging.history(limit=payload["limit"])}
+        try:
+            return await asyncio.to_thread(notifier[action])
+        except HubError as error:
+            raise WorkbenchError(str(error)) from None
 
     async def execute(self, action, project, payload):
         if action not in ACTION_KEYS or not isinstance(payload, dict) or set(payload) != ACTION_KEYS[action]:
@@ -101,6 +126,9 @@ class Workbench:
                                        ". At most 12 sections or 5 sheets. Use plain strings and finite numbers. Do not invent verified facts or citations.",
                                        {"request": prompt, "format": extension})
             return await asyncio.to_thread(self._execute, "create_office", project, {"format": extension, "spec": spec})
+        if action in ("hub_configure", "hub_disconnect", "hub_approve", "hub_send",
+                      "hub_receive", "hub_history"):
+            return await self._hub(action, payload)
         if action in ("digest_run", "digest_speak"):
             # One digest per day; speech is a local-only, explicitly
             # requested Windows System.Speech call.
@@ -155,6 +183,7 @@ class Workbench:
     def _execute(self, action, project, data):
         p, o = self.productivity, self.office
         if action == "digest_status": return self.digest.status()
+        if action == "hub_status": return self.messaging.status()
         if action == "digest_history": return self._digest_history(data["limit"])
         if action == "digest_ack": return self._digest_ack(data["digest"])
         if action == "digest_speech": return self._digest_speech(data["digest"])
