@@ -1,3 +1,5 @@
+import PythonToolForge from './PythonToolForge';
+import CodeSkillForge from './CodeSkillForge';
 import React, {useEffect, useRef, useState} from 'react';
 import IntegrationSyncPanel from './IntegrationSyncPanel';
 
@@ -153,13 +155,28 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
         };
         const offline = () => {clearTimeout(deadline.current); pending.current = null; setBusy(false); setNotice('Backend offline. Refresh after reconnecting.');};
         socket.on('workspace_result', listener);
+        const voiceStage = data => {
+            const candidate = data?.candidate;
+            if (!candidate || pageRef.current !== 'Repository Intelligence') return;
+            setCandidates(current => [candidate, ...current.filter(item => item?.id !== candidate.id)]);
+            setNotice('Voice-approved opportunity staged for review. Testing and activation still require approval.');
+        };
+        socket.on('repository_voice_stage', voiceStage);
         socket.on('disconnect', offline);
-        return () => {clearTimeout(deadline.current); socket.off('workspace_result', listener); socket.off('disconnect', offline);};
+        return () => {clearTimeout(deadline.current); socket.off('workspace_result', listener); socket.off('repository_voice_stage', voiceStage); socket.off('disconnect', offline);};
     }, [socket, project]);
 
     useEffect(() => {
         if (page !== 'Autonomous Missions' && page !== 'Memory & Knowledge') {setResult(null); setResultAction('');}
     }, [page, project]);
+
+    useEffect(() => {
+        if (page !== 'Repository Intelligence' || !socket?.connected) return undefined;
+        const timer = setTimeout(() => {
+            if (!pending.current) request('list_repository_analyses');
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [page, project, socket]);
 
     function refresh(action, payload = {}, timeout) {
         pending.current = null; setBusy(false);
@@ -316,6 +333,8 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
             </>}
 
             {page === 'Self-Upgrade Studio' && <>
+                <PythonToolForge socket={socket} project={project}/>
+                <CodeSkillForge socket={socket} project={project}/>
                 <div className={card}>
                     <h4 className="font-semibold">Request a bounded source repair</h4>
                     <p className="text-sm text-slate-300">Uses the configured model on the selected files and issue. The candidate is staged, never applied. Repository-staged upgrades from Repository Intelligence also appear here.</p>

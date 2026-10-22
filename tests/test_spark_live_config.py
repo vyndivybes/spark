@@ -39,6 +39,17 @@ class LiveConfigTests(unittest.TestCase):
         self.assertIn("policy", result.lower())
         self.assertNotIn("429", result)
 
+    def test_websocket_1007_invalid_setup_is_configuration_not_audio(self):
+        error = RuntimeError('1007 Invalid JSON payload received. Unknown name "additional_properties" at setup.tools')
+        result = live_error_message(error)
+        self.assertIn('configuration', result.lower())
+        self.assertIn('1007', result)
+        self.assertIn('not involved', result.lower())
+        self.assertTrue(live_error_requires_user_action(error))
+        status = live_status_report('error', result)
+        self.assertEqual(status['live_error_code'], 1007)
+        self.assertNotIn('audio', status['live_message'].lower())
+
     def test_live_error_categories_never_include_private_provider_body(self):
         for raw, expected in [
             ("Error HTTP 429: secret-example quota exceeded", "rate limit"),
@@ -82,8 +93,12 @@ class LiveRecoveryTests(unittest.IsolatedAsyncioTestCase):
             'MODEL':'test','config':{},'live_profile':lambda:'cinematic',
             'pc_live_config':lambda config,enabled:config,'jarvis_live_config':lambda config,enabled:config,
             'live_error_message':live_error_message,'live_error_requires_user_action':live_error_requires_user_action}
+        from spark_conversation_memory import conversation_live_config
+        from spark_python_tools import generated_live_config
+        from spark_web import web_live_config
+        scope.update(conversation_live_config=conversation_live_config, generated_live_config=generated_live_config, web_live_config=web_live_config)
         exec(compile(ast.Module(body=[method],type_ignores=[]),'spark.py','exec'),scope)
-        loop=SimpleNamespace(stop_event=asyncio.Event(),pc_access=None,jarvis_access=None,on_live_status=statuses.append)
+        loop=SimpleNamespace(stop_event=asyncio.Event(),pc_access=None,jarvis_access=None,generated_tools=None,on_live_status=statuses.append)
         from unittest.mock import AsyncMock
         with patch('asyncio.sleep',new=AsyncMock()):
             await scope['run'](loop)

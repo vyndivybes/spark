@@ -63,6 +63,7 @@ from spark_workbench_voice import (VOICE_WORKBENCH_ACTIONS,
                                    CAPABILITY_READ_ONLY_ACTIONS,
                                    capability_voice_summary)
 from spark_workspace_auth import workspace_client_allowed, workspace_access_allowed
+from spark_python_tools import GeneratedToolGateway
 from spark_pc_access import PcAccess
 from spark_jarvis import JarvisClient
 from spark_pc_tasks import PcTasks,PC_TASK_ACTIONS
@@ -76,6 +77,7 @@ from spark_voice_answers import (
     HERMES_KIND_TOOLS, payload_or_message, spoken_facts, spoken_graphify,
     spoken_hermes, spoken_timeline)
 from spark_obsidian_integration import obsidian
+from spark_assistant_tools import approved_staging_opportunity
 from spark_browser_session import register_browser_sessions
 _BACKEND_BOOT_AT = time.monotonic()
 # Persistent local storage, outside the Git checkout and without external services.
@@ -124,9 +126,24 @@ async def start_intelligence_scheduler():
     except Exception:
         print('[SPARK] Optional intelligence scheduler unavailable; voice remains available.')
 
+def session_generated_tools(sid):
+    async def emit(payload):
+        await sio.emit('generated_tool_progress',payload,room=sid)
+    def authorized():
+        return bool(audio_loop is not None and getattr(audio_loop,'owner_sid',None)==sid
+            and not audio_loop.stop_event.is_set()
+            and (not SETTINGS.get('face_auth_enabled',False) or (authenticator and authenticator.authenticated)))
+    return GeneratedToolGateway(spark_evolution,lambda:workspace_project_by_sid.get(sid,'default'),emit,authorized)
+
+
 @app.on_event("startup")
 async def start_saee_autonomy_scheduler():
     # The loop remains idle until an authenticated owner enables it.
+    def notify(payload):
+        for sid,project in tuple(workspace_project_by_sid.items()):
+            if project==payload["project"] or payload["project"]=="general":
+                asyncio.create_task(sio.emit("generated_tool_progress",payload,room=sid))
+    spark_evolution.autonomy.notify=notify
     await spark_evolution.autonomy.start_scheduler()
 
 @app.on_event("shutdown")
@@ -139,6 +156,83 @@ async def close_rea_connection():
     await spark_workbench.intelligence.close()
 # Only the last project explicitly opened by this session is available by voice.
 workspace_project_by_sid = {}
+
+_VOICE_WORKSPACE_SCREENS = frozenset({
+    'Overview', 'Missions', 'Knowledge', 'Memory', 'Capabilities', 'Skill forge',
+    'Repositories', 'Workbench', 'Agent skills', 'Upgrade studio', 'Approvals',
+    'History', 'Connections',
+})
+
+
+async def voice_workspace_action(sid, name, arguments, utterance):
+    """Run the small, project-bound workspace surface exposed to voice."""
+    if (audio_loop is None
+            or getattr(audio_loop, 'owner_sid', None) != sid
+            or getattr(audio_loop, 'session', None) is None
+            or not sio.manager.is_connected(sid, '/')
+            or (SETTINGS.get('face_auth_enabled', False)
+                and not (authenticator and authenticator.authenticated))):
+        return {'ok': False, 'error': 'Authenticate to the active Spark workspace first.'}
+    if not isinstance(arguments, dict):
+        return {'ok': False, 'error': 'Invalid workspace arguments.'}
+    project = workspace_project_by_sid.get(sid, 'default')
+    try:
+        if name == 'open_workspace_screen':
+            screen = arguments.get('screen')
+            if set(arguments) != {'screen'} or screen not in _VOICE_WORKSPACE_SCREENS:
+                return {'ok': False, 'error': 'Unknown Spark workspace screen.'}
+            await sio.emit('workspace_navigate', {'screen': screen}, room=sid)
+            return {'ok': True, 'screen': screen,
+                    'message': f'Opened {screen} in the Spark workspace.'}
+        if name == 'list_repository_opportunities':
+            if arguments:
+                return {'ok': False, 'error': 'Repository opportunity listing takes no arguments.'}
+            await sio.emit('workspace_navigate', {'screen': 'Repositories'}, room=sid)
+            reports = await spark_evolution.execute(
+                'list_repository_analyses', project, {})
+            visible = []
+            for summary in reports[-8:]:
+                report = await spark_evolution.execute(
+                    'read_repository_analysis', project, {'id': summary['id']})
+                visible.append({
+                    'analysis_id': report['id'],
+                    'repository': report['repository'],
+                    'goal': report['goal'],
+                    'opportunities': [
+                        {'number': index + 1, 'index': index, 'title': item['title'],
+                         'rationale': item['rationale'][:600]}
+                        for index, item in enumerate(report['opportunities'])
+                    ],
+                })
+            return {'ok': True, 'project': project, 'analyses': visible,
+                    'instruction': ('Ask the user to name one visible opportunity number. '
+                                    'Do not stage anything until they explicitly approve it.')}
+        if name == 'stage_repository_opportunity':
+            identity = arguments.get('analysis_id')
+            index = arguments.get('opportunity')
+            if (set(arguments) != {'analysis_id', 'opportunity'}
+                    or not isinstance(identity, str)
+                    or not re.fullmatch(r'[0-9a-f]{24}', identity)
+                    or type(index) is not int):
+                return {'ok': False, 'error': 'Choose an exact saved analysis and opportunity.'}
+            approved = approved_staging_opportunity(utterance)
+            if approved != index:
+                return {'ok': False, 'error': (
+                    f'Say “approve staging opportunity {index + 1}” to stage that exact item.')}
+            await sio.emit('workspace_navigate', {'screen': 'Repositories'}, room=sid)
+            result = await spark_evolution.execute(
+                'stage_repository_upgrade', project,
+                {'analysis_id': identity, 'opportunity': index})
+            await sio.emit('repository_voice_stage', {'candidate': result}, room=sid)
+            return {'ok': True, 'candidate_id': result.get('id'),
+                    'status': result.get('status', 'staged'),
+                    'message': ('The approved opportunity is staged for review. '
+                                'It has not been tested or activated.')}
+        return {'ok': False, 'error': 'Unsupported workspace voice action.'}
+    except MaintenanceError as error:
+        return {'ok': False, 'error': str(error)[:200]}
+    except Exception:
+        return {'ok': False, 'error': 'The workspace action could not complete.'}
 
 
 async def mcp_voice_call(sid, service, tool, arguments, timeout=40):
@@ -421,6 +515,7 @@ async def startup_event():
 @app.get("/status")
 async def status():
     return {"status": "running", "service": "SPARK Core",
+            "conversation_memory": {"revision": 3, "persistent": True, "explicit_details": True},
             "gemini_configured": spark.client is not None,
             "groq_configured": bool(os.environ.get("GROQ_API_KEY")),
             "ai_provider": cloud_provider(),
@@ -445,6 +540,14 @@ async def status():
                 "live_message":"Groq cloud voice "+("ready for speech" if live_state=="connected" else "not ready"),
                 "live_error_code":None} if cloud_provider()=="groq"
                 else live_status_report(live_state, live_message))}
+
+@app.get('/status/whatsapp')
+async def whatsapp_session_status():
+    """Categorical local diagnostics only; never return messages or identity."""
+    from spark_whatsapp import whatsapp_status
+    result = await whatsapp_status()
+    return {key: result[key] for key in ('ok', 'state', 'chat_reading_available', 'sending_enabled') if key in result}
+
 
 @sio.event
 async def get_diagnostics(sid):
@@ -486,6 +589,11 @@ async def workspace_action(sid, data):
         'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
         'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
         'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
+        'saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop','saee_autonomy_goal','saee_autonomy_cancel_goal','saee_autonomy_cycle',
+        'generate_python_tool','repair_python_tool','propose_python_tool','list_python_tools','python_tools_policy','configure_python_tools',
+        'test_python_tool','activate_python_tool','run_python_tool','deactivate_python_tool',
+        'list_code_skills','generate_code_skill','propose_code_skill','test_code_skill',
+        'activate_code_skill','run_code_skill','deactivate_code_skill',
         'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit',
     )) | CAPABILITY_READ_ONLY_ACTIONS
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
@@ -518,7 +626,12 @@ async def workspace_action(sid, data):
         project = data.get("project") if isinstance(data, dict) else None
         payload = data.get("payload") if isinstance(data, dict) else None
         if isinstance(action, str) and action in EVOLUTION_ACTIONS:
+            phases={'generate_python_tool':'generating','repair_python_tool':'repairing','test_python_tool':'testing','activate_python_tool':'registering','run_python_tool':'running'}
+            if action in phases:await sio.emit('generated_tool_progress',{'phase':phases[action],'name':action.replace('_',' '),'project':project},room=sid)
             result = await spark_evolution.execute(action, project, payload)
+            if action in phases:
+                phase='completed' if action=='run_python_tool' else 'registered' if action=='activate_python_tool' else 'generated' if action in ('generate_python_tool','repair_python_tool') else result.get('status','completed')
+                await sio.emit('generated_tool_progress',{'phase':phase,'name':result.get('name','Python tool'),'project':project},room=sid)
         elif action in ('pc_task_prepare','pc_task_run','pc_task_history'):
             spark_workspace.skills._file(project)
             try:result=await pc_tasks.execute(action,project,payload,getattr(audio_loop,'pc_access',None))
@@ -541,6 +654,8 @@ async def workspace_action(sid, data):
             "request_id":request_id,"action":action,"ok":True,"result":result
         },room=sid)
     except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError, FileOrganizerError, FileIntelligenceError) as error:
+        if isinstance(action,str) and action.endswith('_python_tool'):
+            await sio.emit('generated_tool_progress',{'phase':'failed','name':'Python tool operation failed','project':data.get('project')},room=sid)
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":False,"message":str(error)[:200]
         },room=sid)
@@ -663,6 +778,8 @@ async def start_groq_audio(sid, data=None):
                 spark_workspace.execute,"search_documents",project,{"query":query})
         except (WorkspaceError, OSError):
             return []
+    async def on_workspace_action(name, arguments, utterance):
+        return await voice_workspace_action(sid, name, arguments, utterance)
     async def on_workbench_command(command):
         if (audio_loop is None or getattr(audio_loop, "owner_sid", None) != sid
                 or (SETTINGS.get("face_auth_enabled", False) and not (authenticator and authenticator.authenticated))):
@@ -747,18 +864,21 @@ async def start_groq_audio(sid, data=None):
             on_desktop_approval=on_desktop_approval,
             on_workspace_search=on_workspace_search,
             on_workbench_command=on_workbench_command,
+            on_workspace_action=on_workspace_action,
             on_error=on_error,
             on_live_status=on_live_status,
         )
         audio_loop.owner_sid=sid
         audio_loop.pc_access=session_pc_access(sid, data)
         audio_loop.jarvis_access=session_jarvis_access(sid, data)
+        audio_loop.generated_tools=session_generated_tools(sid)
         # Seed cloud voice with the persisted conversation so it resumes with
         # continuity. The Gemini path primes its own Live session separately.
         try:
             from project_manager import ProjectManager
             _pm = ProjectManager(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            audio_loop.seed_history(_pm.format_recent_chat_context(12))
+            audio_loop.project_manager = _pm
+            audio_loop.restore_conversation()
         except Exception:
             pass
         audio_loop.set_paused(True)
@@ -888,6 +1008,9 @@ async def start_audio(sid, data=None):
     async def on_executive_briefing():
         return await executive_voice_briefing(sid)
 
+    async def on_workspace_action(name, arguments, utterance):
+        return await voice_workspace_action(sid, name, arguments, utterance)
+
     # Callback to send Transcription data to frontend
     def on_transcription(data):
         # data = {"sender": "User"|"SPARK", "text": "..."}
@@ -961,6 +1084,7 @@ async def start_audio(sid, data=None):
             on_hermes_query=on_hermes_query,
             on_obsidian_search=on_obsidian_search,
             on_executive_briefing=on_executive_briefing,
+            on_workspace_action=on_workspace_action,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
             on_web_data=on_web_data,
@@ -984,6 +1108,7 @@ async def start_audio(sid, data=None):
         audio_loop.owner_sid = sid  # Approval ownership even in native fallback.
         audio_loop.pc_access = session_pc_access(sid, data)
         audio_loop.jarvis_access = session_jarvis_access(sid, data)
+        audio_loop.generated_tools = session_generated_tools(sid)
         audio_loop.browser_ready = False
 
         # Apply current permissions
@@ -1291,6 +1416,9 @@ async def user_input(sid, data):
 
     if text:
         print("[SPARK] Sending typed turn to Gemini Live")
+        memory = ""
+        if audio_loop.project_manager:
+            memory = await asyncio.to_thread(audio_loop.project_manager.format_memory_context, text)
         
         # Log User Input to Project History
         if audio_loop and audio_loop.project_manager:
@@ -1307,7 +1435,7 @@ async def user_input(sid, data):
                 await audio_loop.session.send_realtime_input(
                     video=spark.types.Blob(data=frame, mime_type="image/jpeg"))
             await audio_loop.session.send_client_content(
-                turns={"role": "user", "parts": [{"text": text}]}, turn_complete=True)
+                turns={"role": "user", "parts": [{"text": memory}, {"text": text}] if memory else [{"text": text}]}, turn_complete=True)
         except Exception:
             await sio.emit('error', {
                 'msg': 'Could not send text to Gemini Live. The session may have closed.'}, room=sid)

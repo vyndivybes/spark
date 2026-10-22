@@ -29,13 +29,13 @@ class CloudModeTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict("os.environ",{"SPARK_GROQ_MODEL":"arbitrary-paid"},clear=True):
             self.assertEqual(groq_model(),"openai/gpt-oss-20b")
 
-    def test_seed_history_restores_roles_bounded_to_six(self):
+    def test_seed_history_restores_roles_within_conversation_budget(self):
         loop=GroqVoiceLoop(api=object())
         transcript="\n".join(
-            ["User: turn %d"%n if n%2 else "SPARK: reply %d"%n for n in range(1,11)]
+            ["User: turn %d"%n if n%2 else "SPARK: reply %d"%n for n in range(1,51)]
         )
         loop.seed_history(transcript)
-        self.assertEqual(len(loop._history),6)
+        self.assertEqual(len(loop._history),40)
         self.assertEqual(loop._history[0]["role"],"user")
         self.assertEqual(loop._history[-1]["role"],"assistant")
         before=list(loop._history)

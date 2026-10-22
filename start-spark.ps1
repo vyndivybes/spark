@@ -4,6 +4,7 @@
 param(
     [switch]$Desktop,
     [switch]$SkipBackendSetup,
+    [switch]$OpenWhatsApp,
     [switch]$UseArkusGeminiKey,
     [ValidateSet('gemini-3.8-live', 'gemini-3.1-flash-live-preview')]
     [string]$LiveModel = 'gemini-3.8-live',
@@ -23,6 +24,7 @@ param(
     [string]$GroqModel = 'openai/gpt-oss-20b'
 )
 $ErrorActionPreference = 'Stop'
+$env:SPARK_OPEN_WHATSAPP = if ($OpenWhatsApp) { '1' } else { '0' }
 Set-Location $PSScriptRoot
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Install Git for Windows before launching SPARK.' }

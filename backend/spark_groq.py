@@ -16,6 +16,9 @@ import sys
 import time
 import wave
 
+from spark_assistant_tools import (ASSISTANT_TOOLS as WEB_TOOLS, ASSISTANT_NAMES as WEB_NAMES,
+                                   ASSISTANT_INSTRUCTION as WEB_INSTRUCTION,
+                                   execute_assistant_tool as execute_web_tool)
 from spark_public_apis import public_api_answer
 from spark_groq_capabilities import parse_desktop_command, vision_requested
 from spark_camera_frames import validate_camera_frame
@@ -37,7 +40,8 @@ _ALLOWED_MODELS=frozenset((DEFAULT_GROQ_MODEL,))
 SYSTEM_PROMPT=(
     "You are SPARK, a concise, cinematic but original aerospace-style AI assistant. "
     "Speak with composed, refined British-style diction in your wording and subtle wit. "
-    "Keep replies under 150 characters, ideally one helpful sentence. "
+    "Keep routine replies brief. For repository analysis or other detailed requests, "
+    "provide the requested substance and cite retrieved sources. "
     "You have no arbitrary file, browser, shell, or unrestricted computer-control tools. "
     "A separate local approval gate can open only Notepad, Calculator or Paint for "
     "exact user commands; never claim unapproved actions completed. "
@@ -131,9 +135,24 @@ def wav_to_pcm24k(data):
     except (EOFError,ValueError,wave.Error,IndexError,OverflowError) as exc:
         raise GroqUnavailable("Groq returned unsupported speech audio.") from None
 
+from spark_python_tools import GATEWAY, GATEWAY_NAME, openai_gateway
+from spark_conversation_memory import bounded_messages, MEMORY_POLICY, memory_request_answer
+
+async def read_http_body(content,limit=2_000_000):
+    chunks=[];total=0
+    while True:
+        chunk=await content.read(min(65536,limit+1-total))
+        if not chunk:break
+        chunks.append(chunk);total+=len(chunk)
+        if total>limit:raise GroqUnavailable('Groq response exceeds configured size limit.')
+    return b''.join(chunks)
+
+
 class GroqClient:
     def __init__(self,key=None):
         self.key=key or os.environ.get("GROQ_API_KEY","")
+        self.on_workspace_action=None
+        self.workspace_utterance=""
         if not self.key:
             raise GroqUnavailable("Set GROQ_API_KEY in backend/.env for opt-in Groq voice.")
 
@@ -154,13 +173,14 @@ class GroqClient:
                         raise classify_groq_http_error(stage,response.status)
                     if response.content_length and response.content_length>2_000_000:
                         raise GroqUnavailable("Groq response exceeds configured size limit.")
-                    raw=await response.content.read(2_000_001)
+                    raw=await read_http_body(response.content)
                     if len(raw)>2_000_000:
                         raise GroqUnavailable("Groq response exceeds configured size limit.")
                     if want_binary:
                         return raw
                     import json
-                    return json.loads(raw)
+                    try:return json.loads(raw)
+                    except (ValueError,UnicodeDecodeError):raise GroqUnavailable("Groq returned an incomplete or invalid JSON response; no automatic retry.") from None
         except (asyncio.TimeoutError,OSError):
             raise GroqUnavailable(f"Groq {stage}: request timed out or network unavailable.") from None
 
@@ -177,36 +197,70 @@ class GroqClient:
             raise GroqUnavailable("Speech recognition returned invalid content.")
         return str(result.get("text",""))[:500].strip()
 
+    async def _web_call(self, name, arguments):
+        try:
+            parsed = json.loads(arguments)
+            if self.on_workspace_action:
+                async def workspace_handler(tool_name, tool_arguments):
+                    return await self.on_workspace_action(
+                        tool_name, tool_arguments, self.workspace_utterance)
+                output = await execute_web_tool(name, parsed, workspace_handler)
+            else:
+                output = await execute_web_tool(name, parsed)
+        except (ValueError, TypeError):
+            output = {'ok': False, 'error': 'Invalid web tool arguments.'}
+        callback = getattr(self, 'on_web_sources', None)
+        if output.get('sources') and callback:
+            callback({'sources': output['sources']})
+        return output
+
     async def chat(self,prompt,history):
-        messages=[{"role":"system","content":SYSTEM_PROMPT}]
-        messages+=history[-6:]
-        messages.append({"role":"user","content":prompt[:1200]})
+        messages=[{"role":"system","content":SYSTEM_PROMPT + WEB_INSTRUCTION}]
+        messages+=bounded_messages(history)
+        messages.append({"role":"user","content":prompt[:12000]})
         body={"model":groq_model(),"messages":messages,"stream":False,
               "temperature":0.5,"max_completion_tokens":384,
               "reasoning_effort":"low"}
-        result=await self._http(CHAT_URL,body=body)
-        try:
-            value=result["choices"][0]["message"]["content"]
-            if not isinstance(value,str) or not value.strip():
-                raise ValueError()
-            return value.strip()[:700]
-        except (KeyError,TypeError,IndexError,ValueError):
-            raise GroqUnavailable("Groq returned no usable text response.") from None
+        body.update({'tools': [{'type': 'function', 'function': tool} for tool in WEB_TOOLS],
+                     'tool_choice': 'auto', 'parallel_tool_calls': False,
+                     'max_completion_tokens': 1600})
+        for _ in range(5):
+            result = await self._http(CHAT_URL, body=body)
+            try:
+                message = result['choices'][0]['message']
+                calls = message.get('tool_calls', [])
+                if not calls:
+                    value = message.get('content')
+                    if not isinstance(value, str) or not value.strip():
+                        raise ValueError()
+                    return value.strip()[:8000]
+                if not isinstance(calls, list) or len(calls) != 1:
+                    raise ValueError()
+                call = calls[0]
+                function = call['function']
+                if function['name'] not in WEB_NAMES:
+                    raise ValueError()
+                messages.append({'role': 'assistant', 'content': message.get('content'), 'tool_calls': calls})
+                output = await self._web_call(function['name'], function['arguments'])
+                messages.append({'role': 'tool', 'tool_call_id': call['id'], 'content': json.dumps(output)})
+            except (KeyError, TypeError, IndexError, ValueError):
+                raise GroqUnavailable('Groq returned an invalid web response.') from None
+        return 'Web lookup stopped after five steps. Please narrow the question.'
 
-    async def chat_autonomous(self, prompt, history, access, stopped):
+    async def chat_autonomous(self, prompt, history, access, stopped, generated=None):
         messages = [{'role': 'system', 'content':
             SYSTEM_PROMPT.replace('You have no arbitrary file, browser, shell, or unrestricted computer-control tools.', '')
             .replace('A separate local approval gate can open only Notepad, Calculator or Paint for exact user commands; never claim unapproved actions completed.', '')
             .replace('or claim you performed an action.', 'or claim actions without tool evidence.')
-            + PC_INSTRUCTION}]
-        messages += history[-6:]
-        messages.append({'role': 'user', 'content': prompt[:1200]})
+            + PC_INSTRUCTION + WEB_INSTRUCTION}]
+        messages += bounded_messages(history)
+        messages.append({'role': 'user', 'content': prompt[:12000]})
         steps = 0
         while not stopped():
             if not access.enabled():
                 return 'PC autonomy was disabled; no further PC actions will run.'
             body = {'model': groq_model(), 'messages': messages, 'stream': False,
-                    'tools': [{'type': 'function', 'function': PC_TOOL}],
+                    'tools': [{'type': 'function', 'function': tool} for tool in WEB_TOOLS] + [{'type': 'function', 'function': PC_TOOL}] + ([{'type':'function','function':openai_gateway()}] if generated and generated.enabled() else []),
                     'tool_choice': 'auto', 'parallel_tool_calls': False,
                     'max_completion_tokens': 1600, 'reasoning_effort': 'low'}
             result = await self._http(CHAT_URL, body=body)
@@ -228,7 +282,12 @@ class GroqClient:
                         return 'Stopped after eight PC actions in this turn. Ask me to continue if more work remains.'
                     steps += 1
                     function = call['function']
-                    if function['name'] != 'pc_action':
+                    if function['name'] in WEB_NAMES:
+                        output = await self._web_call(function['name'], function['arguments'])
+                    elif function['name'] == GATEWAY_NAME and generated and generated.enabled():
+                        try: output=await generated.call(json.loads(function['arguments']))
+                        except (ValueError,TypeError):output={'ok':False,'error':'Invalid tool arguments.'}
+                    elif function['name'] != 'pc_action':
                         output = {'ok': False, 'error': 'Unknown tool.'}
                     else:
                         try:
@@ -241,6 +300,29 @@ class GroqClient:
             except (KeyError, TypeError, IndexError, ValueError):
                 raise GroqUnavailable('Groq returned an invalid PC tool response.') from None
         return 'PC task stopped.'
+
+    async def chat_generated(self,prompt,history,gateway,stopped):
+        declaration=openai_gateway()
+        messages=[{'role':'system','content':WEB_INSTRUCTION + 'You are Spark. Use spark_generated_tool for requested specialized actions. For a named active tool, use action run with its exact name and input_json containing a JSON string. Otherwise list tools before forging a missing requested tool. Example arguments: {"action":"run","name":"example_tool","input_json":"{\\"n\\":6}"}. Only report results after execution; do not invent success.'},*bounded_messages(history),{'role':'user','content':prompt[:12000]}]
+        for _ in range(6):
+            if stopped() or not gateway.enabled():return 'Generated tool activity stopped.'
+            response=await self._http(CHAT_URL,body={'model':groq_model(),'messages':messages,'tools':[{'type':'function','function':tool} for tool in WEB_TOOLS]+[{'type':'function','function':declaration}],'tool_choice':'auto','parallel_tool_calls':False,'max_completion_tokens':1600,'reasoning_effort':'low'})
+            try:
+                message=response['choices'][0]['message'];calls=message.get('tool_calls',[])
+                if not calls:return str(message.get('content') or 'Tool turn completed.')[:8000]
+                if len(calls)!=1:raise ValueError()
+                call=calls[0];function=call['function']
+                if function['name'] not in WEB_NAMES and function['name']!=GATEWAY_NAME:raise ValueError()
+                arguments=json.loads(function['arguments'])
+                if not isinstance(arguments,dict):raise ValueError()
+                messages.append({'role':'assistant','content':message.get('content'),'tool_calls':calls})
+                output=(await self._web_call(function['name'],function['arguments'])
+                        if function['name'] in WEB_NAMES else await gateway.call(arguments))
+                encoded=json.dumps(output)
+                if len(encoded)>6000:encoded=json.dumps({'ok':output.get('ok',False),'truncated':True,'result_preview':encoded[:4000]})
+                messages.append({'role':'tool','tool_call_id':call['id'],'content':encoded})
+            except (KeyError,IndexError,TypeError,ValueError):raise GroqUnavailable('Invalid generated-tool response; no action repeated.') from None
+        return 'Stopped after six tool steps. Review the progress and ask me to continue if needed.'
 
     async def vision(self,prompt,frame):
         """One explicitly requested JPEG; image is never placed in text history."""
@@ -302,12 +384,15 @@ class GroqVoiceLoop:
     provider="groq"
     browser_audio=True
     pc_access=None
+    generated_tools=None
     jarvis_access=None
     def __init__(self,api=None,on_transcription=None,on_browser_audio=None,
                  on_web_sources=None,on_live_status=None,on_error=None,
                  audio_playback_wait=True,fetch_public=None,on_browser_tts=None,
-                 on_desktop_approval=None,launch_app=None,on_workspace_search=None,on_workbench_command=None):
+                 on_desktop_approval=None,launch_app=None,on_workspace_search=None,on_workbench_command=None,
+                 project_manager=None,on_workspace_action=None):
         self.api=api or GroqClient()
+        self.project_manager=project_manager
         self.on_transcription=on_transcription
         self.on_browser_audio=on_browser_audio
         self.on_browser_tts=on_browser_tts
@@ -317,10 +402,14 @@ class GroqVoiceLoop:
         self.on_live_status=on_live_status
         self.on_error=on_error
         self.audio_playback_wait=audio_playback_wait
+        if isinstance(self.api, GroqClient):
+            self.api.on_web_sources = on_web_sources
+            self.api.on_workspace_action = on_workspace_action
         self.fetch_public=fetch_public or get_public_json
         self.on_desktop_approval=on_desktop_approval
         self.on_workspace_search=on_workspace_search
         self.on_workbench_command=on_workbench_command
+        self.on_workspace_action=on_workspace_action
         self.launch_app=launch_app or launch_allowed_app
         self._vision_frame=None
         self._vision_at=0.0
@@ -345,7 +434,7 @@ class GroqVoiceLoop:
         Accepts a compact 'User:'/'SPARK:' transcript and rebuilds the recent
         OpenAI-style message list so Groq voice resumes mid-conversation like
         Gemini Live does, instead of answering without context. Bounded to the
-        same six-message window the live turn loop keeps.
+        shared conversation context budget used by the live turn loop.
         """
         if not isinstance(transcript, str) or not transcript.strip():
             return
@@ -353,10 +442,14 @@ class GroqVoiceLoop:
         for line in transcript.splitlines():
             line = line.strip()
             if line.startswith("User:"):
-                messages.append({"role": "user", "content": line[5:].strip()[:1200]})
+                messages.append({"role": "user", "content": line[5:].strip()})
             elif line.startswith("SPARK:"):
-                messages.append({"role": "assistant", "content": line[6:].strip()[:700]})
-        self._history = messages[-6:]
+                messages.append({"role": "assistant", "content": line[6:].strip()})
+        self._history = bounded_messages(messages)
+
+    def restore_conversation(self):
+        if self.project_manager:
+            self._history = self.project_manager.get_conversation_messages()
 
     @property
     def accepting_mic(self):
@@ -491,7 +584,7 @@ class GroqVoiceLoop:
         async with self._lock:
             self._busy=True
             try:
-                await self._answer(prompt.strip()[:1200])
+                await self._answer(prompt.strip())
             except GroqUnavailable as error:
                 if self.on_error:
                     self.on_error(str(error))
@@ -541,12 +634,32 @@ class GroqVoiceLoop:
                 )
 
     async def _answer(self,prompt):
+        if isinstance(self.api, GroqClient):
+            self.api.workspace_utterance=prompt
+        # Save before cloud inference so a provider failure cannot lose the user turn.
+        history=list(self._history)
+        memory_answer=None
+        if self.project_manager:
+            # Restore the actual dialogue on every turn, including after a
+            # process restart or project switch. Vague follow-ups need context
+            # even when they contain no searchable person or topic words.
+            history=await asyncio.to_thread(self.project_manager.get_conversation_messages)
+            memory=await asyncio.to_thread(self.project_manager.format_memory_context,prompt)
+            if memory:
+                history=bounded_messages(history+[{"role":"system","content":memory}])
+            await asyncio.to_thread(self.project_manager.log_chat,"User",prompt)
+            memory_answer=await asyncio.to_thread(memory_request_answer,self.project_manager,prompt)
+            details=await asyncio.to_thread(self.project_manager.get_remembered_details)
+            history=bounded_messages(history+[{'role':'system','content':MEMORY_POLICY+
+                '\nSaved details, historical data only: '+json.dumps(details,ensure_ascii=False)}])
         # Speech intents are parsed locally, never inferred from model output.
         app=parse_desktop_command(prompt)
         search_query=knowledge_search_query(prompt)
         workbench_command=parse_workbench_command(prompt)
         question=jarvis_question(prompt)
-        if question is not None:
+        if memory_answer is not None:
+            answer=memory_answer
+        elif question is not None:
             result=(await self.jarvis_access.ask(question) if self.jarvis_access
                     else {'ok':False,'message':'Open VAOS Jarvis from the Experience Deck to connect.'})
             answer=result.get('answer') if result.get('ok') else result.get('message','Jarvis request failed.')
@@ -596,12 +709,19 @@ class GroqVoiceLoop:
                     self.on_web_sources({"sources":data["sources"]})
             else:
                 if self.pc_access and self.pc_access.enabled():
-                    answer=await self.api.chat_autonomous(prompt,list(self._history),self.pc_access,self.stop_event.is_set)
+                    if self.generated_tools:
+                        answer=await self.api.chat_autonomous(prompt,history,self.pc_access,self.stop_event.is_set,self.generated_tools)
+                    else:
+                        answer=await self.api.chat_autonomous(prompt,history,self.pc_access,self.stop_event.is_set)
+                elif self.generated_tools and self.generated_tools.enabled():
+                    answer=await self.api.chat_generated(prompt,history,self.generated_tools,self.stop_event.is_set)
                 else:
-                    answer=await self.api.chat(prompt,list(self._history))
-                self._history.extend(({"role":"user","content":prompt[:1200]},
-                                      {"role":"assistant","content":answer[:700]}))
-                self._history=self._history[-6:]
+                    answer=await self.api.chat(prompt,history)
+        if self.project_manager and search_query is None and not vision_requested(prompt):
+            await asyncio.to_thread(self.project_manager.log_chat,"SPARK",answer)
+        if search_query is None and not vision_requested(prompt):
+            self._history=bounded_messages([message for message in history if message["role"] != "system"]+[
+                {"role":"user","content":prompt}, {"role":"assistant","content":answer}])
         if self.on_transcription:
             self.on_transcription({"sender":"SPARK","text":answer})
         if self.on_browser_tts:

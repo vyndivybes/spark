@@ -12,6 +12,8 @@ export class BrowserEchoAudio {
     this.audioContext = null;
     this.stream = null;
     this.input = null;
+    this.analyser = null;
+    this.spectrumBins = null;
     this.worklet = null;
     this.ready = false;
     this.muted = true;
@@ -73,6 +75,15 @@ export class BrowserEchoAudio {
       await this.audioContext.audioWorklet.addModule(workletUrl);
       if (this.closed) throw new Error('SPARK audio cancelled.');
       this.input = this.audioContext.createMediaStreamSource(this.stream);
+      // Tap the approved input stream for local visualization. This branch has
+      // no speaker connection and never opens another microphone stream.
+      this.analyser = this.audioContext.createAnalyser?.();
+      if (this.analyser) {
+        this.analyser.fftSize = 512;
+        this.analyser.smoothingTimeConstant = .65;
+        this.spectrumBins = new Uint8Array(this.analyser.frequencyBinCount);
+        this.input.connect(this.analyser);
+      }
       this.worklet = new AudioWorkletNode(this.audioContext, 'spark-mic-capture');
       this.worklet.port.onmessage = ({data}) => {
         if (!this.ready || this.muted || !this.socket.connected || data?.type !== 'pcm') return;
@@ -104,6 +115,12 @@ export class BrowserEchoAudio {
   setMuted(muted) {
     this.muted = Boolean(muted);
     this.worklet?.port.postMessage({type: 'enabled', enabled: this.ready && !this.muted});
+  }
+
+  readSpectrum() {
+    if (!this.ready || this.closed || this.muted || !this.analyser) return null;
+    this.analyser.getByteFrequencyData(this.spectrumBins);
+    return {bins:this.spectrumBins,sampleRate:this.audioContext.sampleRate,fftSize:this.analyser.fftSize};
   }
 
   failSpeaker(err) {
@@ -190,6 +207,9 @@ export class BrowserEchoAudio {
     this.sources.clear();
     this.worklet?.disconnect();
     this.input?.disconnect();
+    this.analyser?.disconnect();
+    this.analyser = null;
+    this.spectrumBins = null;
     for (const track of this.stream?.getTracks() || []) track.stop();
     // A cancelled or failed AudioContext may not expose a usable close()
     // method on mocked / partially initialized devices.

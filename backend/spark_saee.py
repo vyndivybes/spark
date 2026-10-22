@@ -48,6 +48,14 @@ PIPELINE = (
 # `verified` is conservative: it means an existing automated test exercises it,
 # not that every path is safe. SAEE never claims runtime verification.
 KNOWN_CAPABILITIES = (
+    {"id":"python_tools", "name":"Trusted Python Tool Invention and Runtime",
+     "engine":"spark_python_tools.PythonTools",
+     "summary":"Generate complete Python tools with imports/API calls, expected-result tests, revision registration and a live voice/chat gateway.",
+     "verified":True,"gate":"enabled runtime policy; package/environment review; tested activation"},
+    {"id":"code_skills", "name":"Original Python Data Skills",
+     "engine":"spark_code_skills.CodeSkills",
+     "summary":"Generate bounded Python data expressions, test examples, persist and activate revisions; retain repository/REA provenance.",
+     "verified":True,"gate":"restricted worker + examples + activation approval"},
     {"id": "repository_intelligence",
      "name": "Repository Intelligence Engine",
      "engine": "spark_repo_upgrade.RepositoryUpgrades",

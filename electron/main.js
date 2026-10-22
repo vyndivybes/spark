@@ -11,9 +11,11 @@ const workspaceToken=(process.env.SPARK_WORKSPACE_TOKEN
     ? process.env.SPARK_WORKSPACE_TOKEN
     : require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
+const {createWhatsAppWindow}=require('./whatsapp-window.cjs');
 const {createJarvisBridge}=require('./jarvis-bridge.cjs');
 const {createBusinessPortals}=require('./business-portals.cjs');
 const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
+const {readBrainDisplay}=require('./brain-display.cjs');
 
 // A desktop click reuses the current application instead of starting another
 // frontend/backend pair and competing for Chromium's cache and loopback ports.
@@ -40,6 +42,7 @@ app.on('second-instance', () => {
 });
 let pythonProcess;
 let experienceManager;
+let whatsappWindow;
 let jarvisBridge,jarvisBridgeUrl;
 let businessPortals;
 let lastReaInventory=null;
@@ -92,6 +95,7 @@ function createWindow() {
                 windowWasShown = true;
                 mainWindow.show();
                 if(process.env.SPARK_OPEN_JARVIS==='1')jarvisBridge.open().catch(()=>console.warn('VAOS sign-in window could not open. Use the Jarvis panel to retry.'));
+                if(process.env.SPARK_OPEN_WHATSAPP==='1')whatsappWindow.open().catch(()=>console.warn('WhatsApp could not open. Use the experience library to retry.'));
                 // Developer tools intentionally remain opt-in. Auto-docking them
                 // covered half the SPARK cockpit and triggered cramped card layout.
                 if (isDev && process.env.SPARK_DEVTOOLS === '1') {
@@ -142,9 +146,11 @@ function startPythonBackend() {
 }
 
 app.whenReady().then(async () => {
+    whatsappWindow=createWhatsAppWindow({BrowserWindow});
     businessPortals=createBusinessPortals({BrowserWindow,session});
     jarvisBridge=createJarvisBridge({BrowserWindow,session,token:workspaceToken,origin:process.env.SPARK_VAOS_URL,
-        businessRead:id=>businessPortals.read(id)});
+        businessRead:id=>businessPortals.read(id),whatsappStatus:()=>whatsappWindow.status(),
+        whatsappRead:args=>whatsappWindow.readChats(args)});
     jarvisBridgeUrl=await jarvisBridge.listen();
     ipcMain.handle('spark:jarvis',async(event,request)=>{
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
@@ -167,6 +173,11 @@ app.whenReady().then(async () => {
     const dataRoot = process.env.SPARK_WORKSPACE_DATA_ROOT || path.join(
         process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
         'SPARK','workspace');
+    ipcMain.handle('spark:brain-display', async event => {
+        if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
+            throw Error('Brain display requires the SPARK cockpit.');
+        return readBrainDisplay(app.isPackaged ? process.resourcesPath : path.resolve(__dirname,'..'));
+    });
     experienceManager=createExperienceManager({
         root:path.resolve(__dirname,'..'),
         userData:app.getPath('userData'),
@@ -178,7 +189,7 @@ app.whenReady().then(async () => {
     ipcMain.handle('spark:open-experience',async(event,name)=>{
         if(!mainWindow||event.sender.id!==mainWindow.webContents.id)
             throw new Error('Experience launch is only available from the SPARK cockpit.');
-        return experienceManager.open(name);
+        return name==='whatsapp' ? whatsappWindow.open() : experienceManager.open(name);
     });
     ipcMain.handle('spark:open-grounding-source', async (event, url) => {
         // Never load third-party webpages into the privileged SPARK
@@ -261,16 +272,16 @@ app.whenReady().then(async () => {
     });
 
     const backendPortNumber = Number(process.env.SPARK_BACKEND_PORT) || 8000;
+    // Paint the cockpit while Python imports and initializes. Socket.IO reconnects
+    // when the core becomes available; backend readiness must not hide the UI.
+    createWindow();
     checkBackendPort(backendPortNumber).then((isTaken) => {
         if (isTaken) {
             console.log('Port '+backendPortNumber+' is taken. Assuming backend is already running manually.');
-            waitForBackend().then(createWindow);
+            waitForBackend();
         } else {
             startPythonBackend();
-            // Give it a moment to start, then wait for health check
-            setTimeout(() => {
-                waitForBackend().then(createWindow);
-            }, 1000);
+            waitForBackend();
         }
     });
 
@@ -340,6 +351,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    whatsappWindow?.close();
     jarvisBridge?.close();
     businessPortals?.close();
     experienceManager?.stopAll();

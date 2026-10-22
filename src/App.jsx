@@ -4,31 +4,35 @@ import socket from './sparkSocket.mjs';
 
 import Visualizer from './components/Visualizer';
 import TopAudioBar from './components/TopAudioBar';
-import CadWindow from './components/CadWindow';
+const CadWindow = deferredPanel(() => import('./components/CadWindow'));
 import BrowserWindow from './components/BrowserWindow';
 import ChatModule from './components/ChatModule';
 import ToolsModule from './components/ToolsModule';
 import {BrowserEchoAudio} from './audio/BrowserEchoAudio.mjs';
 import {WindowsSpeech} from './audio/WindowsSpeech.mjs';
 import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock, Activity, Search, Timer } from 'lucide-react';
-import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 // MemoryPrompt removed - memory is now actively saved to project
 import ConfirmationPopup from './components/ConfirmationPopup';
 import AuthLock from './components/AuthLock';
 import KasaWindow from './components/KasaWindow';
 import PrinterWindow from './components/PrinterWindow';
 import SettingsWindow from './components/SettingsWindow';
-import SystemCenter from './components/SystemCenter';
-import HealthConnectPanel from './components/HealthConnectPanel';
-import ReaAuditPanel from './components/ReaAuditPanel';
+const SystemCenter = deferredPanel(() => import('./components/SystemCenter'));
+const HealthConnectPanel = deferredPanel(() => import('./components/HealthConnectPanel'));
+const ReaAuditPanel = deferredPanel(() => import('./components/ReaAuditPanel'));
 import FocusPanel from './components/FocusPanel';
-import JarvisPanel from './components/JarvisPanel';
-import CommandCenter from './components/CommandCenter';
+const JarvisPanel = deferredPanel(() => import('./components/JarvisPanel'));
+const CommandCenter = deferredPanel(() => import('./components/CommandCenter'));
+import EvolutionActivity from './components/EvolutionActivity';
 import './command-center.css';
 import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
 
+function deferredPanel(load) {
+    const Panel = React.lazy(load);
+    return props => <React.Suspense fallback={<div role="status" className="p-4 text-cyan-100">Loading panel…</div>}><Panel {...props}/></React.Suspense>;
+}
 
 const { ipcRenderer } = window.require('electron');
 const invokeJarvis=request=>ipcRenderer.invoke('spark:jarvis',request);
@@ -105,7 +109,20 @@ function App() {
     const [showPhoneWatch, setShowPhoneWatch] = useState(false);
     const [showReaAudit, setShowReaAudit] = useState(false);
     const [showFocus, setShowFocus] = useState(false);
-    const [showWorkspace, setShowWorkspace] = useState(true);
+    const [showWorkspace, setShowWorkspace] = useState(false);
+    const [workspaceNavigation, setWorkspaceNavigation] = useState(null);
+    const [brainGraph,setBrainGraph] = useState(null);
+    const [brainError,setBrainError] = useState('Loading Neural Atlas…');
+    useEffect(() => {
+        if (!isAuthenticated || isLockScreenVisible) {setBrainGraph(null);return undefined;}
+        let disposed=false;
+        const refresh=()=>ipcRenderer.invoke('spark:brain-display').then(graph=>{
+            if(!disposed){setBrainGraph(previous=>previous?.modifiedAt===graph.modifiedAt?previous:graph);setBrainError('');}
+        }).catch(()=>{if(!disposed){setBrainGraph(null);setBrainError('Neural Atlas unavailable');}});
+        refresh();
+        const timer=setInterval(refresh,30000);
+        return ()=>{disposed=true;clearInterval(timer);};
+    },[isAuthenticated,isLockScreenVisible]);
     const [diagnostics, setDiagnostics] = useState(null);
     const [systemsNotice, setSystemsNotice] = useState('');
     const [showExperiences, setShowExperiences] = useState(false);
@@ -161,6 +178,7 @@ function App() {
     // Web Audio Context for Mic Visualization
     const audioContextRef = useRef(null);
     const analyserRef = useRef(null);
+    const micVisualizerGenerationRef = useRef(0);
     const sourceRef = useRef(null);
     const animationFrameRef = useRef(null);
 
@@ -655,6 +673,16 @@ function App() {
             console.log("Received Confirmation Request:", data);
             setConfirmationRequest(data);
         });
+        socket.on('workspace_navigate', (data) => {
+            const allowed = new Set([
+                'Overview', 'Missions', 'Knowledge', 'Memory', 'Capabilities',
+                'Skill forge', 'Repositories', 'Workbench', 'Agent skills',
+                'Upgrade studio', 'Approvals', 'History', 'Connections'
+            ]);
+            if (!allowed.has(data?.screen)) return;
+            setWorkspaceNavigation({screen: data.screen, requestedAt: Date.now()});
+            setShowWorkspace(true);
+        });
         socket.on('camera_sharing_status', (data) => {
             const enabled = data?.enabled === true && isVideoOnRef.current &&
                 (aiProviderRef.current === 'gemini' ||
@@ -775,46 +803,6 @@ function App() {
             }
         });
 
-        // Initialize Hand Landmarker
-        const initHandLandmarker = async () => {
-            try {
-                console.log("Initializing HandLandmarker...");
-
-                // 1. Verify Model File
-                console.log("Fetching model file...");
-                const response = await fetch('/hand_landmarker.task');
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`);
-                }
-                console.log("Model file found:", response.headers.get('content-type'), response.headers.get('content-length'));
-
-                // 2. Initialize Vision
-                console.log("Initializing FilesetResolver...");
-                const vision = await FilesetResolver.forVisionTasks(
-                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-                );
-                console.log("FilesetResolver initialized.");
-
-                // 3. Create Landmarker
-                console.log("Creating HandLandmarker (GPU)...");
-                handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
-                    baseOptions: {
-                        modelAssetPath: `/hand_landmarker.task`,
-                        delegate: "GPU" // Enable GPU acceleration
-                    },
-                    runningMode: "VIDEO",
-                    numHands: 1
-                });
-                console.log("HandLandmarker initialized successfully!");
-                addMessage('System', 'Hand Tracking Ready');
-
-            } catch (error) {
-                console.error("Failed to initialize HandLandmarker:", error);
-                addMessage('System', `Hand Tracking Error: ${error.message}`);
-            }
-        };
-        initHandLandmarker();
-
         return () => {
             socket.off('connect');
             socket.off('disconnect');
@@ -833,6 +821,7 @@ function App() {
             socket.off('transcription');
             socket.off('web_sources');
             socket.off('tool_confirmation_request');
+            socket.off('workspace_navigate');
             socket.off('camera_sharing_status');
             socket.off('kasa_devices');
             socket.off('printer_list');
@@ -848,6 +837,41 @@ function App() {
             stopVideo();
         };
     }, []);
+
+    // Load vision only when the owner enables gestures, never on app startup.
+    const handConnectionsRef = useRef([]);
+    useEffect(() => {
+        if (!isHandTrackingEnabled) return undefined;
+        let disposed = false;
+        let landmarker;
+        (async () => {
+            try {
+                const {FilesetResolver, HandLandmarker} = await import('@mediapipe/tasks-vision');
+                if (disposed) return;
+                const vision = await FilesetResolver.forVisionTasks(
+                    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm');
+                if (disposed) return;
+                landmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: new URL('./hand_landmarker.task', document.baseURI).href,
+                        delegate: 'GPU'
+                    },
+                    runningMode: 'VIDEO', numHands: 1
+                });
+                if (disposed) { landmarker.close(); return; }
+                handConnectionsRef.current = HandLandmarker.HAND_CONNECTIONS;
+                handLandmarkerRef.current = landmarker;
+                addMessage('System', 'Hand Tracking Ready');
+            } catch (error) {
+                if (!disposed) addMessage('System', `Hand Tracking Error: ${error.message}`);
+            }
+        })();
+        return () => {
+            disposed = true;
+            if (handLandmarkerRef.current === landmarker) handLandmarkerRef.current = null;
+            landmarker?.close();
+        };
+    }, [isHandTrackingEnabled]);
 
     // Initial check in case we are already connected (fix race condition)
     useEffect(() => {
@@ -891,23 +915,26 @@ function App() {
 
     // Start/Stop Mic Visualizer
     useEffect(() => {
-        if (audioTransport === 'native' && selectedMicId) {
+        if (audioTransport === 'native' && selectedMicId && !isMuted && isConnected && isAuthenticated) {
             startMicVisualizer(selectedMicId);
-        } else if (audioTransport === 'browser_aec') {
+        } else {
             stopMicVisualizer();
         }
-    }, [selectedMicId, audioTransport]);
+        return () => stopMicVisualizer();
+    }, [selectedMicId, audioTransport, isMuted, isConnected, isAuthenticated]);
 
     const startMicVisualizer = async (deviceId) => {
         stopMicVisualizer();
+        const generation=micVisualizerGenerationRef.current;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { deviceId: { exact: deviceId } }
             });
+            if(generation!==micVisualizerGenerationRef.current){stream.getTracks().forEach(track=>track.stop());return;}
 
             audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
             analyserRef.current = audioContextRef.current.createAnalyser();
-            analyserRef.current.fftSize = 64;
+            analyserRef.current.fftSize = 512;
 
             sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
             sourceRef.current.connect(analyserRef.current);
@@ -933,9 +960,14 @@ function App() {
     };
 
     const stopMicVisualizer = () => {
+        micVisualizerGenerationRef.current++;
         if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         if (sourceRef.current) sourceRef.current.disconnect();
-        if (audioContextRef.current) audioContextRef.current.close();
+        sourceRef.current?.mediaStream?.getTracks().forEach(track=>track.stop());
+        audioContextRef.current?.close()?.catch?.(()=>{});
+        sourceRef.current=null;
+        analyserRef.current=null;
+        audioContextRef.current=null;
     };
 
     const startVideo = async () => {
@@ -1281,7 +1313,7 @@ function App() {
         ctx.lineWidth = 2;
 
         // Connections
-        const connections = HandLandmarker.HAND_CONNECTIONS;
+        const connections = handConnectionsRef.current;
         for (const connection of connections) {
             const start = landmarks[connection.start];
             const end = landmarks[connection.end];
@@ -1688,7 +1720,8 @@ function App() {
     const openExperience = async (experience) => {
         if(experienceBusy)return;
         setExperienceBusy(experience);
-        setExperienceMessage('Starting the locally installed '+(experience==='vayu'?'VAYU Workspace':experience==='holo'?'HOLO Deck':'Brain Map')+'…');
+        const experienceLabel = {vayu:'VAYU Workspace',holo:'HOLO Deck',brain:'Neural Atlas',obsidian:'Obsidian',whatsapp:'WhatsApp'}[experience] || 'workspace';
+        setExperienceMessage('Opening '+experienceLabel+'…');
         try {
             const result=await ipcRenderer.invoke('spark:open-experience',experience);
             setExperienceMessage(result.reused?'Existing experience focused.':'Experience opened. Its original controls are now available.');
@@ -1700,6 +1733,7 @@ function App() {
     return (
         <div className={`spark-cockpit ${showWorkspace ? 'command-mode' : 'voice-mode'} ${isModularMode ? 'modular-mode' : ''} h-screen w-screen text-cyan-100 overflow-hidden flex flex-col relative selection:bg-amber-700 selection:text-white`}>
 
+            <EvolutionActivity socket={socket}/>
             {/* --- PREMIUM UI LAYER --- */}
 
             {/* --- PREMIUM UI LAYER --- */}
@@ -1887,7 +1921,9 @@ function App() {
             </div>
 
             {showWorkspace && <CommandCenter socket={socket} connected={socketConnected}
+                brainGraph={brainGraph} brainError={brainError}
                 liveState={liveState} diagnostics={diagnostics} project={currentProject}
+                requestedNavigation={workspaceNavigation}
                 messages={messages} muted={isMuted} onCockpit={() => setShowWorkspace(false)}
                 onSettings={() => {setShowWorkspace(false); setShowSettings(true);}} onExperiences={() => setShowExperiences(true)}
                 onRefresh={() => socket.emit('get_diagnostics')}/>}
@@ -1948,6 +1984,10 @@ function App() {
                                     <b>{experienceBusy==='obsidian'?'Opening…':'Obsidian → vault browser'}</b>
                                     <span>Browse and search your local Obsidian vault.</span>
                                 </button>
+                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('whatsapp')}>
+                                    <b>{experienceBusy==='whatsapp'?'Opening…':'WhatsApp → linked device'}</b>
+                                    <span>Link your phone in WhatsApp Web. Messages are sent only through its own controls.</span>
+                                </button>
                                 <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('holo')}>
                                     <b>{experienceBusy==='holo'?'Opening…':'HOLO Deck → hand interaction'}</b>
                                     <span>Grab and arrange notes and 3D objects with hand gestures.</span>
@@ -2001,6 +2041,17 @@ function App() {
                     <div className="relative z-20">
                         <Visualizer
                             active={!showWorkspace}
+                            graph={brainGraph}
+                            graphError={brainError}
+                            getSpectrum={() => {
+                                if(isMuted || !isConnected || !isAuthenticated)return null;
+                                if(audioTransport==='browser_aec')return audioBridgeRef.current?.readSpectrum();
+                                const analyser=analyserRef.current;
+                                if(!analyser || !audioContextRef.current)return null;
+                                const bins=new Uint8Array(analyser.frequencyBinCount);
+                                analyser.getByteFrequencyData(bins);
+                                return {bins,sampleRate:audioContextRef.current.sampleRate,fftSize:analyser.fftSize};
+                            }}
                             audioData={aiAudioData}
                             isListening={isConnected && !isMuted}
                             intensity={audioAmp}

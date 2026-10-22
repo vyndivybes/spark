@@ -176,3 +176,24 @@ class AutoEvolutionTests(unittest.IsolatedAsyncioTestCase):
             self.control.configure(enabled="yes", allow_model_source=True)
         with self.assertRaises(ValueError):
             await self.control.run_once("bad-project")
+
+
+class BackgroundLimitsTests(unittest.TestCase):
+    def test_opted_in_background_can_remove_daily_cap_and_persist_interval(self):
+        with tempfile.TemporaryDirectory() as folder:
+            engine=FakeEvolution(Path(folder))
+            controller=AutoEvolution(engine,Path(folder)/'data')
+            controller.set_background_limits(interval_seconds=300,max_upgrades_per_day=0)
+            controller.configure(enabled=True,allow_model_source=True)
+            controller.state['last_upgrade_day']='2026-10-21'
+            self.assertFalse(controller._daily_limit('2026-10-21'))
+            restored=AutoEvolution(engine,Path(folder)/'data')
+            self.assertEqual(restored.status()['interval_minutes'],5)
+            self.assertTrue(restored.status()['enabled'])
+            self.assertEqual(restored.status()['max_upgrades_per_day'],0)
+            # An older backend may rewrite the shared state without new fields.
+            legacy=json.loads(controller.file.read_text());legacy.pop('interval_seconds',None);legacy.pop('max_upgrades_per_day',None)
+            controller.file.write_text(json.dumps(legacy))
+            after_legacy_write=AutoEvolution(engine,Path(folder)/'data').status()
+            self.assertEqual(after_legacy_write['interval_minutes'],5)
+            self.assertEqual(after_legacy_write['max_upgrades_per_day'],0)
