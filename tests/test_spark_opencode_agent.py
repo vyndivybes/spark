@@ -76,7 +76,11 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(session["state"], "completed")
         self.assertEqual(session["exit_code"], 0)
         self.assertIn("plan complete", session["transcript"])
-        self.assertEqual(self.recorded["last"]["cwd"], str(self.root))
+        self.assertEqual(self.recorded["last"]["cwd"], session["cwd"])
+        # Resolve both sides: Windows may hand back 8.3 short forms for the
+        # same directory; the scope identity, not the spelling, is the feature.
+        self.assertEqual(Path(self.recorded["last"]["cwd"]).resolve(),
+                         self.root.resolve())
     def test_run_prompt_length_validated(self):
         agent = OpenCodeAgent(self.root, runner=self.fake_ok)
         with self.assertRaises(OpenCodeError):
