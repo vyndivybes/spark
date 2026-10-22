@@ -17,6 +17,7 @@ async function startup(source) {
     const modules = {
         electron:{app,BrowserWindow:Window,ipcMain:{handle(){},on(){}},session:{},shell:{},dialog:{},clipboard:{}},
         './experience-manager.cjs':{createExperienceManager:()=>({})},
+        './backend-health.cjs':require('../electron/backend-health.cjs'),
         './jarvis-bridge.cjs':{createJarvisBridge:()=>({listen:async()=> 'http://isolated'})},
         './business-portals.cjs':{createBusinessPortals:()=>({})},
         './whatsapp-window.cjs':{createWhatsAppWindow:()=>({open:async()=>null,status:()=>null,readChats:async()=>[],close(){}})},

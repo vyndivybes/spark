@@ -11,6 +11,7 @@ const workspaceToken=(process.env.SPARK_WORKSPACE_TOKEN
     ? process.env.SPARK_WORKSPACE_TOKEN
     : require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
+const {classifyBackendWait}=require('./backend-health.cjs');
 const {createWhatsAppWindow}=require('./whatsapp-window.cjs');
 const {createJarvisBridge}=require('./jarvis-bridge.cjs');
 const {createBusinessPortals}=require('./business-portals.cjs');
@@ -41,6 +42,8 @@ app.on('second-instance', () => {
     }
 });
 let pythonProcess;
+let backendExitNotice=null;
+let appQuitting=false;
 let experienceManager;
 let whatsappWindow;
 let jarvisBridge,jarvisBridgeUrl;
@@ -63,11 +66,18 @@ function resolvePython(){
     return 'python';
 }
 
+function resolveWindowIcon() {
+    const icon = resolveResource('public', 'spark.ico');
+    try { return require('fs').existsSync(icon) ? icon : undefined; }
+    catch (_) { return undefined; }
+}
+
 function createWindow() {
+    const windowIcon = resolveWindowIcon();
     mainWindow = new BrowserWindow({
         width: 1920,
         height: 1080,
-        icon: resolveResource('public', 'spark.ico'),
+        ...(windowIcon ? { icon: windowIcon } : {}),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false, // For simple IPC/Socket.IO usage
@@ -128,13 +138,21 @@ function startPythonBackend() {
     console.log(`Starting Python backend: ${scriptPath}`);
 
     // Assuming 'python' is in PATH. In prod, this would be the executable.
+    backendExitNotice=null;
     pythonProcess = spawn(resolvePython(), [scriptPath], {
         cwd: backendDir,
         env: {...process.env,SPARK_WORKSPACE_TOKEN:workspaceToken,SPARK_JARVIS_BRIDGE_URL:jarvisBridgeUrl},
     });
 
     pythonProcess.on('error', (error) => {
+        backendExitNotice={code:null,signal:null,error:error.message};
         console.error('SPARK core backend could not launch. Experience Deck remains available:', error.message);
+    });
+    pythonProcess.on('exit', (code, signal) => {
+        backendExitNotice={code,signal};
+        if(!appQuitting){
+            console.warn(`SPARK core backend exited (code=${code ?? 'none'}, signal=${signal ?? 'none'}). The cockpit remains available; check Python dependencies.`);
+        }
     });
     pythonProcess.stdout.on('data', (data) => {
         console.log(`[Python]: ${data}`);
@@ -311,14 +329,32 @@ function checkBackendPort(port) {
 
 function waitForBackend() {
     return new Promise((resolve) => {
-        const deadline=Date.now()+20000;
+        const started=Date.now();
         let completed=false;
+        let startingNoticeShown=false;
         const ready=(available)=>{if(!completed){completed=true;resolve(available);}};
         const retry=()=>{
             if(completed)return;
-            if(Date.now()>=deadline){
-                console.warn('SPARK core backend offline. Launching UI anyway; check Python dependencies.');
+            // A child that exited is a real failure, not a slow import. The exit
+            // handler already logged the reason; stop probing and let the UI stay up.
+            if(backendExitNotice){
                 ready(false);
+                return;
+            }
+            const childAlive=Boolean(pythonProcess && pythonProcess.pid
+                && pythonProcess.exitCode===null && pythonProcess.signalCode===null);
+            const state=classifyBackendWait({childAlive,elapsedMs:Date.now()-started});
+            if(state.state==='offline'){
+                console.warn(state.message);
+                ready(false);
+                return;
+            }
+            if(state.state==='starting'){
+                if(!startingNoticeShown){
+                    console.log(state.message);
+                    startingNoticeShown=true;
+                }
+                setTimeout(check,2000);
                 return;
             }
             setTimeout(check,1000);
@@ -351,6 +387,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    appQuitting=true;
     whatsappWindow?.close();
     jarvisBridge?.close();
     businessPortals?.close();
