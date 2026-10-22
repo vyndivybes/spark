@@ -25,7 +25,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Recover source transactions before importing modules a patch may have changed.
 from spark_maintenance import Maintenance, MaintenanceError
-_SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
+_SPARK_WORKSPACE_ROOT = Path(
+    os.environ.get("SPARK_WORKSPACE_DATA_ROOT")
+    or (Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".spark")
+        / "SPARK" / "workspace"))
 Maintenance(Path(__file__).resolve().parents[1], _SPARK_WORKSPACE_ROOT).recover()
 
 import spark
@@ -57,6 +60,7 @@ from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
 from spark_workbench_voice import (VOICE_WORKBENCH_ACTIONS,
                                    CAPABILITY_VOICE_ACTIONS,
+                                   CAPABILITY_READ_ONLY_ACTIONS,
                                    capability_voice_summary)
 from spark_workspace_auth import workspace_client_allowed, workspace_access_allowed
 from spark_pc_access import PcAccess
@@ -471,6 +475,19 @@ async def integration_sync_action(sid,data):
 @sio.event
 async def workspace_action(sid, data):
     """Expose source-ported ARKUS engines to the owning SPARK cockpit only."""
+    # Local documents, reviewed repository reads and the read-only
+    # OpenJarvis capability surface (CAPABILITY_READ_ONLY_ACTIONS) must remain
+    # available when voice is offline; the cockpit's per-launch workspace
+    # token (and face lock, when enabled) authorizes them. Execution, device
+    # and every mutating capability action retain the live owner gate.
+    offline_workspace_actions = frozenset((
+        'list_documents','search_documents','list_holo_notes','list_skills',
+        'import_document','propose_skill','test_skill','activate_skill','run_skill',
+        'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
+        'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
+        'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
+        'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit',
+    )) | CAPABILITY_READ_ONLY_ACTIONS
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
     if not isinstance(request_id, str) or len(request_id)>64:
         request_id = None
@@ -486,15 +503,7 @@ async def workspace_action(sid, data):
         and (not SETTINGS.get("face_auth_enabled", False)
              or (authenticator and authenticator.authenticated))
     )
-    # Local documents and reviewed repository reads must remain available when
-    # voice is offline. Execution/device/upgrade actions retain the owner gate.
-    if not authorized and action in (
-        'list_documents','search_documents','list_holo_notes','list_skills',
-        'import_document','propose_skill','test_skill','activate_skill','run_skill',
-        'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
-        'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
-        'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
-        'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit'):
+    if not authorized and action in offline_workspace_actions:
         authorized=workspace_access_allowed(
             data.get('workspace_token') if isinstance(data,dict) else None,os.environ.get('SPARK_WORKSPACE_TOKEN'),
             face_required=SETTINGS.get('face_auth_enabled',False),
@@ -1903,9 +1912,9 @@ async def update_tool_permissions(sid, data):
 
 if __name__ == "__main__":
     uvicorn.run(
-        "server:app_socketio", 
-        host="127.0.0.1", 
-        port=8000, 
+        "server:app_socketio",
+        host="127.0.0.1",
+        port=int(os.environ.get("SPARK_BACKEND_PORT") or "8000"),
         reload=False, # Reload enabled causes spawn of worker which might miss the event loop policy patch
         loop="asyncio",
         reload_excludes=["temp_cad_gen.py", "output.stl", "*.stl"]

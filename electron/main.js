@@ -157,14 +157,15 @@ app.whenReady().then(async () => {
             throw new Error('Workspace access requires the root SPARK cockpit.');
         return workspaceToken;
     });
+    const dataRoot = process.env.SPARK_WORKSPACE_DATA_ROOT || path.join(
+        process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
+        'SPARK','workspace');
     experienceManager=createExperienceManager({
         root:path.resolve(__dirname,'..'),
         userData:app.getPath('userData'),
-        vayuExportsDir:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'.spark'),'SPARK','workspace','vayu-exports'),
+        vayuExportsDir:path.join(dataRoot,'vayu-exports'),
         python:process.env.SPARK_PYTHON||'python',
-        notesDir:process.env.SPARK_NOTES_DIR || path.join(
-            process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
-            'SPARK','workspace','holo-notes'),
+        notesDir:process.env.SPARK_NOTES_DIR || path.join(dataRoot,'holo-notes'),
         BrowserWindow,
     });
     ipcMain.handle('spark:open-experience',async(event,name)=>{

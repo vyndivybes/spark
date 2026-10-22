@@ -305,6 +305,29 @@ VOICE_WORKBENCH_ACTIONS = frozenset({
     "agent_snapshot", "intelligence_health", "workbench_snapshot",
     "save_preference", "add_agenda"}) | CAPABILITY_VOICE_ACTIONS
 
+# Read-only capability actions that stay available to the token-authorized
+# cockpit even when no paid voice provider session is running (the offline
+# cockpit gate in server.py). Statuses, history/list/report reads plus the
+# two deliberately voice-governable non-mutating composers (digest_run,
+# research_run). Every mutating capability action is deliberately absent.
+CAPABILITY_READ_ONLY_ACTIONS = frozenset({
+    "digest_status", "digest_run", "digest_history",
+    "hub_status", "hub_history",
+    "proactive_summary", "proactive_inbox",
+    "opencode_status",
+    "research_run",
+    "trace_status", "trace_labeled",
+    "learning_status",
+    "spec_search_status", "spec_candidates",
+    "skill_status", "skill_list", "skill_runs",
+    "agents_status", "agents_runs",
+    "monitor_status",
+    "connector_status", "connector_freshness", "connector_events",
+    "eval_status", "eval_history",
+    "telemetry_status", "telemetry_report",
+    "backend_describe", "backend_events",
+})
+
 
 def _primitive_count(value, key):
     data = value.get(key) if isinstance(value, dict) else None
