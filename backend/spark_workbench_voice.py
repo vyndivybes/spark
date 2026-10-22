@@ -23,6 +23,15 @@ def parse_workbench_command(value, now=None):
         utterance, re.I):
         return {"action": "executive_briefing", "payload": {}}
 
+    # Governed capability voices (OpenJarvis 01-16): read-only status,
+    # history and bounded local research only. Mutating capability actions
+    # (approve/send/execute/activate/revoke/configure/opt-in) are never
+    # mapped here, so the owner must perform them from the Capabilities
+    # Center where a checked payload and an ostensible owner gate apply.
+    capability = CAPABILITY_VOICE_INTENTS(utterance)
+    if capability:
+        return capability
+
     # A named SPARK source artifact is always an architecture question, even
     # inside temporal phrasing: "what did we decide about spark.py" belongs to
     # Graphify, which can read the file, not to a memory graph that cannot.
@@ -55,6 +64,20 @@ def parse_workbench_command(value, now=None):
     # Graphiti answers questions about the user's own recorded history, so it is
     # matched before the Graphify context heuristic: "what changed in the
     # printer project" would otherwise be swept up by the word "project".
+    graph_question = utterance
+    graph_context = (
+        re.search(
+            r"\b(?:architecture|architectural|dependencies?|depends|dependency|impact|affected|"
+            r"modules?|components?|codebase|connect|connects|connected|wired|wiring|"
+            r"interact|interacts|relationship|flow|calls?)\b",
+            graph_question, re.I
+        )
+        and re.search(
+            r"\b(?:spark|jarvis|voice|groq|grokwise|camera|desktop|bridge|backend|frontend|"
+            r"electron|loop|client|workbench|api|rest)\b",
+            graph_question, re.I
+        )
+    )
     if not graph_target:
         entity = re.fullmatch(
             r"(?:show|list|read|give) (?:me )?(?:the )?(?:history|timeline) (?:of|for) "
@@ -94,20 +117,6 @@ def parse_workbench_command(value, now=None):
         return {"action": "graphiti_voice_query", "payload": {"question": utterance}}
 
     # Local architecture questions are answered from Graphify.
-    graph_question = utterance
-    graph_context = (
-        re.search(
-            r"\b(?:architecture|architectural|dependencies?|depends|dependency|impact|affected|"
-            r"modules?|components?|codebase|connect|connects|connected|wired|wiring|"
-            r"interact|interacts|relationship|flow|calls?)\b",
-            graph_question, re.I
-        )
-        and re.search(
-            r"\b(?:spark|jarvis|voice|groq|grokwise|camera|desktop|bridge|backend|frontend|"
-            r"electron|loop|client|workbench|api|rest)\b",
-            graph_question, re.I
-        )
-    )
     if len(graph_question) <= 220 and (graph_target or graph_context):
         return {
             "action": "graphify_voice_query",
@@ -131,3 +140,183 @@ def parse_workbench_command(value, now=None):
         return {"action": "add_agenda", "payload": {"title": reminder[3], "kind": "reminder",
                 "due": (instant+timedelta(minutes=minutes)).isoformat()}}
     return None
+
+
+# Governed read-only voice surface for OpenJarvis capabilities 01-16. Each
+# entry maps an exact utterance to one `spark_workbench.py` ACTION_KEYS
+# action whose effect is a local read, a status or a bounded local research
+# pass. Mutating capability actions are deliberately absent from this table
+# (voice cannot configure channels, approve sends, execute proposals,
+# activate policies, revoke skills or opt engines in without the owner).
+_CAPABILITY_TABLE = [
+    (r"(?:show|give) (?:me )?(?:the )?morning digest status",
+     "digest_status", {}),
+    (r"(?:run|prepare|compose) (?:the )?morning digest(?: now)?",
+     "digest_run", {}),
+    (r"(?:show|give) (?:me )?(?:the )?(?:latest |last |recent )?digest history",
+     "digest_history", {"limit": 5}),
+    (r"(?:show|check) (?:the )?(?:messaging|channel) hub status",
+     "hub_status", {}),
+    (r"(?:show|check) (?:the )?proactive (?:agent )?(?:daily )?summary",
+     "proactive_summary", {}),
+    (r"(?:show|check|list) (?:the )?proactive inbox",
+     "proactive_inbox", {"state": "", "limit": 20}),
+    (r"(?:show|check) (?:the )?opencode status",
+     "opencode_status", {}),
+    (r"research (.{2,200})",
+     "research_run", None),
+    (r"(?:run|start) deep research (?:on|about|into) (.{2,200})",
+     "research_run", None),
+    (r"(?:show|check) (?:the )?trace(?: learning)? status",
+     "trace_status", {}),
+    (r"(?:show|check) (?:the )?learning status",
+     "learning_status", {}),
+    (r"(?:show|check) (?:the )?spec search status",
+     "spec_search_status", {}),
+    (r"(?:show|check) (?:the )?skill(?: ecosystem)? status",
+     "skill_status", {}),
+    (r"(?:show|give) (?:me )?(?:the )?skill list",
+     "skill_list", {}),
+    (r"(?:show|check) (?:the )?agent runtimes? status",
+     "agents_status", {}),
+    (r"(?:show|check) (?:the )?monitor status",
+     "monitor_status", {}),
+    (r"(?:show|check) (?:the )?connector status",
+     "connector_status", {}),
+    (r"(?:show|check) (?:the )?evaluation status",
+     "eval_status", {}),
+    (r"(?:show|give) (?:me )?(?:the )?evaluation history",
+     "eval_history", {"limit": 5}),
+    (r"(?:show|check) (?:the )?telemetry status",
+     "telemetry_status", {}),
+    (r"(?:show|read) (?:the )?telemetry report (?:for )?([A-Za-z0-9_.-]{1,40})",
+     "telemetry_report", None),
+    (r"(?:show|check) (?:the )?(?:inference )?backend status",
+     "backend_describe", {}),
+]
+
+
+def CAPABILITY_VOICE_INTENTS(utterance):
+    """Match governed capability phrases; returns None unless read-only."""
+    for pattern, action, payload in _CAPABILITY_TABLE:
+        match = re.fullmatch(pattern, utterance, re.I)
+        if not match:
+            continue
+        if payload is None:  # parameterized, payload shape known per action
+            if action == "research_run":
+                return {"action": action,
+                        "payload": {"question": match[1].strip(), "max_hops": ""}}
+            if action == "telemetry_report":
+                return {"action": action, "payload": {"model": match[1].strip()}}
+            return None
+        return {"action": action, "payload": dict(payload)}
+    return None
+
+
+def capability_voice_summary(action, result):
+    """Turn honest capability results into short spoken text, or None."""
+    if isinstance(result, str):
+        return result[:600]
+    if not isinstance(result, dict):
+        if action == "eval_history" and isinstance(result, list):
+            return f"{len(result)} evaluation runs on record."
+        if action == "skill_list" and isinstance(result, list):
+            return f"{len(result)} imported skills on record."
+        return None
+    if action == "digest_status":
+        state = result.get("latest_run") or {}
+        return (f"Morning digest: schedule "
+                f"{state.get('schedule_ist') or result.get('schedule_ist') or 'not scheduled'}, "
+                f"news {'enabled' if result.get('news_enabled') else 'off'}; "
+                f"{_primitive_count(state, 'sources')} source states.")
+    if action == "digest_run":
+        return f"Morning digest {result.get('date')}: {result.get('status', 'unknown')}."
+    if action == "digest_history":
+        runs = result.get("runs") or []
+        return f"{len(runs)} recent digest runs on record."
+    if action == "hub_status":
+        return (f"Messaging hub covers {len(result.get('providers') or [])} providers. "
+                f"{result.get('policy')}")
+    if action == "proactive_summary":
+        return (f"Proactive today: {result.get('proposed', 0)} proposed, "
+                f"{result.get('approved', 0)} approved, {result.get('executed', 0)} executed, "
+                f"{result.get('denied', 0)} denied.")
+    if action == "proactive_inbox":
+        proposals = result.get("proposals") if isinstance(result.get("proposals"), list) else []
+        extra = f" Latest: {proposals[-1].get('title')}" if proposals and isinstance(proposals[-1], dict) and proposals[-1].get("title") else ""
+        return f"{len(proposals)} proactive proposals waiting in the inbox.{extra}"
+    if action == "opencode_status":
+        discovery = result.get("discovery") or {}
+        if discovery.get("installed"):
+            return "OpenCode is installed and ready for scoped sessions."
+        return "OpenCode is not installed on this machine; install it manually first."
+    if action == "research_run":
+        answer = result.get("answer") or {}
+        return (f"Research stopped after {result.get('hops', 0)} hops with "
+                f"{len(result.get('citations') or [])} citations. "
+                f"{answer.get('text', '')}")[:500]
+    if action == "trace_status":
+        return f"{len(result.get('summary') or [])} task classes summarized in the trace store."
+    if action == "learning_status":
+        return (f"Learning: active policy {result.get('active_policy', 'none')}; "
+                f"{len(result.get('candidates') or [])} candidates on record.")
+    if action == "spec_search_status":
+        return (f"Spec search: {result.get('runs_recorded', 0)} runs recorded; "
+                f"{result.get('planner', 'planner state unknown')}.")
+    if action == "skill_status":
+        return (f"Skill ecosystem ready; {len(result.get('operations') or [])} "
+                f"operations registered. {result.get('integrity_model')}")
+    if action == "skill_list":
+        return None
+    if action == "agents_status":
+        return (f"Agent runtimes: {len(result.get('adapters') or [])} adapters, "
+                f"step budget {result.get('max_steps', '?')}. {result.get('codeact_scope')}")
+    if action == "monitor_status":
+        return (f"Monitors: {len(result.get('monitors') or [])} registered. "
+                f"{result.get('policy')}")
+    if action == "connector_status":
+        by_state = result.get("by_state") or {}
+        return (f"Connectors: {'; '.join(f'{k} {v}' for k, v in by_state.items())}. "
+                f"{len(result.get('adapters_attached') or [])} local adapters attached.")
+    if action == "eval_status":
+        return (f"{len(result.get('suites') or [])} evaluation suites uploaded. "
+                f"{result.get('honesty')}")
+    if action == "eval_history":
+        return f"{len(result)} evaluation runs on record." if isinstance(result, list) else None
+    if action == "telemetry_status":
+        return (f"Telemetry: {result.get('entries', 0)} measurements. "
+                f"Energy {result.get('energy', 'not measured')}.")
+    if action == "telemetry_report":
+        return _primitive_summary(result)
+    if action == "backend_describe":
+        engines = result.get("engines") or []
+        states = "; ".join(f"{e.get('engine')} {e.get('state')}"
+                           for e in engines if isinstance(e, dict))
+        return f"Inference backends: {states}."
+    return _primitive_summary(result)
+
+
+# Actions the voice loop may execute at all: the legacy preference/reminder
+# set plus the governed read-only capability table. Anything else (including
+# every mutating capability action) is refused for voice and must be driven
+# from the Capabilities Center through the owner-gated workspace handler.
+CAPABILITY_VOICE_ACTIONS = frozenset(action for _, action, _ in _CAPABILITY_TABLE)
+VOICE_WORKBENCH_ACTIONS = frozenset({
+    "agent_snapshot", "intelligence_health", "workbench_snapshot",
+    "save_preference", "add_agenda"}) | CAPABILITY_VOICE_ACTIONS
+
+
+def _primitive_count(value, key):
+    data = value.get(key) if isinstance(value, dict) else None
+    return len(data) if isinstance(data, (dict, list)) else 0
+
+
+def _primitive_summary(result, limit=400):
+    if not isinstance(result, dict):
+        return None
+    parts = []
+    for key, value in result.items():
+        if isinstance(value, (int, float, bool, str)) and len(parts) < 6:
+            parts.append(f"{key.replace('_', ' ')}: {value}")
+    text = "; ".join(parts)
+    return text[:limit] if text else None

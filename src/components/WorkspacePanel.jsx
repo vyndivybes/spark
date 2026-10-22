@@ -3,6 +3,7 @@ import EvolutionPanel from './EvolutionPanel';
 import WorkbenchPanel from './WorkbenchPanel';
 import IntegrationSyncPanel from './IntegrationSyncPanel';
 import ExecutiveBriefingPanel from './ExecutiveBriefingPanel';
+import CapabilitiesCenter from './CapabilitiesCenter';
 const IntelligenceConsole=React.lazy(()=>import('./IntelligenceConsole'));
 const SparkScreens=React.lazy(()=>import('./SparkScreens'));
 
@@ -141,6 +142,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 <button type="button" role="tab" aria-selected={tab==='evolution'} className={buttonStyle} onClick={()=>setTab('evolution')}>Recovery &amp; REA</button>
                 <button type="button" role="tab" aria-selected={tab==='workbench'} className={buttonStyle} onClick={()=>setTab('workbench')}>Workbench</button>
                 <button type="button" role="tab" aria-selected={tab==='intelligence'} className={buttonStyle} onClick={()=>setTab('intelligence')}>Intelligence</button>
+                <button type="button" role="tab" aria-selected={tab==='capabilities'} className={buttonStyle} onClick={()=>setTab('capabilities')}>Capabilities</button>
             </div>
             </>}
             {(!embedded || ['knowledge','skills'].includes(tab)) && <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>}
@@ -213,7 +215,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         </div>
                     </div>
                 </div>
-            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project} initialPage={intelligencePage} compactNavigation={embedded}/></React.Suspense> : (
+            ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project} initialPage={intelligencePage} compactNavigation={embedded}/></React.Suspense> : tab==='capabilities' ? <CapabilitiesCenter socket={socket} project={project}/> : (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Skill specification (declarative JSON only)</h3>
