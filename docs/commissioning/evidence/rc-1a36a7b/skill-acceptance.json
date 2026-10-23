@@ -1,0 +1,649 @@
+{
+  "captured_at": "2026-10-22T18:53:12.784Z",
+  "codeSkillId": "86dac63709a8b931a8b6fe46",
+  "actions": [
+    {
+      "action": "propose_code_skill",
+      "ok": true,
+      "message": null,
+      "result": {
+        "name": "count_passed_rows",
+        "description": "Count row totals and passing rows in a JSON list.",
+        "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+        "tests": [
+          {
+            "inputs": [
+              {
+                "name": "a",
+                "passed": true
+              },
+              {
+                "name": "b",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 2,
+              "passed": 1
+            }
+          },
+          {
+            "inputs": [
+              {
+                "name": "c",
+                "passed": true
+              },
+              {
+                "name": "d",
+                "passed": true
+              },
+              {
+                "name": "e",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 3,
+              "passed": 2
+            }
+          }
+        ],
+        "id": "86dac63709a8b931a8b6fe46",
+        "status": "proposed",
+        "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+        "provenance": {}
+      }
+    },
+    {
+      "action": "list_code_skills",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "name": "count_passed_rows",
+          "description": "Count row totals and passing rows in a JSON list.",
+          "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+          "tests": [
+            {
+              "inputs": [
+                {
+                  "name": "a",
+                  "passed": true
+                },
+                {
+                  "name": "b",
+                  "passed": false
+                }
+              ],
+              "expected": {
+                "total": 2,
+                "passed": 1
+              }
+            },
+            {
+              "inputs": [
+                {
+                  "name": "c",
+                  "passed": true
+                },
+                {
+                  "name": "d",
+                  "passed": true
+                },
+                {
+                  "name": "e",
+                  "passed": false
+                }
+              ],
+              "expected": {
+                "total": 3,
+                "passed": 2
+              }
+            }
+          ],
+          "id": "86dac63709a8b931a8b6fe46",
+          "status": "proposed",
+          "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+          "provenance": {}
+        }
+      ]
+    },
+    {
+      "action": "test_code_skill",
+      "ok": true,
+      "message": null,
+      "result": {
+        "name": "count_passed_rows",
+        "description": "Count row totals and passing rows in a JSON list.",
+        "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+        "tests": [
+          {
+            "inputs": [
+              {
+                "name": "a",
+                "passed": true
+              },
+              {
+                "name": "b",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 2,
+              "passed": 1
+            }
+          },
+          {
+            "inputs": [
+              {
+                "name": "c",
+                "passed": true
+              },
+              {
+                "name": "d",
+                "passed": true
+              },
+              {
+                "name": "e",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 3,
+              "passed": 2
+            }
+          }
+        ],
+        "id": "86dac63709a8b931a8b6fe46",
+        "status": "tested",
+        "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+        "provenance": {},
+        "test_results": [
+          {
+            "passed": true
+          },
+          {
+            "passed": true
+          }
+        ]
+      }
+    },
+    {
+      "action": "activate_code_skill",
+      "ok": true,
+      "message": null,
+      "result": {
+        "name": "count_passed_rows",
+        "description": "Count row totals and passing rows in a JSON list.",
+        "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+        "tests": [
+          {
+            "inputs": [
+              {
+                "name": "a",
+                "passed": true
+              },
+              {
+                "name": "b",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 2,
+              "passed": 1
+            }
+          },
+          {
+            "inputs": [
+              {
+                "name": "c",
+                "passed": true
+              },
+              {
+                "name": "d",
+                "passed": true
+              },
+              {
+                "name": "e",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 3,
+              "passed": 2
+            }
+          }
+        ],
+        "id": "86dac63709a8b931a8b6fe46",
+        "status": "active",
+        "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+        "provenance": {},
+        "test_results": [
+          {
+            "passed": true
+          },
+          {
+            "passed": true
+          }
+        ]
+      }
+    },
+    {
+      "action": "run_code_skill",
+      "ok": true,
+      "message": null,
+      "result": {
+        "id": "86dac63709a8b931a8b6fe46",
+        "result": {
+          "total": 3,
+          "passed": 2
+        }
+      }
+    },
+    {
+      "action": "deactivate_code_skill",
+      "ok": true,
+      "message": null,
+      "result": {
+        "name": "count_passed_rows",
+        "description": "Count row totals and passing rows in a JSON list.",
+        "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+        "tests": [
+          {
+            "inputs": [
+              {
+                "name": "a",
+                "passed": true
+              },
+              {
+                "name": "b",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 2,
+              "passed": 1
+            }
+          },
+          {
+            "inputs": [
+              {
+                "name": "c",
+                "passed": true
+              },
+              {
+                "name": "d",
+                "passed": true
+              },
+              {
+                "name": "e",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 3,
+              "passed": 2
+            }
+          }
+        ],
+        "id": "86dac63709a8b931a8b6fe46",
+        "status": "inactive",
+        "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+        "provenance": {},
+        "test_results": [
+          {
+            "passed": true
+          },
+          {
+            "passed": true
+          }
+        ]
+      }
+    },
+    {
+      "action": "generate_code_skill",
+      "ok": false,
+      "message": "Set GROQ_API_KEY in backend/.env for opt-in Groq voice.",
+      "result": null
+    },
+    {
+      "action": "generate_python_tool",
+      "ok": false,
+      "message": "Set GROQ_API_KEY in backend/.env for opt-in Groq voice.",
+      "result": null
+    },
+    {
+      "action": "saee_autonomy_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "enabled": false,
+        "allow_model_source": false,
+        "last_cycle": 0,
+        "last_upgrade_day": "",
+        "last_status": "not_run",
+        "queued_goal": "",
+        "interval_seconds": 3600,
+        "max_upgrades_per_day": 1,
+        "running": false,
+        "interval_minutes": 60,
+        "scope": "existing non-protected backend Python files only",
+        "rea_mode": "discovery only (no autonomous REA tool calls)",
+        "review_required": "new files, dependencies, security, external data or PC operations"
+      }
+    },
+    {
+      "action": "saee_registry",
+      "ok": true,
+      "message": null,
+      "result": {
+        "capabilities": [
+          {
+            "id": "python_tools",
+            "name": "Trusted Python Tool Invention and Runtime",
+            "engine": "spark_python_tools.PythonTools",
+            "summary": "Generate complete Python tools with imports/API calls, expected-result tests, revision registration and a live voice/chat gateway.",
+            "verified": true,
+            "gate": "enabled runtime policy; package/environment review; tested activation"
+          },
+          {
+            "id": "code_skills",
+            "name": "Original Python Data Skills",
+            "engine": "spark_code_skills.CodeSkills",
+            "summary": "Generate bounded Python data expressions, test examples, persist and activate revisions; retain repository/REA provenance.",
+            "verified": true,
+            "gate": "restricted worker + examples + activation approval"
+          },
+          {
+            "id": "repository_intelligence",
+            "name": "Repository Intelligence Engine",
+            "engine": "spark_repo_upgrade.RepositoryUpgrades",
+            "summary": "Bounded, symlink-safe source sampling and reviewable upgrade proposals.",
+            "verified": true,
+            "gate": "analysis + staged change approval"
+          },
+          {
+            "id": "repository_import",
+            "name": "Isolated GitHub Repository Import",
+            "engine": "spark_repo_import.import_evidence",
+            "summary": "Shallow, code-execution-free GitHub clone with license reading and a dependency map.",
+            "verified": true,
+            "gate": "read-only evidence; reuse still analysis + approval"
+          },
+          {
+            "id": "source_repair",
+            "name": "Self-Diagnosis and Self-Healing",
+            "engine": "spark_maintenance.Maintenance",
+            "summary": "AST + regression validation, durable rollback journals, staged activation.",
+            "verified": true,
+            "gate": "candidate test + activation approval"
+          },
+          {
+            "id": "code_generation",
+            "name": "Bounded Code Generation",
+            "engine": "spark_evolution.Evolution",
+            "summary": "Model-generated complete-file replacements scoped to selected backend sources.",
+            "verified": true,
+            "gate": "staging + approval"
+          },
+          {
+            "id": "calculation_skills",
+            "name": "Declarative Calculation Skills",
+            "engine": "arkus_skill_forge.SkillForge",
+            "summary": "Versioned, tested numeric skills with activation and rollback.",
+            "verified": true,
+            "gate": "test + activation"
+          },
+          {
+            "id": "instructional_skills",
+            "name": "Instructional SKILL.md Import",
+            "engine": "spark_intelligence.skills.InstructionalSkills",
+            "summary": "Bounded frontmatter instruction import; grants no tools.",
+            "verified": true,
+            "gate": "validate + activation"
+          },
+          {
+            "id": "prompt_improvement",
+            "name": "Learning and Improvement Registry",
+            "engine": "spark_intelligence.policy.Improvements",
+            "summary": "Prompt/few-shot candidates scored on independent expected answers.",
+            "verified": true,
+            "gate": "benchmark + activation"
+          },
+          {
+            "id": "agent_plans",
+            "name": "Bounded Agent Plans and Scheduling",
+            "engine": "spark_intelligence.runtime.Runtime",
+            "summary": "Approval-bound local tool plans, checkpointed, scheduler off by default.",
+            "verified": true,
+            "gate": "plan approval; scheduler explicit"
+          },
+          {
+            "id": "agent_workforce",
+            "name": "Specialist Agent Workforce",
+            "engine": "spark_workforce.check_assignment",
+            "summary": "Role-scoped routing of engine actions with no self-approval and no nesting.",
+            "verified": true,
+            "gate": "role allowlist; approvals use the trusted route"
+          },
+          {
+            "id": "version_inspection",
+            "name": "Version and Compatibility Inspection",
+            "engine": "spark_intelligence.upgrades",
+            "summary": "Read-only package/license visibility and pip check; installs nothing.",
+            "verified": true,
+            "gate": "read-only"
+          },
+          {
+            "id": "local_memory",
+            "name": "Project Memory and Retrieval",
+            "engine": "spark_intelligence.memory.Memory",
+            "summary": "Project-isolated FTS5 memory with citations; optional local embeddings.",
+            "verified": true,
+            "gate": "read/write within project"
+          },
+          {
+            "id": "windows_file_organization",
+            "name": "Windows File Organization Agent",
+            "engine": "spark_file_organizer.FileOrganizer",
+            "summary": "Read-only scan proposes moves; approved apply journals and undo reverses them.",
+            "verified": true,
+            "gate": "scan + approved plan hash; undo journalled"
+          },
+          {
+            "id": "file_intelligence",
+            "name": "File Intelligence (read-only)",
+            "engine": "spark_file_intelligence.FileIntelligence",
+            "summary": "Exact/near duplicate detection, temp/large inventory, installer and download-duplicate review; changes nothing.",
+            "verified": true,
+            "gate": "read-only report"
+          },
+          {
+            "id": "environmental_self_healing",
+            "name": "Environmental Self-Diagnosis",
+            "engine": "spark_self_healing.diagnose",
+            "summary": "Read-only startup, dependency, runtime, connectivity and resource checks; bounded repair gate.",
+            "verified": true,
+            "gate": "read-only; repair still approval-gated"
+          },
+          {
+            "id": "self_optimization_profiler",
+            "name": "Self-Optimization Profiler",
+            "engine": "spark_profiler.ProfileRecorder",
+            "summary": "Timing recorder, import-cost measurement and tolerance-gated before/after benchmarks.",
+            "verified": true,
+            "gate": "read-only measurement; changes still approved"
+          }
+        ],
+        "gaps": [
+          {
+            "id": "automatic_deployment",
+            "name": "Automatic Release and Rollback Pipeline",
+            "reason": "Deliberately absent: docs/intelligence-operations.md rejects auto-merge/deploy/updater."
+          },
+          {
+            "id": "weight_training",
+            "name": "Model Weight Training / Optimizers",
+            "reason": "DSPy/GEPA/ACE optimizers remain deferred; no research stack installed."
+          },
+          {
+            "id": "recursive_file_organization",
+            "name": "Recursive / Scheduled File Organization",
+            "reason": "Only single-directory, top-level, approval-gated moves exist; no recursion or scheduling."
+          }
+        ],
+        "pipeline": [
+          "request",
+          "inspect",
+          "plan",
+          "risk_check",
+          "isolate",
+          "develop",
+          "test",
+          "security_check",
+          "benchmark",
+          "release_gate",
+          "deploy",
+          "verify",
+          "monitor"
+        ],
+        "measured": false,
+        "note": "Capability presence and test coverage are from the local inventory; runtime behavior and security are not independently verified."
+      }
+    },
+    {
+      "action": "workforce_roles",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "id": "architect",
+          "name": "Architect",
+          "responsibility": "Design and dependency decisions (advisory)",
+          "actions": [
+            "analyze_repository",
+            "saee_discover"
+          ]
+        },
+        {
+          "id": "developer",
+          "name": "Developer",
+          "responsibility": "Code generation and refactoring via staged candidates",
+          "actions": [
+            "heal_sources",
+            "stage_repository_upgrade"
+          ]
+        },
+        {
+          "id": "performance_engineer",
+          "name": "Performance Engineer",
+          "responsibility": "Profiling and before/after benchmark comparison",
+          "actions": [
+            "disk_forecast",
+            "profile_compare",
+            "profile_import_cost"
+          ]
+        },
+        {
+          "id": "planner",
+          "name": "Planner",
+          "responsibility": "Goal decomposition and execution planning",
+          "actions": [
+            "saee_discover",
+            "saee_inventory",
+            "saee_ledger",
+            "saee_registry"
+          ]
+        },
+        {
+          "id": "release_manager",
+          "name": "Release Manager",
+          "responsibility": "Candidate activation review and rollback",
+          "actions": [
+            "activate_repair_candidate",
+            "list_repair_candidates",
+            "list_repairs",
+            "rollback_repair"
+          ]
+        },
+        {
+          "id": "repair_agent",
+          "name": "Repair Agent",
+          "responsibility": "Fault diagnosis, bounded repair and rollback",
+          "actions": [
+            "diagnose_sources",
+            "heal_sources",
+            "list_repair_candidates",
+            "list_repairs",
+            "rollback_repair",
+            "self_heal_diagnose",
+            "self_heal_recover",
+            "test_repair_candidate"
+          ]
+        },
+        {
+          "id": "researcher",
+          "name": "Researcher",
+          "responsibility": "Repository and documentation research (read-only)",
+          "actions": [
+            "analyze_repository",
+            "import_repository",
+            "list_repository_analyses",
+            "mcp_discover",
+            "rea_discover",
+            "read_repository_analysis"
+          ]
+        },
+        {
+          "id": "security_auditor",
+          "name": "Security Auditor",
+          "responsibility": "Secret scanning, static checks and source diagnosis",
+          "actions": [
+            "diagnose_sources",
+            "security_scan"
+          ]
+        },
+        {
+          "id": "system_monitor",
+          "name": "System Monitor",
+          "responsibility": "Environmental diagnosis and disk forecasting",
+          "actions": [
+            "disk_forecast",
+            "self_heal_diagnose"
+          ]
+        },
+        {
+          "id": "tester",
+          "name": "Tester",
+          "responsibility": "Run approved regression tests on staged candidates",
+          "actions": [
+            "diagnose_sources",
+            "list_repair_candidates",
+            "test_repair_candidate"
+          ]
+        }
+      ]
+    },
+    {
+      "action": "list_python_tools",
+      "ok": true,
+      "message": null,
+      "result": []
+    },
+    {
+      "action": "python_tools_policy",
+      "ok": true,
+      "message": null,
+      "result": {
+        "enabled": false,
+        "auto_forge": false
+      }
+    },
+    {
+      "action": "list_repository_analyses",
+      "ok": true,
+      "message": null,
+      "result": []
+    }
+  ]
+}

@@ -1,0 +1,597 @@
+{
+  "captured_at": "2026-10-22T19:26:27.189Z",
+  "status": {
+    "status": "running",
+    "service": "SPARK Core",
+    "conversation_memory": {
+      "revision": 3,
+      "persistent": true,
+      "explicit_details": true
+    },
+    "gemini_configured": false,
+    "groq_configured": false,
+    "ai_provider": "gemini",
+    "pc_autonomy_enabled": true,
+    "jarvis_bridge_configured": true,
+    "pc_autonomy_session_authorized": false,
+    "live_model": "gemini-3.8-live",
+    "live_profile": "cinematic",
+    "audio_transport": "browser_aec",
+    "groq_vision_available": false,
+    "graphify_ready": true,
+    "graphiti_ready": false,
+    "hermes_ready": false,
+    "obsidian_ready": false,
+    "file_organizer_ready": false,
+    "file_intelligence_ready": true,
+    "hands_free_ready": false,
+    "live_state": "setup_required",
+    "live_message": "Configure the SPARK Gemini key.",
+    "live_error_code": null
+  },
+  "saee_autonomy_status": {
+    "action": "saee_autonomy_status",
+    "ok": true,
+    "message": null,
+    "result": {
+      "enabled": false,
+      "allow_model_source": false,
+      "last_cycle": 0,
+      "last_upgrade_day": "",
+      "last_status": "not_run",
+      "queued_goal": "",
+      "interval_seconds": 3600,
+      "max_upgrades_per_day": 1,
+      "running": false,
+      "interval_minutes": 60,
+      "scope": "existing non-protected backend Python files only",
+      "rea_mode": "discovery only (no autonomous REA tool calls)",
+      "review_required": "new files, dependencies, security, external data or PC operations"
+    }
+  },
+  "saee_registry": {
+    "action": "saee_registry",
+    "ok": true,
+    "message": null,
+    "result": {
+      "capabilities": [
+        {
+          "id": "python_tools",
+          "name": "Trusted Python Tool Invention and Runtime",
+          "engine": "spark_python_tools.PythonTools",
+          "summary": "Generate complete Python tools with imports/API calls, expected-result tests, revision registration and a live voice/chat gateway.",
+          "verified": true,
+          "gate": "enabled runtime policy; package/environment review; tested activation"
+        },
+        {
+          "id": "code_skills",
+          "name": "Original Python Data Skills",
+          "engine": "spark_code_skills.CodeSkills",
+          "summary": "Generate bounded Python data expressions, test examples, persist and activate revisions; retain repository/REA provenance.",
+          "verified": true,
+          "gate": "restricted worker + examples + activation approval"
+        },
+        {
+          "id": "repository_intelligence",
+          "name": "Repository Intelligence Engine",
+          "engine": "spark_repo_upgrade.RepositoryUpgrades",
+          "summary": "Bounded, symlink-safe source sampling and reviewable upgrade proposals.",
+          "verified": true,
+          "gate": "analysis + staged change approval"
+        },
+        {
+          "id": "repository_import",
+          "name": "Isolated GitHub Repository Import",
+          "engine": "spark_repo_import.import_evidence",
+          "summary": "Shallow, code-execution-free GitHub clone with license reading and a dependency map.",
+          "verified": true,
+          "gate": "read-only evidence; reuse still analysis + approval"
+        },
+        {
+          "id": "source_repair",
+          "name": "Self-Diagnosis and Self-Healing",
+          "engine": "spark_maintenance.Maintenance",
+          "summary": "AST + regression validation, durable rollback journals, staged activation.",
+          "verified": true,
+          "gate": "candidate test + activation approval"
+        },
+        {
+          "id": "code_generation",
+          "name": "Bounded Code Generation",
+          "engine": "spark_evolution.Evolution",
+          "summary": "Model-generated complete-file replacements scoped to selected backend sources.",
+          "verified": true,
+          "gate": "staging + approval"
+        },
+        {
+          "id": "calculation_skills",
+          "name": "Declarative Calculation Skills",
+          "engine": "arkus_skill_forge.SkillForge",
+          "summary": "Versioned, tested numeric skills with activation and rollback.",
+          "verified": true,
+          "gate": "test + activation"
+        },
+        {
+          "id": "instructional_skills",
+          "name": "Instructional SKILL.md Import",
+          "engine": "spark_intelligence.skills.InstructionalSkills",
+          "summary": "Bounded frontmatter instruction import; grants no tools.",
+          "verified": true,
+          "gate": "validate + activation"
+        },
+        {
+          "id": "prompt_improvement",
+          "name": "Learning and Improvement Registry",
+          "engine": "spark_intelligence.policy.Improvements",
+          "summary": "Prompt/few-shot candidates scored on independent expected answers.",
+          "verified": true,
+          "gate": "benchmark + activation"
+        },
+        {
+          "id": "agent_plans",
+          "name": "Bounded Agent Plans and Scheduling",
+          "engine": "spark_intelligence.runtime.Runtime",
+          "summary": "Approval-bound local tool plans, checkpointed, scheduler off by default.",
+          "verified": true,
+          "gate": "plan approval; scheduler explicit"
+        },
+        {
+          "id": "agent_workforce",
+          "name": "Specialist Agent Workforce",
+          "engine": "spark_workforce.check_assignment",
+          "summary": "Role-scoped routing of engine actions with no self-approval and no nesting.",
+          "verified": true,
+          "gate": "role allowlist; approvals use the trusted route"
+        },
+        {
+          "id": "version_inspection",
+          "name": "Version and Compatibility Inspection",
+          "engine": "spark_intelligence.upgrades",
+          "summary": "Read-only package/license visibility and pip check; installs nothing.",
+          "verified": true,
+          "gate": "read-only"
+        },
+        {
+          "id": "local_memory",
+          "name": "Project Memory and Retrieval",
+          "engine": "spark_intelligence.memory.Memory",
+          "summary": "Project-isolated FTS5 memory with citations; optional local embeddings.",
+          "verified": true,
+          "gate": "read/write within project"
+        },
+        {
+          "id": "windows_file_organization",
+          "name": "Windows File Organization Agent",
+          "engine": "spark_file_organizer.FileOrganizer",
+          "summary": "Read-only scan proposes moves; approved apply journals and undo reverses them.",
+          "verified": true,
+          "gate": "scan + approved plan hash; undo journalled"
+        },
+        {
+          "id": "file_intelligence",
+          "name": "File Intelligence (read-only)",
+          "engine": "spark_file_intelligence.FileIntelligence",
+          "summary": "Exact/near duplicate detection, temp/large inventory, installer and download-duplicate review; changes nothing.",
+          "verified": true,
+          "gate": "read-only report"
+        },
+        {
+          "id": "environmental_self_healing",
+          "name": "Environmental Self-Diagnosis",
+          "engine": "spark_self_healing.diagnose",
+          "summary": "Read-only startup, dependency, runtime, connectivity and resource checks; bounded repair gate.",
+          "verified": true,
+          "gate": "read-only; repair still approval-gated"
+        },
+        {
+          "id": "self_optimization_profiler",
+          "name": "Self-Optimization Profiler",
+          "engine": "spark_profiler.ProfileRecorder",
+          "summary": "Timing recorder, import-cost measurement and tolerance-gated before/after benchmarks.",
+          "verified": true,
+          "gate": "read-only measurement; changes still approved"
+        }
+      ],
+      "gaps": [
+        {
+          "id": "automatic_deployment",
+          "name": "Automatic Release and Rollback Pipeline",
+          "reason": "Deliberately absent: docs/intelligence-operations.md rejects auto-merge/deploy/updater."
+        },
+        {
+          "id": "weight_training",
+          "name": "Model Weight Training / Optimizers",
+          "reason": "DSPy/GEPA/ACE optimizers remain deferred; no research stack installed."
+        },
+        {
+          "id": "recursive_file_organization",
+          "name": "Recursive / Scheduled File Organization",
+          "reason": "Only single-directory, top-level, approval-gated moves exist; no recursion or scheduling."
+        }
+      ],
+      "pipeline": [
+        "request",
+        "inspect",
+        "plan",
+        "risk_check",
+        "isolate",
+        "develop",
+        "test",
+        "security_check",
+        "benchmark",
+        "release_gate",
+        "deploy",
+        "verify",
+        "monitor"
+      ],
+      "measured": false,
+      "note": "Capability presence and test coverage are from the local inventory; runtime behavior and security are not independently verified."
+    }
+  },
+  "python_tools_policy": {
+    "action": "python_tools_policy",
+    "ok": true,
+    "message": null,
+    "result": {
+      "enabled": false,
+      "auto_forge": false
+    }
+  },
+  "list_python_tools": {
+    "action": "list_python_tools",
+    "ok": true,
+    "message": null,
+    "result": []
+  },
+  "list_repository_analyses": {
+    "action": "list_repository_analyses",
+    "ok": true,
+    "message": null,
+    "result": []
+  },
+  "list_integrations": {
+    "action": "list_integrations",
+    "ok": true,
+    "message": null,
+    "result": [
+      {
+        "name": "graphify",
+        "transport": "stdio",
+        "configured": true,
+        "read_tools": [
+          "query_graph",
+          "get_node",
+          "get_neighbors",
+          "get_community",
+          "god_nodes",
+          "graph_stats",
+          "shortest_path"
+        ],
+        "write_tools": [],
+        "health": {
+          "state": "unprobed"
+        }
+      },
+      {
+        "name": "vaos-jarvis",
+        "transport": "electron-session",
+        "configured": true,
+        "state": "session-managed",
+        "read_tools": [
+          "ask_vaos_jarvis"
+        ],
+        "setup": "Sign in from Experience Deck → VAOS Jarvis. Each question verifies the VAOS founder session."
+      },
+      {
+        "name": "vyndi-os",
+        "transport": "electron-session",
+        "configured": true,
+        "state": "session-managed",
+        "read_tools": [
+          "read_vyndi_engineering_authority"
+        ]
+      },
+      {
+        "name": "vedm",
+        "transport": "electron-session",
+        "configured": true,
+        "state": "session-managed",
+        "read_tools": [
+          "read_vedm_library"
+        ]
+      },
+      {
+        "name": "vaos",
+        "configured": false,
+        "state": "unconnected",
+        "read_tools": [],
+        "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+      },
+      {
+        "name": "gmail",
+        "configured": false,
+        "state": "unconnected",
+        "read_tools": [],
+        "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+      },
+      {
+        "name": "google-drive",
+        "configured": false,
+        "state": "unconnected",
+        "read_tools": [],
+        "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+      },
+      {
+        "name": "google-calendar",
+        "configured": false,
+        "state": "unconnected",
+        "read_tools": [],
+        "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+      },
+      {
+        "name": "github",
+        "configured": false,
+        "state": "unconnected",
+        "read_tools": [],
+        "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+      },
+      {
+        "name": "slack",
+        "configured": false,
+        "state": "unconnected",
+        "read_tools": [],
+        "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+      }
+    ]
+  },
+  "workbench_snapshot": {
+    "action": "workbench_snapshot",
+    "ok": false,
+    "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+    "result": null
+  },
+  "memory_search": {
+    "action": "memory_search",
+    "ok": true,
+    "message": null,
+    "result": {
+      "mode": "fts5",
+      "semantic_available": false,
+      "fallback_reason": "No local embedding index configured",
+      "results": [
+        {
+          "id": "6a1b837d280f9e91a6f04a12e630cc36",
+          "kind": "task",
+          "body": "RC 1a36a7b acceptance marker: metric units and local-first policy.",
+          "source": "commissioning",
+          "created": 1792695118.6658413,
+          "expires": 1792698718.6658413,
+          "bm25": -0.000002
+        }
+      ],
+      "document_results": [],
+      "fused": [
+        {
+          "id": "6a1b837d280f9e91a6f04a12e630cc36",
+          "kind": "task",
+          "body": "RC 1a36a7b acceptance marker: metric units and local-first policy.",
+          "source": "commissioning",
+          "created": 1792695118.6658413,
+          "expires": 1792698718.6658413,
+          "bm25": -0.000002,
+          "score": 0.01639344262295082
+        }
+      ]
+    }
+  },
+  "list_code_skills": {
+    "action": "list_code_skills",
+    "ok": true,
+    "message": null,
+    "result": [
+      {
+        "name": "count_passed_rows",
+        "description": "Count row totals and passing rows in a JSON list.",
+        "source": "def run(inputs):\n    return {\"total\": len(inputs), \"passed\": sum([1 for row in inputs if row[\"passed\"]])}",
+        "tests": [
+          {
+            "inputs": [
+              {
+                "name": "a",
+                "passed": true
+              },
+              {
+                "name": "b",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 2,
+              "passed": 1
+            }
+          },
+          {
+            "inputs": [
+              {
+                "name": "c",
+                "passed": true
+              },
+              {
+                "name": "d",
+                "passed": true
+              },
+              {
+                "name": "e",
+                "passed": false
+              }
+            ],
+            "expected": {
+              "total": 3,
+              "passed": 2
+            }
+          }
+        ],
+        "id": "86dac63709a8b931a8b6fe46",
+        "status": "inactive",
+        "sha256": "273616ec0e3373edc960d43acb7c5853f961495c8a33246895fd599f86dab0b8",
+        "provenance": {},
+        "test_results": [
+          {
+            "passed": true
+          },
+          {
+            "passed": true
+          }
+        ]
+      }
+    ]
+  },
+  "opencode_status": {
+    "action": "opencode_status",
+    "ok": true,
+    "message": null,
+    "result": {
+      "discovery": {
+        "binary": "<opencode-binary>",
+        "installed": true,
+        "version": null,
+        "status": "installed",
+        "message": "Ready for headless sessions."
+      },
+      "root": "<rc>",
+      "sessions": {
+        "count": 0,
+        "latest": null
+      },
+      "policy": "scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval"
+    }
+  },
+  "diagnostics": {
+    "ok": true,
+    "result": {
+      "service": "SPARK Core",
+      "ai_provider": "gemini",
+      "live_state": "setup_required",
+      "live_model": "gemini-3.8-live",
+      "live_profile": "cinematic",
+      "audio_transport": "browser_aec",
+      "hands_free_ready": false,
+      "gemini_configured": false,
+      "groq_configured": false,
+      "graphify_ready": true,
+      "graphiti_ready": false,
+      "hermes_ready": false,
+      "live_error_code": "none",
+      "uptime_seconds": 247,
+      "host": {
+        "cpu_percent": 69.6,
+        "ram_percent": 90.5,
+        "ram_total_gb": 7.7,
+        "ram_available_gb": 0.73,
+        "disk_total_gb": 239.86,
+        "disk_free_gb": 10.02,
+        "battery_percent": 100,
+        "ac_connected": true
+      }
+    }
+  },
+  "connectivity_report": {
+    "action": "connectivity_report",
+    "ok": true,
+    "message": null,
+    "result": {
+      "entries": [
+        {
+          "name": "Graphify",
+          "state": "partially operational",
+          "evidence": "Registered under SPARK_MCP_SERVERS (start-spark registers it when .venv\\Scripts\\graphify-mcp.exe exists). Successful audited call recorded within the last 7 days.",
+          "server": "graphify"
+        },
+        {
+          "name": "Graphiti",
+          "state": "not installed",
+          "evidence": "No optional Graphiti environment and no registration found."
+        },
+        {
+          "name": "Hermes",
+          "state": "not installed",
+          "evidence": "No optional Hermes environment and no registration found."
+        },
+        {
+          "name": "REA",
+          "state": "installed but disconnected",
+          "evidence": "No SPARK_REA_COMMAND; the default npx route is available on PATH. The catalog loads only when a session calls REA tools, outside this MCP registration. Live probing is left to the REA tools screen."
+        },
+        {
+          "name": "Obsidian",
+          "state": "not installed",
+          "evidence": "No vault at <obsidian-vault> and no environment override."
+        },
+        {
+          "name": "VAOS",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "VYNDI OS",
+          "state": "installed but disconnected",
+          "evidence": "Electron session read of a seeded authority reference; not a live ledger. No successful audited call in the last 7 days; run the probed report to verify.",
+          "server": "vyndi-os"
+        },
+        {
+          "name": "VEDM",
+          "state": "partially operational",
+          "evidence": "Published engineering-library reference read; not synchronization or release approval. Successful audited call recorded within the last 7 days.",
+          "server": "vedm"
+        },
+        {
+          "name": "VAOS Jarvis",
+          "state": "installed but disconnected",
+          "evidence": "Session-managed advisory; each question verifies the VAOS founder session from this authorized client. No successful audited call in the last 7 days; run the probed report to verify.",
+          "server": "vaos-jarvis"
+        },
+        {
+          "name": "GitHub",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Google Drive",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Gmail",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Google Calendar",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Slack",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "LLM providers",
+          "state": "not installed",
+          "evidence": "Groq and Gemini keys control text and multimodal generation. Groq: missing; Gemini: missing. Credentials are never echoed; no API call is made from this report."
+        },
+        {
+          "name": "Voice and multimodal services",
+          "state": "installed but disconnected",
+          "evidence": "Local hands-free audio runs in the authorized session. Cloud voice needs Groq (missing) and Gemini (missing). Live session state belongs to runtime diagnostics, not this static report."
+        }
+      ],
+      "deep": false,
+      "probed": 0,
+      "note": "Static classification only: registration, audit history, install markers and credential presence. Run the probed report for live verification of configured MCP services."
+    }
+  },
+  "maintenanceDirectoryPresent": false,
+  "maintenanceEntries": null,
+  "methodology": "get_diagnostics is a Socket.IO event (recorded under diagnostics); connectivity_report was called with {deep:false}. The earlier malformed calls were removed."
+}

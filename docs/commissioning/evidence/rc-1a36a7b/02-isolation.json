@@ -1,0 +1,29 @@
+{
+  "captured_at": "2026-10-22T18:37:27.003Z",
+  "webSockets": [
+    "ws://localhost:8010/socket.io/?EIO=4&transport=websocket&sid=<redacted>"
+  ],
+  "resourceUrls": [
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv3p2cyq",
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv3ympbd&sid=<redacted>",
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv3ys69c&sid=<redacted>",
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv3zbfsf&sid=<redacted>",
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv3zdd10&sid=<redacted>",
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv45lfqr&sid=<redacted>",
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv45oj6b&sid=<redacted>",
+    "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=vv46auh7&sid=<redacted>"
+  ],
+  "failedUrls": [],
+  "logs": [
+    {
+      "level": "error",
+      "text": "Failed to load resource: the server responded with a status of 402 ()",
+      "url": "https://grainy-gradients.vercel.app/noise.svg"
+    },
+    {
+      "level": "error",
+      "text": "Failed to load resource: the server responded with a status of 402 ()",
+      "url": "https://grainy-gradients.vercel.app/noise.svg"
+    }
+  ]
+}

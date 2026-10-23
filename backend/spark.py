@@ -302,7 +302,7 @@ class AudioLoop:
     pc_access = None
     generated_tools = None
     jarvis_access = None
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None, on_graphiti_query=None, on_graphiti_entity=None, on_hermes_query=None, on_obsidian_search=None, on_workspace_action=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None, on_graphiti_query=None, on_graphiti_entity=None, on_hermes_query=None, on_obsidian_search=None, on_executive_briefing=None, on_workspace_action=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -324,7 +324,10 @@ class AudioLoop:
         self.on_graphiti_entity = on_graphiti_entity
         self.on_hermes_query = on_hermes_query
         self.on_obsidian_search = on_obsidian_search
+        self.on_executive_briefing = on_executive_briefing
         self.on_workspace_action = on_workspace_action
+        # The autonomous-engineering callbacks are AudioLoop methods below;
+        # do not shadow them with undefined constructor names.
         # Per-tool call timestamps and per-(tool, argument) answers, both bounded
         # to MCP_VOICE_WINDOW seconds.
         self._mcp_calls = {}
@@ -483,7 +486,7 @@ class AudioLoop:
         if self._graphify_dispatched:
             return
         if (self.on_graphify_query is None and self.on_graphiti_query is None
-                and self.on_obsidian_search is None):
+                and self.on_obsidian_search is None and self.on_executive_briefing is None):
             return
         if self._graphify_tool_used:
             self._graphify_dispatched = True
@@ -493,6 +496,24 @@ class AudioLoop:
             return
         command = parse_workbench_command(utterance)
         if not command:
+            return
+        if command.get("action") == "executive_briefing" and self.on_executive_briefing:
+            self._graphify_dispatched = True
+            try:
+                answer = await asyncio.wait_for(self.on_executive_briefing(), timeout=25)
+                if isinstance(answer, str) and answer.strip():
+                    await session.send_client_content(
+                        turns={"role": "user", "parts": [{
+                            "text": ("The user requested a Google executive briefing. "
+                                     "Answer ONLY from this verified local snapshot status, "
+                                     "without inventing emails, meetings or Drive records. "
+                                     "Say plainly when the snapshot is stale or unavailable.\n"
+                                     + answer[:1900])
+                        }]}, turn_complete=True)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+            except Exception:
+                pass
             return
         if command.get("action") == "graphify_voice_query":
             self._graphify_dispatched = True
@@ -1123,7 +1144,8 @@ class AudioLoop:
                             if (self._user_utterance and not self._graphify_dispatched
                                     and (self.on_graphify_query is not None
                                          or self.on_graphiti_query is not None
-                                         or self.on_obsidian_search is not None)):
+                                         or self.on_obsidian_search is not None
+                                    or self.on_executive_briefing is not None)):
                                 asyncio.create_task(
                                     self.maybe_dispatch_graphify(self.session))
 
@@ -1257,6 +1279,20 @@ class AudioLoop:
                                     id=fc.id, name=fc.name,
                                     response={"result": "Tool unavailable in the current SPARK voice profile."}
                                 ))
+                                continue
+
+                            if fc.name == "read_executive_briefing":
+                                self._graphify_tool_used = True
+                                if self.on_executive_briefing:
+                                    try:
+                                        answer = await asyncio.wait_for(
+                                            self.on_executive_briefing(), timeout=25)
+                                    except Exception:
+                                        answer = "Verified Google briefing is unavailable."
+                                else:
+                                    answer = "Google executive briefing is not connected."
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name, response={"result": answer}))
                                 continue
 
                             if fc.name in MCP_VOICE_TOOLS:

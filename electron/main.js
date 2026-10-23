@@ -3,8 +3,15 @@ const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
-const workspaceToken=require('node:crypto').randomBytes(32).toString('hex');
+// Honor a deterministic launcher-provided token (parallel installs and
+// vesting harnesses); otherwise generate a fresh per-launch token.
+const workspaceToken=(process.env.SPARK_WORKSPACE_TOKEN
+      && process.env.SPARK_WORKSPACE_TOKEN.length===64
+      && /^[0-9a-f]+$/.test(process.env.SPARK_WORKSPACE_TOKEN))
+    ? process.env.SPARK_WORKSPACE_TOKEN
+    : require('node:crypto').randomBytes(32).toString('hex');
 const {createExperienceManager}=require('./experience-manager.cjs');
+const {classifyBackendWait}=require('./backend-health.cjs');
 const {createWhatsAppWindow}=require('./whatsapp-window.cjs');
 const {createJarvisBridge}=require('./jarvis-bridge.cjs');
 const {createBusinessPortals}=require('./business-portals.cjs');
@@ -35,6 +42,8 @@ app.on('second-instance', () => {
     }
 });
 let pythonProcess;
+let backendExitNotice=null;
+let appQuitting=false;
 let experienceManager;
 let whatsappWindow;
 let jarvisBridge,jarvisBridgeUrl;
@@ -57,11 +66,18 @@ function resolvePython(){
     return 'python';
 }
 
+function resolveWindowIcon() {
+    const icon = resolveResource('public', 'spark.ico');
+    try { return require('fs').existsSync(icon) ? icon : undefined; }
+    catch (_) { return undefined; }
+}
+
 function createWindow() {
+    const windowIcon = resolveWindowIcon();
     mainWindow = new BrowserWindow({
         width: 1920,
         height: 1080,
-        icon: resolveResource('public', 'spark.ico'),
+        ...(windowIcon ? { icon: windowIcon } : {}),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false, // For simple IPC/Socket.IO usage
@@ -77,10 +93,11 @@ function createWindow() {
     const isDev = process.env.NODE_ENV !== 'production';
 
     const loadFrontend = (retries = 3) => {
+        const backendPort = process.env.SPARK_BACKEND_PORT || '8000';
         const url = isDev ? 'http://localhost:5173' : null;
         const loadPromise = isDev
             ? mainWindow.loadURL(url)
-            : mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+            : mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), {query: {sparkBackendPort: backendPort}});
 
         loadPromise
             .then(() => {
@@ -121,13 +138,21 @@ function startPythonBackend() {
     console.log(`Starting Python backend: ${scriptPath}`);
 
     // Assuming 'python' is in PATH. In prod, this would be the executable.
+    backendExitNotice=null;
     pythonProcess = spawn(resolvePython(), [scriptPath], {
         cwd: backendDir,
         env: {...process.env,SPARK_WORKSPACE_TOKEN:workspaceToken,SPARK_JARVIS_BRIDGE_URL:jarvisBridgeUrl},
     });
 
     pythonProcess.on('error', (error) => {
+        backendExitNotice={code:null,signal:null,error:error.message};
         console.error('SPARK core backend could not launch. Experience Deck remains available:', error.message);
+    });
+    pythonProcess.on('exit', (code, signal) => {
+        backendExitNotice={code,signal};
+        if(!appQuitting){
+            console.warn(`SPARK core backend exited (code=${code ?? 'none'}, signal=${signal ?? 'none'}). The cockpit remains available; check Python dependencies.`);
+        }
     });
     pythonProcess.stdout.on('data', (data) => {
         console.log(`[Python]: ${data}`);
@@ -163,6 +188,9 @@ app.whenReady().then(async () => {
             throw new Error('Workspace access requires the root SPARK cockpit.');
         return workspaceToken;
     });
+    const dataRoot = process.env.SPARK_WORKSPACE_DATA_ROOT || path.join(
+        process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
+        'SPARK','workspace');
     ipcMain.handle('spark:brain-display', async event => {
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
             throw Error('Brain display requires the SPARK cockpit.');
@@ -171,11 +199,9 @@ app.whenReady().then(async () => {
     experienceManager=createExperienceManager({
         root:path.resolve(__dirname,'..'),
         userData:app.getPath('userData'),
-        vayuExportsDir:path.join(process.env.LOCALAPPDATA||path.join(require('node:os').homedir(),'.spark'),'SPARK','workspace','vayu-exports'),
+        vayuExportsDir:path.join(dataRoot,'vayu-exports'),
         python:process.env.SPARK_PYTHON||'python',
-        notesDir:process.env.SPARK_NOTES_DIR || path.join(
-            process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
-            'SPARK','workspace','holo-notes'),
+        notesDir:process.env.SPARK_NOTES_DIR || path.join(dataRoot,'holo-notes'),
         BrowserWindow,
     });
     ipcMain.handle('spark:open-experience',async(event,name)=>{
@@ -263,12 +289,13 @@ app.whenReady().then(async () => {
         if (mainWindow) mainWindow.close();
     });
 
+    const backendPortNumber = Number(process.env.SPARK_BACKEND_PORT) || 8000;
     // Paint the cockpit while Python imports and initializes. Socket.IO reconnects
     // when the core becomes available; backend readiness must not hide the UI.
     createWindow();
-    checkBackendPort(8000).then((isTaken) => {
+    checkBackendPort(backendPortNumber).then((isTaken) => {
         if (isTaken) {
-            console.log('Port 8000 is taken. Assuming backend is already running manually.');
+            console.log('Port '+backendPortNumber+' is taken. Assuming backend is already running manually.');
             waitForBackend();
         } else {
             startPythonBackend();
@@ -302,21 +329,40 @@ function checkBackendPort(port) {
 
 function waitForBackend() {
     return new Promise((resolve) => {
-        const deadline=Date.now()+20000;
+        const started=Date.now();
         let completed=false;
+        let startingNoticeShown=false;
         const ready=(available)=>{if(!completed){completed=true;resolve(available);}};
         const retry=()=>{
             if(completed)return;
-            if(Date.now()>=deadline){
-                console.warn('SPARK core backend offline. Launching UI anyway; check Python dependencies.');
+            // A child that exited is a real failure, not a slow import. The exit
+            // handler already logged the reason; stop probing and let the UI stay up.
+            if(backendExitNotice){
                 ready(false);
+                return;
+            }
+            const childAlive=Boolean(pythonProcess && pythonProcess.pid
+                && pythonProcess.exitCode===null && pythonProcess.signalCode===null);
+            const state=classifyBackendWait({childAlive,elapsedMs:Date.now()-started});
+            if(state.state==='offline'){
+                console.warn(state.message);
+                ready(false);
+                return;
+            }
+            if(state.state==='starting'){
+                if(!startingNoticeShown){
+                    console.log(state.message);
+                    startingNoticeShown=true;
+                }
+                setTimeout(check,2000);
                 return;
             }
             setTimeout(check,1000);
         };
         const check=()=>{
             if(completed)return;
-            const request=require('http').get('http://127.0.0.1:8000/status',res=>{
+            const backendPort=process.env.SPARK_BACKEND_PORT||'8000';
+            const request=require('http').get(`http://127.0.0.1:${backendPort}/status`,res=>{
                 res.resume();
                 if(res.statusCode===200)ready(true);
                 else retry();
@@ -341,6 +387,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+    appQuitting=true;
     whatsappWindow?.close();
     jarvisBridge?.close();
     businessPortals?.close();

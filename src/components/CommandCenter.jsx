@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Activity, ArrowUpRight, AudioLines, BookOpen, Box, BrainCircuit, ChevronRight, HelpCircle, Command, Cpu, Database, FlaskConical, GitBranch, LayoutDashboard, Menu, Network, Radio, Search, Settings, ShieldCheck, Sparkles, Terminal, Workflow, X} from 'lucide-react';
+import {Activity, ArrowUpRight, AudioLines, BookOpen, Box, Boxes, BrainCircuit, ChevronRight, HelpCircle, Command, Cpu, Database, FlaskConical, GitBranch, LayoutDashboard, Menu, Network, Radio, Search, Settings, ShieldCheck, Sparkles, Terminal, Workflow, X} from 'lucide-react';
 const WorkspacePanel = React.lazy(() => import('./WorkspacePanel'));
 import Visualizer from './Visualizer';
 
@@ -8,7 +8,7 @@ const destinations = [
     ['Missions', Workflow, 'intelligence:Agents'],
     ['Knowledge', BookOpen, 'knowledge'],
     ['Memory', Database, 'intelligence:Memory'],
-    ['Capabilities', Box, 'Capabilities & Skills'],
+    ['Capabilities Center', Boxes, 'capabilities'],
     ['Skill forge', FlaskConical, 'skills'],
     ['Upgrade studio', Sparkles, 'Self-Upgrade Studio'],
     ['Repositories', GitBranch, 'Repository Intelligence'],
@@ -61,7 +61,7 @@ export default function CommandCenter({brainGraph, brainError, socket, connected
 
             <nav><button type="button" aria-current={page==='Overview'?'page':undefined} onClick={()=>navigate('Overview')}><LayoutDashboard size={17}/>Overview</button>{[
                 ['Workspace',['Missions','Knowledge','Memory']],
-                ['Build',['Capabilities','Skill forge','Repositories','Workbench','Agent skills']],
+                ['Build',['Capabilities Center','Missions','Knowledge','Memory','Skill forge','Repositories','Workbench','Agent skills']],
                 ['Evolution',['Upgrade studio','Recovery & REA','Models','Learning','Benchmarks','Model upgrades']],
                 ['Systems',['PC manager','System health','Connections','Integrations']],
                 ['Governance',['Approvals','History','Schedules']],
@@ -79,7 +79,7 @@ export default function CommandCenter({brainGraph, brainError, socket, connected
                     <section className="cc-metrics" aria-label="Runtime readings"><article><span><Activity size={15}/>Core status</span><strong className={connected ? 'cc-value-good' : ''}>{connected ? 'Online' : 'Offline'}</strong><small>{connected ? 'Local backend connected' : 'No backend connection'}</small></article><article><span><Cpu size={15}/>CPU usage</span><strong>{connected ? percentage(host.cpu_percent) : '—'}</strong><small>{connected ? 'Latest diagnostic reading' : 'Connect core for readings'}</small></article><article><span><Database size={15}/>Memory usage</span><strong>{connected ? percentage(host.ram_percent) : '—'}</strong><small>{connected ? 'Latest diagnostic reading' : 'Connect core for readings'}</small></article><article><span><AudioLines size={15}/>AI session</span><strong>{ready ? 'Connected' : 'Standby'}</strong><small>{connected ? diagnostics?.ai_provider || 'Provider not reported' : 'Waiting for local core'}</small></article></section>
                     <div className="cc-lower-grid"><section className="cc-panel cc-session-panel"><div className="cc-section-heading"><div><span className="cc-overline">Current workspace</span><h3>Session activity</h3></div><span className="cc-count">{messages.length}</span></div>{messages.length ? <ol className="cc-activity">{messages.slice(-3).map((message, index) => <li key={index}><span className="cc-activity-dot"/><div><strong>{message.role === 'user' || message.sender === 'user' ? 'You' : 'Spark'}</strong><p>{String(message.text || message.content || 'Session message')}</p></div></li>)}</ol> : <div className="cc-empty"><Terminal size={26}/><strong>A fresh starting point</strong><p>Your conversation activity appears here once you begin a session.</p></div>}</section></div>
 
-                </> : <><div className="cc-heading cc-page-heading"><div><span className="cc-overline">SPARK / {project}</span><h2>{page}</h2></div><button className="cc-secondary" onClick={() => navigate('Overview')}>Back to overview</button></div><React.Suspense fallback={<p role="status">Loading workspace tools…</p>}><WorkspacePanel key={page} socket={socket} visible project={project} onClose={onCockpit} embedded initialTab={target?.startsWith('intelligence:') ? 'intelligence' : ['knowledge','workbench','skills','evolution'].includes(target) ? target : 'screens'} initialScreen={target} initialIntelligencePage={target?.split(':')[1]}/></React.Suspense></>}
+                </> : <><div className="cc-heading cc-page-heading"><div><span className="cc-overline">SPARK / {project}</span><h2>{page}</h2></div><button className="cc-secondary" onClick={() => navigate('Overview')}>Back to overview</button></div><React.Suspense fallback={<p role="status">Loading workspace tools…</p>}><WorkspacePanel key={page} socket={socket} visible project={project} onClose={onCockpit} embedded initialTab={target?.startsWith('intelligence:') ? 'intelligence' : ['knowledge','workbench','skills','evolution','capabilities'].includes(target) ? target : 'screens'} initialScreen={target} initialIntelligencePage={target?.split(':')[1]}/></React.Suspense></>}
                 <footer className="cc-footer"><span><i/>SPARK / Personal intelligence workstation</span><button onClick={onRefresh} disabled={!connected}><Activity size={13}/>Refresh diagnostics</button></footer>
             </main>
         </div>

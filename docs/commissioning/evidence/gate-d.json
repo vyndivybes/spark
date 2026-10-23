@@ -1,0 +1,163 @@
+{
+  "opencode_run_refused": {
+    "request_id": "gate-1792675365210",
+    "action": "opencode_run",
+    "ok": false,
+    "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first."
+  },
+  "hub_send_refused": {
+    "request_id": "gate-1792675365410",
+    "action": "hub_send",
+    "ok": false,
+    "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first."
+  },
+  "memory_remember": {
+    "request_id": "gate-1792675365611",
+    "action": "memory_remember",
+    "ok": true,
+    "result": {
+      "id": "c30405483d663b164933a241c4a4f9ee",
+      "source": "capabilities-center",
+      "deduplicated": false
+    }
+  },
+  "memory_search": {
+    "request_id": "gate-1792675365811",
+    "action": "memory_search",
+    "ok": true,
+    "result": {
+      "mode": "fts5",
+      "semantic_available": false,
+      "fallback_reason": null,
+      "results": [
+        {
+          "id": "c30405483d663b164933a241c4a4f9ee",
+          "kind": "observation",
+          "body": "OpenJarvis commissioning memory wrote this line before restart.",
+          "source": "capabilities-center",
+          "created": 1792675365.6529646,
+          "expires": 1795267365.6529646,
+          "bm25": -1e-06
+        }
+      ],
+      "document_results": [],
+      "fused": [
+        {
+          "id": "c30405483d663b164933a241c4a4f9ee",
+          "kind": "observation",
+          "body": "OpenJarvis commissioning memory wrote this line before restart.",
+          "source": "capabilities-center",
+          "created": 1792675365.6529646,
+          "expires": 1795267365.6529646,
+          "bm25": -1e-06,
+          "score": 0.01639344262295082
+        }
+      ]
+    }
+  },
+  "digest_run": {
+    "request_id": "gate-1792675366012",
+    "action": "digest_run",
+    "ok": true,
+    "result": {
+      "date": "2026-10-22",
+      "status": "failed",
+      "created_at": 1792675366.0208127,
+      "last_fetched": 1792675366.0371883,
+      "sources": {
+        "gmail": {
+          "state": "not_configured",
+          "stale": false,
+          "last_success": null,
+          "message": "Register the read-only google_daily_briefing MCP tool for this Google service. Connection alone is insufficient.",
+          "error": null,
+          "account": null
+        },
+        "google-calendar": {
+          "state": "not_configured",
+          "stale": false,
+          "last_success": null,
+          "message": "Register the read-only google_daily_briefing MCP tool for this Google service. Connection alone is insufficient.",
+          "error": null,
+          "account": null
+        },
+        "google-drive": {
+          "state": "not_configured",
+          "stale": false,
+          "last_success": null,
+          "message": "Register the read-only google_daily_briefing MCP tool for this Google service. Connection alone is insufficient.",
+          "error": null,
+          "account": null
+        },
+        "tasks": {
+          "state": "not_configured",
+          "message": "No task source is enabled for this account."
+        }
+      },
+      "triage": [],
+      "delta": {
+        "today": {
+          "emails": 0,
+          "events": 0,
+          "documents": 0,
+          "triage": 0
+        },
+        "previous": {},
+        "email_change": null
+      },
+      "texts": {
+        "digest_text": "Morning digest 2026-10-22 (Asia/Kolkata). 0 attention items.\nUnavailable sources: gmail=not_configured, google-calendar=not_configured, google-drive=not_configured, tasks=not_configured."
+      },
+      "emails": [],
+      "events": [],
+      "documents": [],
+      "tasks": [],
+      "news": [],
+      "timezone": "Asia/Kolkata",
+      "read_only": true,
+      "speech_text": "Morning digest 2026-10-22 (Asia/Kolkata). 0 attention items.\nUnavailable sources: gmail=not_configured, google-calendar=not_configured, google-drive=not_configured, tasks=not_configured."
+    }
+  },
+  "digest_history": {
+    "request_id": "gate-1792675366213",
+    "action": "digest_history",
+    "ok": true,
+    "result": {
+      "runs": [
+        {
+          "date": "2026-10-22",
+          "status": "failed",
+          "created_at": 1792675366.0208127,
+          "last_fetched": 1792675366.0371883,
+          "triage_count": 0,
+          "delta": {
+            "today": {
+              "emails": 0,
+              "events": 0,
+              "documents": 0,
+              "triage": 0
+            },
+            "previous": {},
+            "email_change": null
+          },
+          "speech": null,
+          "acknowledged": false,
+          "acknowledged_at": null
+        }
+      ],
+      "count": 1
+    }
+  },
+  "telemetry_report": {
+    "request_id": "gate-1792675366415",
+    "action": "telemetry_report",
+    "ok": true,
+    "result": "# Inference telemetry report\n\nProvenance: measured wall-clock + provider-reported tokens only. TTFT requires streaming; energy requires a power meter. No estimates are recorded.\nNo measurements recorded yet."
+  },
+  "bogus_action": {
+    "request_id": "gate-1792675366616",
+    "action": "not_a_real_action",
+    "ok": false,
+    "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first."
+  }
+}

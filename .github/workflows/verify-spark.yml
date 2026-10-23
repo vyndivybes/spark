@@ -10,43 +10,51 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements-test.txt
+            requirements-intelligence.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci --no-fund
       - run: npm test
-      - run: python3 -m py_compile scripts/runtime_preflight.py backend/spark.py backend/web_agent.py backend/server.py backend/spark_live_config.py
-      - run: python3 -m unittest discover -s tests -p test_spark_live_config.py
-      - run: python3 -m unittest discover -s tests -p test_spark_live_diagnostics.py
-      - run: python3 -m unittest discover -s tests -p test_spark_live_handshake.py
-      - run: python3 -m unittest discover -s tests -p test_spark_live_profile.py
-      - run: python3 -m unittest discover -s tests -p test_spark_cinematic_tools.py
-      - run: python3 -m unittest discover -s tests -p test_spark_grounding.py
-      - run: python3 -m unittest discover -s tests -p test_spark_groq_cloud.py
-      - run: python3 -m unittest discover -s tests -p test_spark_groq_vision_desktop.py
-      - run: python3 -m unittest discover -s tests -p test_spark_groq_model_diagnostics.py
-      - run: python3 -m unittest discover -s tests -p test_spark_windows_speech.py
-      - run: python3 -m unittest discover -s tests -p test_spark_diagnostics.py
-      - run: python3 -m unittest discover -s tests -p test_spark_host_vitals.py
-      - run: python3 -m unittest discover -s tests -p test_spark_audio_meter.py
-      - run: python3 -m unittest discover -s tests -p test_spark_echo_gate.py
-      - run: python3 -m unittest discover -s tests -p test_spark_browser_audio.py
-      - run: python3 -m unittest discover -s tests -p test_spark_gemini_preflight.py
-      - run: python3 -m unittest discover -s tests -p test_spark_camera_frames.py
-      - run: python3 -m unittest discover -s tests -p test_spark_camera_consent.py
-      - run: python3 -m unittest discover -s tests -p test_spark_desktop.py
-      - run: python3 -m unittest discover -s tests -p test_web_agent_safety.py
-      - run: python3 -m unittest discover -s tests -p test_spark_browser_session.py
-      - run: python3 -m unittest discover -s tests -p test_persistent_conversation.py
-      - run: python3 -m unittest discover -s tests -p test_spark_task_engine.py
-      - run: python3 -m unittest discover -s tests -p test_spark_task_planner.py
-      - run: python3 -m unittest discover -s tests -p test_spark_arkus_knowledge.py
-      - run: python3 -m unittest discover -s tests -p test_spark_arkus_skill_forge.py
-      - run: python3 -m unittest discover -s tests -p test_spark_arkus_skill_upgrades.py
-      - run: python3 -m unittest discover -s tests -p test_spark_workspace_api.py
-      - run: python3 -m unittest discover -s tests -p test_spark_workspace_voice.py
-      - run: python3 -m unittest discover -s tests -p test_spark_holo_bridge.py
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m py_compile scripts/runtime_preflight.py backend/spark.py backend/web_agent.py backend/server.py backend/spark_live_config.py
+      - run: python -m unittest discover -s tests -p test_spark_live_config.py
+      - run: python -m unittest discover -s tests -p test_spark_live_diagnostics.py
+      - run: python -m unittest discover -s tests -p test_spark_live_handshake.py
+      - run: python -m unittest discover -s tests -p test_spark_live_profile.py
+      - run: python -m unittest discover -s tests -p test_spark_cinematic_tools.py
+      - run: python -m unittest discover -s tests -p test_spark_grounding.py
+      - run: python -m unittest discover -s tests -p test_spark_groq_cloud.py
+      - run: python -m unittest discover -s tests -p test_spark_groq_vision_desktop.py
+      - run: python -m unittest discover -s tests -p test_spark_groq_model_diagnostics.py
+      - run: python -m unittest discover -s tests -p test_spark_windows_speech.py
+      - run: python -m unittest discover -s tests -p test_spark_diagnostics.py
+      - run: python -m unittest discover -s tests -p test_spark_host_vitals.py
+      - run: python -m unittest discover -s tests -p test_spark_audio_meter.py
+      - run: python -m unittest discover -s tests -p test_spark_echo_gate.py
+      - run: python -m unittest discover -s tests -p test_spark_browser_audio.py
+      - run: python -m unittest discover -s tests -p test_spark_gemini_preflight.py
+      - run: python -m unittest discover -s tests -p test_spark_camera_frames.py
+      - run: python -m unittest discover -s tests -p test_spark_camera_consent.py
+      - run: python -m unittest discover -s tests -p test_spark_desktop.py
+      - run: python -m unittest discover -s tests -p test_web_agent_safety.py
+      - run: python -m unittest discover -s tests -p test_spark_browser_session.py
+      - run: python -m unittest discover -s tests -p test_persistent_conversation.py
+      - run: python -m unittest discover -s tests -p test_spark_task_engine.py
+      - run: python -m unittest discover -s tests -p test_spark_task_planner.py
+      - run: python -m unittest discover -s tests -p test_spark_arkus_knowledge.py
+      - run: python -m unittest discover -s tests -p test_spark_arkus_skill_forge.py
+      - run: python -m unittest discover -s tests -p test_spark_arkus_skill_upgrades.py
+      - run: python -m unittest discover -s tests -p test_spark_workspace_api.py
+      - run: python -m unittest discover -s tests -p test_spark_workspace_voice.py
+      - run: python -m unittest discover -s tests -p test_spark_holo_bridge.py
       - run: npm run build
   intelligence:
     strategy:

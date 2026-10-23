@@ -39,16 +39,18 @@ test('Four main analytics choices preserve specialist capabilities',()=>{
   assert.match(html,/More analysis &amp; data tools/);
 });
 
-test('SPARK navigation keeps core destinations in the unified command center',()=>{
-  const center=read('src/components/CommandCenter.jsx');
+test('SPARK navigation keeps core destinations and gates specialized controls',()=>{
   const panel=read('src/components/WorkspacePanel.jsx');
+  const screens=read('src/components/SparkScreens.jsx');
   const app=read('src/App.jsx');
-  for(const label of ['Overview','Missions','Knowledge','Skill forge','Repositories','Connections'])
-    assert.ok(center.includes("['"+label+"'"),'Missing '+label);
-  assert.match(center, /<WorkspacePanel[^>]*embedded/);
-  assert.match(panel, /!embedded &&/);
-  assert.match(app, /<CommandCenter/);
-  assert.match(center, /onClick=\{onSettings\}/);
+  for(const label of ['Home','Command Center','Document knowledge','Skill Forge','Recovery &amp; REA','Workbench','Intelligence'])
+    assert.ok(panel.includes('>'+label+'</button>'),'Missing '+label);
+  assert.ok(panel.includes('tab===\'screens\' ? <React.Suspense'),'Specialized screens stay behind the Command Center tab');
+  for(const label of ['Autonomous Missions','Self-Upgrade Studio','Security & Approvals']){
+    assert.ok(screens.includes('\''+label+'\''),'Missing '+label);
+    assert.ok(!panel.includes('\''+label+'\''),'Specialized control '+label+' leaked out of the Command Center');
+  }
+  assert.match(app,/onSettings=\{\(\) => \{setShowWorkspace\(false\);\s*setShowSettings\(true\);\}\}/);
 });
 
 test('Personal and business storage boundaries remain unchanged',()=>{

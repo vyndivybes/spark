@@ -25,7 +25,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Recover source transactions before importing modules a patch may have changed.
 from spark_maintenance import Maintenance, MaintenanceError
-_SPARK_WORKSPACE_ROOT = Path(os.environ.get("LOCALAPPDATA") or Path.home()/".spark")/"SPARK"/"workspace"
+_SPARK_WORKSPACE_ROOT = Path(
+    os.environ.get("SPARK_WORKSPACE_DATA_ROOT")
+    or (Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".spark")
+        / "SPARK" / "workspace"))
 Maintenance(Path(__file__).resolve().parents[1], _SPARK_WORKSPACE_ROOT).recover()
 
 import spark
@@ -48,12 +51,17 @@ import signal
 import time
 from spark_diagnostics import safe_diagnostics
 from spark_host_vitals import collect_host_vitals
+from spark_google_briefing_voice import spoken_briefing
 from spark_workspace import SparkWorkspace, WorkspaceError
 from spark_evolution import Evolution, ACTION_KEYS as EVOLUTION_ACTIONS
 from spark_rea import ReaError
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
+from spark_workbench_voice import (VOICE_WORKBENCH_ACTIONS,
+                                   CAPABILITY_VOICE_ACTIONS,
+                                   CAPABILITY_READ_ONLY_ACTIONS,
+                                   capability_voice_summary)
 from spark_workspace_auth import workspace_client_allowed, workspace_access_allowed
 from spark_python_tools import GeneratedToolGateway
 from spark_pc_access import PcAccess
@@ -257,6 +265,21 @@ async def mcp_voice_call(sid, service, tool, arguments, timeout=40):
     return response
 
 
+async def executive_voice_briefing(sid):
+    """Read source-attributed local snapshots, never synthesize provider data."""
+    if (audio_loop is None
+            or getattr(audio_loop, "owner_sid", None) != sid
+            or not sio.manager.is_connected(sid, "/")
+            or (SETTINGS.get("face_auth_enabled", False)
+                and not (authenticator and authenticator.authenticated))):
+        return "Unlock and authenticate to SPARK to see your Google executive briefing."
+    try:
+        # This is a snapshot read. Missing or outdated sources must be reported,
+        # not presented as today's verified live mailbox.
+        return spoken_briefing(spark_workbench.sync.briefing())
+    except (OSError, ValueError, TypeError):
+        return "The Google briefing could not be read from the local store. Open SPARK Home and refresh."
+
 async def graphify_voice_query(sid, question):
     """Answer a SPARK architecture question from the local Graphify graph."""
     if not _graphify_registered():
@@ -383,7 +406,7 @@ groq_pending_approvals = {}
 authenticator = None
 kasa_agent = KasaAgent()
 AUDIO_TRANSPORT = select_transport(os.environ.get("SPARK_AUDIO_TRANSPORT"))
-SETTINGS_FILE = "settings.json"
+SETTINGS_FILE = os.environ.get("SPARK_SETTINGS_FILE", "settings.json")
 
 DEFAULT_SETTINGS = {
     "pc_autonomy_enabled": False,
@@ -555,6 +578,24 @@ async def integration_sync_action(sid,data):
 @sio.event
 async def workspace_action(sid, data):
     """Expose source-ported ARKUS engines to the owning SPARK cockpit only."""
+    # Local documents, reviewed repository reads and the read-only
+    # OpenJarvis capability surface (CAPABILITY_READ_ONLY_ACTIONS) must remain
+    # available when voice is offline; the cockpit's per-launch workspace
+    # token (and face lock, when enabled) authorizes them. Execution, device
+    # and every mutating capability action retain the live owner gate.
+    offline_workspace_actions = frozenset((
+        'list_documents','search_documents','list_holo_notes','list_skills',
+        'import_document','propose_skill','test_skill','activate_skill','run_skill',
+        'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
+        'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
+        'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
+        'saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop','saee_autonomy_goal','saee_autonomy_cancel_goal','saee_autonomy_cycle',
+        'generate_python_tool','repair_python_tool','propose_python_tool','list_python_tools','python_tools_policy','configure_python_tools',
+        'test_python_tool','activate_python_tool','run_python_tool','deactivate_python_tool',
+        'list_code_skills','generate_code_skill','propose_code_skill','test_code_skill',
+        'activate_code_skill','run_code_skill','deactivate_code_skill',
+        'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit',
+    )) | CAPABILITY_READ_ONLY_ACTIONS
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
     if not isinstance(request_id, str) or len(request_id)>64:
         request_id = None
@@ -570,20 +611,7 @@ async def workspace_action(sid, data):
         and (not SETTINGS.get("face_auth_enabled", False)
              or (authenticator and authenticator.authenticated))
     )
-    # Local documents and reviewed repository reads must remain available when
-    # voice is offline. Execution/device/upgrade actions retain the owner gate.
-    if not authorized and action in (
-        'saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop','saee_autonomy_goal','saee_autonomy_cancel_goal','saee_autonomy_cycle',
-        'generate_python_tool','repair_python_tool','propose_python_tool','list_python_tools','python_tools_policy','configure_python_tools',
-        'test_python_tool','activate_python_tool','run_python_tool','deactivate_python_tool',
-        'list_code_skills','generate_code_skill','propose_code_skill','test_code_skill',
-        'activate_code_skill','run_code_skill','deactivate_code_skill',
-        'list_documents','search_documents','list_holo_notes','list_skills',
-        'import_document','propose_skill','test_skill','activate_skill','run_skill',
-        'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
-        'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
-        'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
-        'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit'):
+    if not authorized and action in offline_workspace_actions:
         authorized=workspace_access_allowed(
             data.get('workspace_token') if isinstance(data,dict) else None,os.environ.get('SPARK_WORKSPACE_TOKEN'),
             face_required=SETTINGS.get('face_auth_enabled',False),
@@ -762,6 +790,8 @@ async def start_groq_audio(sid, data=None):
             # MCP-backed intents share one authorization and transport path with
             # the Gemini Live tools, so the Groq loop cannot end up carrying a
             # weaker guard than the Gemini one.
+            if command.get("action") == "executive_briefing":
+                return await executive_voice_briefing(sid)
             intent = MCP_VOICE_INTENTS.get(command.get("action"))
             if intent is not None:
                 handler, field, limit = intent
@@ -769,6 +799,13 @@ async def start_groq_audio(sid, data=None):
                 if not isinstance(value, str) or not 1 <= len(value.strip()) <= limit:
                     return "That request needs a " + field + " of at most " + str(limit) + " characters."
                 return await handler(sid, value.strip())
+            # Voice governance: only the parsed read-only capability surface
+            # and the legacy preference/reminder intents may execute; every
+            # mutating capability action needs the owner in the Capabilities
+            # Center. (Speech transcription never grants execution authority.)
+            if command.get("action") not in VOICE_WORKBENCH_ACTIONS:
+                return ("That action is not governed for voice; open the "
+                        "Capabilities Center in SPARK to run it as the owner.")
             result = await spark_workbench.execute(command["action"], project, command["payload"])
             if command['action']=='agent_snapshot':
                 counts={}
@@ -781,10 +818,20 @@ async def start_groq_audio(sid, data=None):
                 return "Saved locally: "+result["key"]+" is "+result["value"]
             if command["action"] == "add_agenda":
                 return "Reminder saved. SPARK will show it when due while this project is connected."
+            # Governed capability results are spoken back in an honest,
+            # bounded summary; unknown shapes stay readable but never hidden.
+            if command["action"] in CAPABILITY_VOICE_ACTIONS:
+                spoken = capability_voice_summary(command["action"], result)
+                return (spoken[:600] if spoken else
+                        "Capability action completed; open the Capabilities "
+                        "Center in SPARK for the full result.")
             preferences = result["preference"]
             return ("; ".join(p["key"]+": "+p["value"] for p in preferences)[:600]
                     or "No preferences saved in this project.")
-        except (WorkbenchError, SkillError, OSError):
+        except (WorkbenchError, SkillError, OSError) as error:
+            if command.get("action") in CAPABILITY_VOICE_ACTIONS:
+                # Honest answer surface: scoped refusals are owner-facing by design.
+                return str(error)[:400]
             return "The local workbench action could not complete."
     async def on_desktop_approval(payload):
         # Speech transcription does not grant execution authority.
@@ -958,6 +1005,9 @@ async def start_audio(sid, data=None):
     async def on_obsidian_search(query):
         return await obsidian_search(sid, query)
 
+    async def on_executive_briefing():
+        return await executive_voice_briefing(sid)
+
     async def on_workspace_action(name, arguments, utterance):
         return await voice_workspace_action(sid, name, arguments, utterance)
 
@@ -1033,6 +1083,7 @@ async def start_audio(sid, data=None):
             on_graphiti_entity=on_graphiti_entity,
             on_hermes_query=on_hermes_query,
             on_obsidian_search=on_obsidian_search,
+            on_executive_briefing=on_executive_briefing,
             on_workspace_action=on_workspace_action,
             browser_audio=AUDIO_TRANSPORT == "browser_aec",
             on_cad_data=on_cad_data,
@@ -1989,9 +2040,9 @@ async def update_tool_permissions(sid, data):
 
 if __name__ == "__main__":
     uvicorn.run(
-        "server:app_socketio", 
-        host="127.0.0.1", 
-        port=8000, 
+        "server:app_socketio",
+        host="127.0.0.1",
+        port=int(os.environ.get("SPARK_BACKEND_PORT") or "8000"),
         reload=False, # Reload enabled causes spawn of worker which might miss the event loop policy patch
         loop="asyncio",
         reload_excludes=["temp_cad_gen.py", "output.stl", "*.stl"]

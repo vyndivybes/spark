@@ -1,0 +1,27 @@
+{
+  "mode": "real local bounded execution in a disposable directory; no model/provider calls; no desktop owner gate bypass",
+  "opencode_test_executor": {
+    "command": "git --version",
+    "exit_code": 0,
+    "state": "completed",
+    "output": "git version 2.55.0.windows.5\n\n"
+  },
+  "opencode_outside_root_refused": true,
+  "opencode_model_run": "HOLD: no verified free Gemini credential/model configuration; test executor is not an LLM session",
+  "python_worker": {
+    "tested_status": "tested",
+    "result": 42,
+    "persisted_status": "active",
+    "final_policy": {
+      "enabled": false,
+      "auto_forge": false
+    }
+  },
+  "codeact_expression": "42",
+  "codeact_io_refused": true,
+  "saee": {
+    "stage": "plan",
+    "executed": false,
+    "matches": 2
+  }
+}

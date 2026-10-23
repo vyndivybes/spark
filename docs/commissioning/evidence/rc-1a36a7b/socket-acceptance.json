@@ -1,0 +1,1258 @@
+{
+  "captured_at": "2026-10-22T18:51:59.238Z",
+  "backend": "http://localhost:8010",
+  "origin": "http://localhost:5173",
+  "actions": [
+    {
+      "action": "digest_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "schema": "spark.morning_digest.v1",
+        "schedule_ist": null,
+        "news_enabled": false,
+        "news_url": null,
+        "news_policy": "opt-in only; free RSS feed; bounded size and timeout",
+        "latest_run": {
+          "date": "2026-10-23",
+          "status": "failed",
+          "created_at": 1792694797.3507884,
+          "last_fetched": 1792694797.3640494,
+          "speech": null,
+          "acknowledged": false,
+          "acknowledged_at": null
+        },
+        "final_states": [
+          "completed",
+          "failed"
+        ],
+        "tts": {
+          "engine": "Windows System.Speech (local, built-in)",
+          "network_free": true,
+          "requires_explicit_request": true
+        }
+      },
+      "elapsed_ms": 68
+    },
+    {
+      "action": "digest_history",
+      "ok": true,
+      "message": null,
+      "result": {
+        "runs": [
+          {
+            "date": "2026-10-23",
+            "status": "failed",
+            "created_at": 1792694797.3507884,
+            "last_fetched": 1792694797.3640494,
+            "triage_count": 0,
+            "delta": {
+              "today": {
+                "emails": 0,
+                "events": 0,
+                "documents": 0,
+                "triage": 0
+              },
+              "previous": {},
+              "email_change": null
+            },
+            "speech": null,
+            "acknowledged": false,
+            "acknowledged_at": null
+          }
+        ],
+        "count": 1
+      },
+      "elapsed_ms": 18
+    },
+    {
+      "action": "hub_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "schema": "spark.messaging_hub.v1",
+        "channels": {},
+        "providers": [
+          "discord",
+          "signal",
+          "slack",
+          "teams",
+          "telegram",
+          "whatsapp",
+          "whatsapp_bridge"
+        ],
+        "policy": "allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default"
+      },
+      "elapsed_ms": 19
+    },
+    {
+      "action": "hub_history",
+      "ok": true,
+      "message": null,
+      "result": {
+        "messages": [],
+        "count": 0,
+        "note": "Envelope audit for delivery evidence, retained locally."
+      },
+      "elapsed_ms": 25
+    },
+    {
+      "action": "proactive_summary",
+      "ok": true,
+      "message": null,
+      "result": {
+        "proposed": 0,
+        "approved": 0,
+        "executed": 0,
+        "denied": 0,
+        "failed": 0,
+        "day": "2026-10-22"
+      },
+      "elapsed_ms": 20
+    },
+    {
+      "action": "proactive_inbox",
+      "ok": true,
+      "message": null,
+      "result": {
+        "proposals": [],
+        "count": 0
+      },
+      "elapsed_ms": 13
+    },
+    {
+      "action": "opencode_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "discovery": {
+          "binary": "<opencode-binary>",
+          "installed": true,
+          "version": null,
+          "status": "installed",
+          "message": "Ready for headless sessions."
+        },
+        "root": "<rc>",
+        "sessions": {
+          "count": 0,
+          "latest": null
+        },
+        "policy": "scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval"
+      },
+      "elapsed_ms": 56
+    },
+    {
+      "action": "trace_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "summary": []
+      },
+      "elapsed_ms": 19
+    },
+    {
+      "action": "trace_labeled",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 11
+    },
+    {
+      "action": "spec_search_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "runs_recorded": 0,
+        "active_spec": null,
+        "active_since": null,
+        "planner": "owner-granted only (never auto-configured)"
+      },
+      "elapsed_ms": 27
+    },
+    {
+      "action": "spec_candidates",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 13
+    },
+    {
+      "action": "skill_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "by_status": {},
+        "operations": [
+          "search.obsidian",
+          "search.snapshots"
+        ],
+        "max_pipeline_steps": 12,
+        "integrity_model": "sha256 digest match (integrity only, not signature-based trust)"
+      },
+      "elapsed_ms": 20
+    },
+    {
+      "action": "skill_list",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 15
+    },
+    {
+      "action": "agents_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "adapters": [
+          "react",
+          "codeact",
+          "recursive"
+        ],
+        "tools_registered": [
+          "obsidian.search",
+          "search.snapshots"
+        ],
+        "side_effect_tools": [
+          "obsidian.search",
+          "search.snapshots"
+        ],
+        "max_steps": 12,
+        "max_depth": 2,
+        "codeact_scope": "AST allowlisted pure expressions; no imports, calls, attributes or I/O",
+        "sandbox_note": "Not an OS-level sandbox; bounded interpreter and tool grants by construction only"
+      },
+      "elapsed_ms": 7
+    },
+    {
+      "action": "agents_runs",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 66
+    },
+    {
+      "action": "monitor_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "schema": "spark.monitor_agents.v1",
+        "monitors": [
+          {
+            "name": "snapshot-freshness",
+            "scope": "workspace",
+            "interval": 600,
+            "last_run": null,
+            "last_success": null,
+            "next_due": 1792694096.9777236,
+            "failures": 0,
+            "cancelled": false,
+            "state": "configured, untested"
+          }
+        ],
+        "checks": [
+          "snapshot-freshness"
+        ],
+        "policy": "scoped check callbacks only; deduplicated events; exponential backoff; owner receipts; resume via persisted checkpoints before and after restart"
+      },
+      "elapsed_ms": 17
+    },
+    {
+      "action": "learning_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "candidates": [],
+        "measured_summary": [],
+        "active_policy": "policy_always_local",
+        "registered_policies": []
+      },
+      "elapsed_ms": 25
+    },
+    {
+      "action": "connector_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "by_state": {
+          "disabled": 2
+        },
+        "states": [
+          "disabled",
+          "configured",
+          "account_validated",
+          "verified_read",
+          "stale",
+          "failed",
+          "revoked"
+        ],
+        "rate_limit_seconds": 2,
+        "adapters_attached": [
+          "obsidian-vault",
+          "workspace-search"
+        ],
+        "cloud_connectors": "account adapters require the founder's consented, credentialed session (capability-02 readers); they are never attached automatically"
+      },
+      "elapsed_ms": 19
+    },
+    {
+      "action": "eval_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "suites": [
+          "agent_tool_policy",
+          "email_triage",
+          "meeting_inference",
+          "memory_retrieval",
+          "research_citations",
+          "safe_code_modification",
+          "self_repair"
+        ],
+        "runs_recorded": 0,
+        "candidates": [],
+        "honesty": "fixture runs only; live model runs need an owner-attached runner"
+      },
+      "elapsed_ms": 13
+    },
+    {
+      "action": "eval_history",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 13
+    },
+    {
+      "action": "telemetry_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "entries": 0,
+        "ttft": "recorded only for streamed measurements",
+        "energy": "not_measured (no hardware meter; estimates refused)",
+        "sampler": "injected (psutil-backed in production)"
+      },
+      "elapsed_ms": 13
+    },
+    {
+      "action": "telemetry_report",
+      "ok": true,
+      "message": null,
+      "result": "# Inference telemetry report\n\nProvenance: measured wall-clock + provider-reported tokens only. TTFT requires streaming; energy requires a power meter. No estimates are recorded.\nNo measurements recorded yet.",
+      "elapsed_ms": 14
+    },
+    {
+      "action": "backend_describe",
+      "ok": true,
+      "message": null,
+      "result": {
+        "engines": [
+          {
+            "engine": "ollama",
+            "implemented": true,
+            "cloud": false,
+            "transport": "local http /api/tags + /api/generate",
+            "state": "not_configured"
+          },
+          {
+            "engine": "gemini",
+            "implemented": true,
+            "cloud": true,
+            "transport": "cloud v1beta generateContent",
+            "state": "not_configured"
+          },
+          {
+            "engine": "groq",
+            "implemented": true,
+            "cloud": true,
+            "transport": "cloud chat/completions",
+            "state": "not_configured"
+          },
+          {
+            "engine": "llamacpp-local",
+            "state": "declared_not_active",
+            "note": "optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded"
+          },
+          {
+            "engine": "vllm-local",
+            "state": "declared_not_active",
+            "note": "optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded"
+          },
+          {
+            "engine": "sglang-local",
+            "state": "declared_not_active",
+            "note": "optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded"
+          }
+        ],
+        "downloads": "refused (no automatic model downloads)",
+        "fallback": "refused (no automatic cloud fallback)"
+      },
+      "elapsed_ms": 7
+    },
+    {
+      "action": "backend_events",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 38
+    },
+    {
+      "action": "connectivity_report",
+      "ok": true,
+      "message": null,
+      "result": {
+        "entries": [
+          {
+            "name": "Graphify",
+            "state": "partially operational",
+            "evidence": "Registered under SPARK_MCP_SERVERS (start-spark registers it when .venv\\Scripts\\graphify-mcp.exe exists). Successful audited call recorded within the last 7 days.",
+            "server": "graphify"
+          },
+          {
+            "name": "Graphiti",
+            "state": "not installed",
+            "evidence": "No optional Graphiti environment and no registration found."
+          },
+          {
+            "name": "Hermes",
+            "state": "not installed",
+            "evidence": "No optional Hermes environment and no registration found."
+          },
+          {
+            "name": "REA",
+            "state": "installed but disconnected",
+            "evidence": "No SPARK_REA_COMMAND; the default npx route is available on PATH. The catalog loads only when a session calls REA tools, outside this MCP registration. Live probing is left to the REA tools screen."
+          },
+          {
+            "name": "Obsidian",
+            "state": "not installed",
+            "evidence": "No vault at <obsidian-vault> and no environment override."
+          },
+          {
+            "name": "VAOS",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "VYNDI OS",
+            "state": "installed but disconnected",
+            "evidence": "Electron session read of a seeded authority reference; not a live ledger. No successful audited call in the last 7 days; run the probed report to verify.",
+            "server": "vyndi-os"
+          },
+          {
+            "name": "VEDM",
+            "state": "partially operational",
+            "evidence": "Published engineering-library reference read; not synchronization or release approval. Successful audited call recorded within the last 7 days.",
+            "server": "vedm"
+          },
+          {
+            "name": "VAOS Jarvis",
+            "state": "installed but disconnected",
+            "evidence": "Session-managed advisory; each question verifies the VAOS founder session from this authorized client. No successful audited call in the last 7 days; run the probed report to verify.",
+            "server": "vaos-jarvis"
+          },
+          {
+            "name": "GitHub",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Google Drive",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Gmail",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Google Calendar",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "Slack",
+            "state": "not installed",
+            "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+          },
+          {
+            "name": "LLM providers",
+            "state": "not installed",
+            "evidence": "Groq and Gemini keys control text and multimodal generation. Groq: missing; Gemini: missing. Credentials are never echoed; no API call is made from this report."
+          },
+          {
+            "name": "Voice and multimodal services",
+            "state": "installed but disconnected",
+            "evidence": "Local hands-free audio runs in the authorized session. Cloud voice needs Groq (missing) and Gemini (missing). Live session state belongs to runtime diagnostics, not this static report."
+          }
+        ],
+        "deep": false,
+        "probed": 0,
+        "note": "Static classification only: registration, audit history, install markers and credential presence. Run the probed report for live verification of configured MCP services."
+      },
+      "elapsed_ms": 65
+    },
+    {
+      "action": "list_integrations",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "name": "graphify",
+          "transport": "stdio",
+          "configured": true,
+          "read_tools": [
+            "query_graph",
+            "get_node",
+            "get_neighbors",
+            "get_community",
+            "god_nodes",
+            "graph_stats",
+            "shortest_path"
+          ],
+          "write_tools": [],
+          "health": {
+            "state": "unprobed"
+          }
+        },
+        {
+          "name": "vaos-jarvis",
+          "transport": "electron-session",
+          "configured": true,
+          "state": "session-managed",
+          "read_tools": [
+            "ask_vaos_jarvis"
+          ],
+          "setup": "Sign in from Experience Deck → VAOS Jarvis. Each question verifies the VAOS founder session."
+        },
+        {
+          "name": "vyndi-os",
+          "transport": "electron-session",
+          "configured": true,
+          "state": "session-managed",
+          "read_tools": [
+            "read_vyndi_engineering_authority"
+          ]
+        },
+        {
+          "name": "vedm",
+          "transport": "electron-session",
+          "configured": true,
+          "state": "session-managed",
+          "read_tools": [
+            "read_vedm_library"
+          ]
+        },
+        {
+          "name": "vaos",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "gmail",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "google-drive",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "google-calendar",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "github",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        },
+        {
+          "name": "slack",
+          "configured": false,
+          "state": "unconnected",
+          "read_tools": [],
+          "setup": "Configure a real authorized MCP endpoint or stdio server under this name in SPARK_MCP_SERVERS, with host-scoped credentials and explicit read_tools. SPARK does not create a duplicate business ledger."
+        }
+      ],
+      "elapsed_ms": 14
+    },
+    {
+      "action": "mcp_audit",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792694936.8673768
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 563,
+          "at": 1792694936.320454
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792694635.128565
+        },
+        {
+          "server": "vyndi-os",
+          "action": "mcp_call",
+          "tool": "read_vyndi_engineering_authority",
+          "ok": false,
+          "at": 1792694635.0668967
+        },
+        {
+          "server": "vaos-jarvis",
+          "action": "mcp_call",
+          "tool": "ask_vaos_jarvis",
+          "ok": false,
+          "at": 1792694634.1365473
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 360,
+          "at": 1792694633.9893882
+        },
+        {
+          "server": "vedm",
+          "action": "mcp_call",
+          "tool": "read_vedm_library",
+          "ok": true,
+          "at": 1792694333.0193336
+        },
+        {
+          "server": "vyndi-os",
+          "action": "mcp_call",
+          "tool": "read_vyndi_engineering_authority",
+          "ok": false,
+          "at": 1792694331.3371062
+        },
+        {
+          "server": "vaos-jarvis",
+          "action": "mcp_call",
+          "tool": "ask_vaos_jarvis",
+          "ok": false,
+          "at": 1792694329.847804
+        },
+        {
+          "server": "graphify",
+          "action": "mcp_discover",
+          "tool": null,
+          "ok": true,
+          "elapsed_ms": 8453,
+          "at": 1792694329.6271448
+        }
+      ],
+      "elapsed_ms": 12
+    },
+    {
+      "action": "agent_snapshot",
+      "ok": true,
+      "message": null,
+      "result": {
+        "jobs": [],
+        "schedules": [],
+        "traces": []
+      },
+      "elapsed_ms": 43
+    },
+    {
+      "action": "workbench_snapshot",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 4
+    },
+    {
+      "action": "saee_autonomy_status",
+      "ok": true,
+      "message": null,
+      "result": {
+        "enabled": false,
+        "allow_model_source": false,
+        "last_cycle": 0,
+        "last_upgrade_day": "",
+        "last_status": "not_run",
+        "queued_goal": "",
+        "interval_seconds": 3600,
+        "max_upgrades_per_day": 1,
+        "running": false,
+        "interval_minutes": 60,
+        "scope": "existing non-protected backend Python files only",
+        "rea_mode": "discovery only (no autonomous REA tool calls)",
+        "review_required": "new files, dependencies, security, external data or PC operations"
+      },
+      "elapsed_ms": 12
+    },
+    {
+      "action": "saee_registry",
+      "ok": true,
+      "message": null,
+      "result": {
+        "capabilities": [
+          {
+            "id": "python_tools",
+            "name": "Trusted Python Tool Invention and Runtime",
+            "engine": "spark_python_tools.PythonTools",
+            "summary": "Generate complete Python tools with imports/API calls, expected-result tests, revision registration and a live voice/chat gateway.",
+            "verified": true,
+            "gate": "enabled runtime policy; package/environment review; tested activation"
+          },
+          {
+            "id": "code_skills",
+            "name": "Original Python Data Skills",
+            "engine": "spark_code_skills.CodeSkills",
+            "summary": "Generate bounded Python data expressions, test examples, persist and activate revisions; retain repository/REA provenance.",
+            "verified": true,
+            "gate": "restricted worker + examples + activation approval"
+          },
+          {
+            "id": "repository_intelligence",
+            "name": "Repository Intelligence Engine",
+            "engine": "spark_repo_upgrade.RepositoryUpgrades",
+            "summary": "Bounded, symlink-safe source sampling and reviewable upgrade proposals.",
+            "verified": true,
+            "gate": "analysis + staged change approval"
+          },
+          {
+            "id": "repository_import",
+            "name": "Isolated GitHub Repository Import",
+            "engine": "spark_repo_import.import_evidence",
+            "summary": "Shallow, code-execution-free GitHub clone with license reading and a dependency map.",
+            "verified": true,
+            "gate": "read-only evidence; reuse still analysis + approval"
+          },
+          {
+            "id": "source_repair",
+            "name": "Self-Diagnosis and Self-Healing",
+            "engine": "spark_maintenance.Maintenance",
+            "summary": "AST + regression validation, durable rollback journals, staged activation.",
+            "verified": true,
+            "gate": "candidate test + activation approval"
+          },
+          {
+            "id": "code_generation",
+            "name": "Bounded Code Generation",
+            "engine": "spark_evolution.Evolution",
+            "summary": "Model-generated complete-file replacements scoped to selected backend sources.",
+            "verified": true,
+            "gate": "staging + approval"
+          },
+          {
+            "id": "calculation_skills",
+            "name": "Declarative Calculation Skills",
+            "engine": "arkus_skill_forge.SkillForge",
+            "summary": "Versioned, tested numeric skills with activation and rollback.",
+            "verified": true,
+            "gate": "test + activation"
+          },
+          {
+            "id": "instructional_skills",
+            "name": "Instructional SKILL.md Import",
+            "engine": "spark_intelligence.skills.InstructionalSkills",
+            "summary": "Bounded frontmatter instruction import; grants no tools.",
+            "verified": true,
+            "gate": "validate + activation"
+          },
+          {
+            "id": "prompt_improvement",
+            "name": "Learning and Improvement Registry",
+            "engine": "spark_intelligence.policy.Improvements",
+            "summary": "Prompt/few-shot candidates scored on independent expected answers.",
+            "verified": true,
+            "gate": "benchmark + activation"
+          },
+          {
+            "id": "agent_plans",
+            "name": "Bounded Agent Plans and Scheduling",
+            "engine": "spark_intelligence.runtime.Runtime",
+            "summary": "Approval-bound local tool plans, checkpointed, scheduler off by default.",
+            "verified": true,
+            "gate": "plan approval; scheduler explicit"
+          },
+          {
+            "id": "agent_workforce",
+            "name": "Specialist Agent Workforce",
+            "engine": "spark_workforce.check_assignment",
+            "summary": "Role-scoped routing of engine actions with no self-approval and no nesting.",
+            "verified": true,
+            "gate": "role allowlist; approvals use the trusted route"
+          },
+          {
+            "id": "version_inspection",
+            "name": "Version and Compatibility Inspection",
+            "engine": "spark_intelligence.upgrades",
+            "summary": "Read-only package/license visibility and pip check; installs nothing.",
+            "verified": true,
+            "gate": "read-only"
+          },
+          {
+            "id": "local_memory",
+            "name": "Project Memory and Retrieval",
+            "engine": "spark_intelligence.memory.Memory",
+            "summary": "Project-isolated FTS5 memory with citations; optional local embeddings.",
+            "verified": true,
+            "gate": "read/write within project"
+          },
+          {
+            "id": "windows_file_organization",
+            "name": "Windows File Organization Agent",
+            "engine": "spark_file_organizer.FileOrganizer",
+            "summary": "Read-only scan proposes moves; approved apply journals and undo reverses them.",
+            "verified": true,
+            "gate": "scan + approved plan hash; undo journalled"
+          },
+          {
+            "id": "file_intelligence",
+            "name": "File Intelligence (read-only)",
+            "engine": "spark_file_intelligence.FileIntelligence",
+            "summary": "Exact/near duplicate detection, temp/large inventory, installer and download-duplicate review; changes nothing.",
+            "verified": true,
+            "gate": "read-only report"
+          },
+          {
+            "id": "environmental_self_healing",
+            "name": "Environmental Self-Diagnosis",
+            "engine": "spark_self_healing.diagnose",
+            "summary": "Read-only startup, dependency, runtime, connectivity and resource checks; bounded repair gate.",
+            "verified": true,
+            "gate": "read-only; repair still approval-gated"
+          },
+          {
+            "id": "self_optimization_profiler",
+            "name": "Self-Optimization Profiler",
+            "engine": "spark_profiler.ProfileRecorder",
+            "summary": "Timing recorder, import-cost measurement and tolerance-gated before/after benchmarks.",
+            "verified": true,
+            "gate": "read-only measurement; changes still approved"
+          }
+        ],
+        "gaps": [
+          {
+            "id": "automatic_deployment",
+            "name": "Automatic Release and Rollback Pipeline",
+            "reason": "Deliberately absent: docs/intelligence-operations.md rejects auto-merge/deploy/updater."
+          },
+          {
+            "id": "weight_training",
+            "name": "Model Weight Training / Optimizers",
+            "reason": "DSPy/GEPA/ACE optimizers remain deferred; no research stack installed."
+          },
+          {
+            "id": "recursive_file_organization",
+            "name": "Recursive / Scheduled File Organization",
+            "reason": "Only single-directory, top-level, approval-gated moves exist; no recursion or scheduling."
+          }
+        ],
+        "pipeline": [
+          "request",
+          "inspect",
+          "plan",
+          "risk_check",
+          "isolate",
+          "develop",
+          "test",
+          "security_check",
+          "benchmark",
+          "release_gate",
+          "deploy",
+          "verify",
+          "monitor"
+        ],
+        "measured": false,
+        "note": "Capability presence and test coverage are from the local inventory; runtime behavior and security are not independently verified."
+      },
+      "elapsed_ms": 22
+    },
+    {
+      "action": "workforce_roles",
+      "ok": true,
+      "message": null,
+      "result": [
+        {
+          "id": "architect",
+          "name": "Architect",
+          "responsibility": "Design and dependency decisions (advisory)",
+          "actions": [
+            "analyze_repository",
+            "saee_discover"
+          ]
+        },
+        {
+          "id": "developer",
+          "name": "Developer",
+          "responsibility": "Code generation and refactoring via staged candidates",
+          "actions": [
+            "heal_sources",
+            "stage_repository_upgrade"
+          ]
+        },
+        {
+          "id": "performance_engineer",
+          "name": "Performance Engineer",
+          "responsibility": "Profiling and before/after benchmark comparison",
+          "actions": [
+            "disk_forecast",
+            "profile_compare",
+            "profile_import_cost"
+          ]
+        },
+        {
+          "id": "planner",
+          "name": "Planner",
+          "responsibility": "Goal decomposition and execution planning",
+          "actions": [
+            "saee_discover",
+            "saee_inventory",
+            "saee_ledger",
+            "saee_registry"
+          ]
+        },
+        {
+          "id": "release_manager",
+          "name": "Release Manager",
+          "responsibility": "Candidate activation review and rollback",
+          "actions": [
+            "activate_repair_candidate",
+            "list_repair_candidates",
+            "list_repairs",
+            "rollback_repair"
+          ]
+        },
+        {
+          "id": "repair_agent",
+          "name": "Repair Agent",
+          "responsibility": "Fault diagnosis, bounded repair and rollback",
+          "actions": [
+            "diagnose_sources",
+            "heal_sources",
+            "list_repair_candidates",
+            "list_repairs",
+            "rollback_repair",
+            "self_heal_diagnose",
+            "self_heal_recover",
+            "test_repair_candidate"
+          ]
+        },
+        {
+          "id": "researcher",
+          "name": "Researcher",
+          "responsibility": "Repository and documentation research (read-only)",
+          "actions": [
+            "analyze_repository",
+            "import_repository",
+            "list_repository_analyses",
+            "mcp_discover",
+            "rea_discover",
+            "read_repository_analysis"
+          ]
+        },
+        {
+          "id": "security_auditor",
+          "name": "Security Auditor",
+          "responsibility": "Secret scanning, static checks and source diagnosis",
+          "actions": [
+            "diagnose_sources",
+            "security_scan"
+          ]
+        },
+        {
+          "id": "system_monitor",
+          "name": "System Monitor",
+          "responsibility": "Environmental diagnosis and disk forecasting",
+          "actions": [
+            "disk_forecast",
+            "self_heal_diagnose"
+          ]
+        },
+        {
+          "id": "tester",
+          "name": "Tester",
+          "responsibility": "Run approved regression tests on staged candidates",
+          "actions": [
+            "diagnose_sources",
+            "list_repair_candidates",
+            "test_repair_candidate"
+          ]
+        }
+      ],
+      "elapsed_ms": 11
+    },
+    {
+      "action": "python_tools_policy",
+      "ok": true,
+      "message": null,
+      "result": {
+        "enabled": false,
+        "auto_forge": false
+      },
+      "elapsed_ms": 19
+    },
+    {
+      "action": "list_python_tools",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 12
+    },
+    {
+      "action": "list_code_skills",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 11
+    },
+    {
+      "action": "instructional_list",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 298
+    },
+    {
+      "action": "improvement_list",
+      "ok": true,
+      "message": null,
+      "result": [],
+      "elapsed_ms": 15
+    },
+    {
+      "action": "research_run",
+      "ok": true,
+      "message": null,
+      "result": {
+        "question": "What local workspace documents and capabilities are available?",
+        "hops": 2,
+        "budget": 2,
+        "documents": 0,
+        "citations": [],
+        "trace": [
+          {
+            "hop": 1,
+            "query": "What local workspace documents and capabilities are available?",
+            "sources": [],
+            "documents": 0
+          },
+          {
+            "hop": 2,
+            "query": "What local workspace documents and capabilities are available? (local)",
+            "sources": [],
+            "documents": 0
+          }
+        ],
+        "answer": {
+          "text": "No evidence retrieved from the approved sources; stopping rather than inventing.",
+          "verified": false,
+          "unverified_terms": [
+            "local",
+            "workspace",
+            "documents",
+            "capabilities",
+            "available"
+          ]
+        },
+        "contradictions": [],
+        "verified": false
+      },
+      "elapsed_ms": 20
+    },
+    {
+      "action": "memory_remember",
+      "ok": true,
+      "message": null,
+      "result": {
+        "id": "6a1b837d280f9e91a6f04a12e630cc36",
+        "source": "commissioning",
+        "deduplicated": false
+      },
+      "elapsed_ms": 58
+    },
+    {
+      "action": "memory_search",
+      "ok": true,
+      "message": null,
+      "result": {
+        "mode": "fts5",
+        "semantic_available": false,
+        "fallback_reason": "No local embedding index configured",
+        "results": [
+          {
+            "id": "6a1b837d280f9e91a6f04a12e630cc36",
+            "kind": "task",
+            "body": "RC 1a36a7b acceptance marker: metric units and local-first policy.",
+            "source": "commissioning",
+            "created": 1792695118.6658413,
+            "expires": 1792698718.6658413,
+            "bm25": -0.000002
+          }
+        ],
+        "document_results": [],
+        "fused": [
+          {
+            "id": "6a1b837d280f9e91a6f04a12e630cc36",
+            "kind": "task",
+            "body": "RC 1a36a7b acceptance marker: metric units and local-first policy.",
+            "source": "commissioning",
+            "created": 1792695118.6658413,
+            "expires": 1792698718.6658413,
+            "bm25": -0.000002,
+            "score": 0.01639344262295082
+          }
+        ]
+      },
+      "elapsed_ms": 40
+    },
+    {
+      "action": "get_diagnostics",
+      "ok": true,
+      "result": {
+        "service": "SPARK Core",
+        "ai_provider": "gemini",
+        "live_state": "setup_required",
+        "live_model": "gemini-3.8-live",
+        "live_profile": "cinematic",
+        "audio_transport": "browser_aec",
+        "hands_free_ready": false,
+        "gemini_configured": false,
+        "groq_configured": false,
+        "graphify_ready": true,
+        "graphiti_ready": false,
+        "hermes_ready": false,
+        "live_error_code": "none",
+        "uptime_seconds": 1020,
+        "host": {
+          "cpu_percent": 96.4,
+          "ram_percent": 92.5,
+          "ram_total_gb": 7.7,
+          "ram_available_gb": 0.58,
+          "disk_total_gb": 239.86,
+          "disk_free_gb": 9.44,
+          "battery_percent": 100,
+          "ac_connected": true
+        }
+      }
+    },
+    {
+      "action": "opencode_run",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 4,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "hub_send",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 5,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "agents_react",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 8,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "monitor_run",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 2,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "router_select",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 4,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "connector_attach_local",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 5,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "eval_register",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 6,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "telemetry_record",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 3,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "backend_probe",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 2,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "learning_activate",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 3,
+      "expected": "owner-gate"
+    },
+    {
+      "action": "skill_import",
+      "ok": false,
+      "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+      "result": null,
+      "elapsed_ms": 4,
+      "expected": "owner-gate"
+    }
+  ],
+  "wrongToken": {
+    "action": "memory_search (wrong token)",
+    "ok": false,
+    "message": "Invalid workbench action or arguments."
+  },
+  "missingToken": {
+    "action": "memory_search (missing token)",
+    "ok": false,
+    "message": "Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first."
+  }
+}

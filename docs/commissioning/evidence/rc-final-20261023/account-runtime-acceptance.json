@@ -1,0 +1,71 @@
+{
+  "captured_at": "2026-10-22T21:00:43.042Z",
+  "runtime": {
+    "status": "running",
+    "gemini_configured": true,
+    "provider": "gemini",
+    "live_state": "idle",
+    "live_error_code": null
+  },
+  "google_registrations": [
+    {
+      "name": "gmail",
+      "read_tools": [
+        "google_account_status",
+        "google_list_items",
+        "google_daily_briefing",
+        "google_pending_email"
+      ],
+      "write_tools": []
+    },
+    {
+      "name": "google-calendar",
+      "read_tools": [
+        "google_account_status",
+        "google_list_items",
+        "google_daily_briefing"
+      ],
+      "write_tools": []
+    },
+    {
+      "name": "google-drive",
+      "read_tools": [
+        "google_account_status",
+        "google_list_items",
+        "google_daily_briefing"
+      ],
+      "write_tools": []
+    }
+  ],
+  "digest": {
+    "envelope_ok": true,
+    "status": "completed",
+    "sources": {
+      "gmail": {
+        "state": "current",
+        "stale": false,
+        "last_success": 1792702826.548423
+      },
+      "google-calendar": {
+        "state": "current",
+        "stale": false,
+        "last_success": 1792702829.4263787
+      },
+      "google-drive": {
+        "state": "current",
+        "stale": false,
+        "last_success": 1792702530.6869054
+      },
+      "tasks": {
+        "state": "not_configured"
+      }
+    },
+    "counts": {
+      "emails": 0,
+      "events": 0,
+      "documents": 25,
+      "triage": 1
+    },
+    "read_only": true
+  }
+}

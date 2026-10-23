@@ -90,6 +90,22 @@ function Get-SparkMcpServers {
         foreach ($entry in $configured.PSObject.Properties) { $servers[$entry.Name] = $entry.Value }
     }
 
+    # Upgrade only our own read-only Google adapter. Preserve user accounts,
+    # CLI paths and tokens; never grant tools to unrelated MCP services.
+    $googleAdapter = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'backend\spark_google_mcp.py'))
+    foreach ($service in @('gmail', 'google-calendar', 'google-drive')) {
+        if (-not $servers.Contains($service)) { continue }
+        $entry = $servers[$service]
+        $scriptArgs = @($entry.args)
+        if ($scriptArgs.Count -lt 1 -or -not ($entry.read_tools -contains 'google_list_items')) { continue }
+        try { $adapterPath = [IO.Path]::GetFullPath([string]$scriptArgs[0]) }
+        catch { continue }
+        if ($adapterPath -ieq $googleAdapter -and
+            -not ($entry.read_tools -contains 'google_daily_briefing')) {
+            $entry.read_tools = @($entry.read_tools) + @('google_daily_briefing')
+        }
+    }
+
     $graphifyMcp = Join-Path $PSScriptRoot '.venv\Scripts\graphify-mcp.exe'
     $graphPath = Join-Path $PSScriptRoot 'graphify-out\graph.json'
     if (Test-Path -LiteralPath $graphifyMcp) {
@@ -256,6 +272,9 @@ if ($EnableHermes) {
     if ($hermesPython) { Write-Host 'Hermes Agent ready: own environment, read-only journey query, no inference.' -ForegroundColor Cyan }
 }
 $mcpServers = Get-SparkMcpServers -GraphitiPython $graphitiPython -HermesPython $hermesPython
+# Offer the Google briefing to Gemini only for an explicitly configured,
+# read-only native adapter. Never infer a grant from a UI "connected" label.
+$env:SPARK_ENABLE_GOOGLE_BRIEFING = if ($mcpServers -and $mcpServers -match '"google_daily_briefing"') { '1' } else { '0' }
 # These two switches are what Gemini Live reads when it builds its tool
 # declarations, so a sidecar that failed to install is never advertised to the
 # model. Like SPARK_ENABLE_GOOGLE_SEARCH they are set only here, only for this

@@ -1,0 +1,9 @@
+{
+  "binary": "C:\\Users\\ASUS\\AppData\\Local\\Temp\\opencode\\spark-commissioning\\tools\\node_modules\\opencode-ai\\bin\\opencode.exe",
+  "version_ok": true,
+  "version_stdout": "1.19.3",
+  "run_exit_code": 1,
+  "run_output_head": "\u001b[0m\n> build \u00c2\u00b7 openrouter/liquid/lfm-2.5-2.6b:free\n\u001b[0m\n\u001b[91m\u001b[1mError: \u001b[0mCannot connect to API: Unable to connect. Is the computer able to access the url?",
+  "wall_clock": 1792675908.9267836,
+  "interpretation": "opencode binary executes; headless run attempts a session on the free default model and honestly fails without a reachable provider endpoint (no paid keys configured)."
+}

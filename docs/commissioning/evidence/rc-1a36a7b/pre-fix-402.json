@@ -1,0 +1,10 @@
+{
+  "captured_at": "2026-10-22T19:04:10.193Z",
+  "source": "rc3-nav-smoke.json before the local-grain fix",
+  "logErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 402 ()",
+      "url": "https://grainy-gradients.vercel.app/noise.svg"
+    }
+  ]
+}

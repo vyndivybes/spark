@@ -1775,7 +1775,7 @@ function App() {
                 className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900 via-black to-black z-0 pointer-events-none"
                 style={{ opacity: 0.6 }}
             ></div>
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 z-0 pointer-events-none mix-blend-overlay"></div>
+            <div className="absolute inset-0 spark-noise opacity-20 z-0 pointer-events-none mix-blend-overlay"></div>
 
             {/* Ambient Glow (Fixed: Static) */}
             <div
@@ -2037,7 +2037,7 @@ function App() {
                     }}
                     onMouseDown={(e) => handleMouseDown(e, 'visualizer')}
                 >
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none mix-blend-overlay z-10"></div>
+                    <div className="absolute inset-0 spark-noise opacity-10 pointer-events-none mix-blend-overlay z-10"></div>
                     <div className="relative z-20">
                         <Visualizer
                             active={!showWorkspace}
@@ -2076,7 +2076,7 @@ function App() {
                     `}
                     style={{ zIndex: 20 }}
                 >
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 pointer-events-none mix-blend-overlay"></div>
+                    <div className="absolute inset-0 spark-noise opacity-5 pointer-events-none mix-blend-overlay"></div>
                     {/* Compact Display Container (1080p Source) */}
                     <div className="relative border border-cyan-500/30 rounded-lg overflow-hidden shadow-[0_0_20px_rgba(6,182,212,0.1)] w-80 aspect-video bg-black/80">
                         {/* Hidden Video Element (Source) */}
@@ -2168,7 +2168,7 @@ function App() {
                                 ✕
                             </button>
                         </div>
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none mix-blend-overlay z-10"></div>
+                        <div className="absolute inset-0 spark-noise opacity-10 pointer-events-none mix-blend-overlay z-10"></div>
                         <div className="relative z-20 flex-1 min-h-0">
                             <CadWindow
                                 data={cadData}
@@ -2201,7 +2201,7 @@ function App() {
                         }}
                         onMouseDown={(e) => handleMouseDown(e, 'browser')}
                     >
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none mix-blend-overlay z-10"></div>
+                        <div className="absolute inset-0 spark-noise opacity-10 pointer-events-none mix-blend-overlay z-10"></div>
                         <div className="relative z-20 w-full h-full">
                             <BrowserWindow
                                 imageSrc={browserData.image}
