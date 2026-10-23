@@ -1,0 +1,157 @@
+{
+  "captured_at": "2026-10-22T19:27:28.422Z",
+  "status": {
+    "status": "running",
+    "service": "SPARK Core",
+    "conversation_memory": {
+      "revision": 3,
+      "persistent": true,
+      "explicit_details": true
+    },
+    "gemini_configured": false,
+    "groq_configured": false,
+    "ai_provider": "gemini",
+    "pc_autonomy_enabled": true,
+    "jarvis_bridge_configured": true,
+    "pc_autonomy_session_authorized": false,
+    "live_model": "gemini-3.8-live",
+    "live_profile": "cinematic",
+    "audio_transport": "browser_aec",
+    "groq_vision_available": false,
+    "graphify_ready": true,
+    "graphiti_ready": false,
+    "hermes_ready": false,
+    "obsidian_ready": false,
+    "file_organizer_ready": false,
+    "file_intelligence_ready": true,
+    "hands_free_ready": false,
+    "live_state": "setup_required",
+    "live_message": "Configure the SPARK Gemini key.",
+    "live_error_code": null
+  },
+  "diagnostics": {
+    "ok": true,
+    "result": {
+      "service": "SPARK Core",
+      "ai_provider": "gemini",
+      "live_state": "setup_required",
+      "live_model": "gemini-3.8-live",
+      "live_profile": "cinematic",
+      "audio_transport": "browser_aec",
+      "hands_free_ready": false,
+      "gemini_configured": false,
+      "groq_configured": false,
+      "graphify_ready": true,
+      "graphiti_ready": false,
+      "hermes_ready": false,
+      "live_error_code": "none",
+      "uptime_seconds": 247,
+      "host": {
+        "cpu_percent": 69.6,
+        "ram_percent": 90.5,
+        "ram_total_gb": 7.7,
+        "ram_available_gb": 0.73,
+        "disk_total_gb": 239.86,
+        "disk_free_gb": 10.02,
+        "battery_percent": 100,
+        "ac_connected": true
+      }
+    }
+  },
+  "connectivity": {
+    "action": "connectivity_report",
+    "ok": true,
+    "message": null,
+    "result": {
+      "entries": [
+        {
+          "name": "Graphify",
+          "state": "partially operational",
+          "evidence": "Registered under SPARK_MCP_SERVERS (start-spark registers it when .venv\\Scripts\\graphify-mcp.exe exists). Successful audited call recorded within the last 7 days.",
+          "server": "graphify"
+        },
+        {
+          "name": "Graphiti",
+          "state": "not installed",
+          "evidence": "No optional Graphiti environment and no registration found."
+        },
+        {
+          "name": "Hermes",
+          "state": "not installed",
+          "evidence": "No optional Hermes environment and no registration found."
+        },
+        {
+          "name": "REA",
+          "state": "installed but disconnected",
+          "evidence": "No SPARK_REA_COMMAND; the default npx route is available on PATH. The catalog loads only when a session calls REA tools, outside this MCP registration. Live probing is left to the REA tools screen."
+        },
+        {
+          "name": "Obsidian",
+          "state": "not installed",
+          "evidence": "No vault at <obsidian-vault> and no environment override."
+        },
+        {
+          "name": "VAOS",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "VYNDI OS",
+          "state": "installed but disconnected",
+          "evidence": "Electron session read of a seeded authority reference; not a live ledger. No successful audited call in the last 7 days; run the probed report to verify.",
+          "server": "vyndi-os"
+        },
+        {
+          "name": "VEDM",
+          "state": "partially operational",
+          "evidence": "Published engineering-library reference read; not synchronization or release approval. Successful audited call recorded within the last 7 days.",
+          "server": "vedm"
+        },
+        {
+          "name": "VAOS Jarvis",
+          "state": "installed but disconnected",
+          "evidence": "Session-managed advisory; each question verifies the VAOS founder session from this authorized client. No successful audited call in the last 7 days; run the probed report to verify.",
+          "server": "vaos-jarvis"
+        },
+        {
+          "name": "GitHub",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Google Drive",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Gmail",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Google Calendar",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "Slack",
+          "state": "not installed",
+          "evidence": "No authorized MCP endpoint is configured under this name. SPARK never assumes endpoints or credentials."
+        },
+        {
+          "name": "LLM providers",
+          "state": "not installed",
+          "evidence": "Groq and Gemini keys control text and multimodal generation. Groq: missing; Gemini: missing. Credentials are never echoed; no API call is made from this report."
+        },
+        {
+          "name": "Voice and multimodal services",
+          "state": "installed but disconnected",
+          "evidence": "Local hands-free audio runs in the authorized session. Cloud voice needs Groq (missing) and Gemini (missing). Live session state belongs to runtime diagnostics, not this static report."
+        }
+      ],
+      "deep": false,
+      "probed": 0,
+      "note": "Static classification only: registration, audit history, install markers and credential presence. Run the probed report for live verification of configured MCP services."
+    }
+  }
+}

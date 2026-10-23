@@ -12,6 +12,7 @@ test('a repeated desktop launch exits before creating another backend or window'
     whenReady:() => {throw Error('Secondary instance attempted startup');},
   };
   const sandbox = {
+    process:{env:{}},
     require:name => name === 'electron' ? {app} : name === 'node:crypto'
       ? {randomBytes:() => Buffer.alloc(32)} : {},
     console,

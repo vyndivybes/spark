@@ -61,6 +61,16 @@ _ALLOWED = frozenset(x["name"] for x in CINEMATIC_FUNCTIONS)
 # registered the service is never advertised it, and so allowed_live_tool()
 # stays fail-closed for a model that guesses the name anyway.
 INTEGRATION_FUNCTIONS = {
+    "google_briefing": [
+        {
+            "name": "read_executive_briefing",
+            "description": (
+                "Read the last verified LOCAL Gmail, Calendar and Drive briefing, "
+                "including urgency candidates, time conflicts and source freshness. "
+                "Do not invent messages or call the data live when cached."
+            )
+        }
+    ],
     "graphiti": [
         {
             "name": "search_spark_timeline",
@@ -177,6 +187,10 @@ def live_integration_summary():
     about tools it can actually call."""
     enabled = enabled_integrations()
     notes = []
+    if enabled.get("google_briefing"):
+        notes.append(" read_executive_briefing provides the last verified local Google mail, "
+                     "calendar and Drive summary. Call it for attention and schedule requests "
+                     "and never invent email details or assert unverified reply status.")
     if enabled.get("graphiti"):
         notes.append(
             " search_spark_timeline and get_spark_entity_history read SPARK's "

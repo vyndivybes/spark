@@ -1,0 +1,65 @@
+{
+  "captured_at": "2026-10-22T20:38:58.2990495Z",
+  "original_processes": [
+    {
+      "Id": 24824,
+      "StartTime": "2026-10-22T15:21:03.9843309+05:30"
+    },
+    {
+      "Id": 16360,
+      "StartTime": "2026-10-22T15:21:04.936054+05:30"
+    }
+  ],
+  "listeners": [
+    {
+      "LocalAddress": "127.0.0.1",
+      "LocalPort": 9223,
+      "OwningProcess": 6172
+    },
+    {
+      "LocalAddress": "127.0.0.1",
+      "LocalPort": 8010,
+      "OwningProcess": 1260
+    }
+  ],
+  "free_memory_kib": 662352,
+  "free_disk_gib": 14.98,
+  "graph_source_sha256": "1c7f96b32a44520422cd82b24ba778813669aa97d24119fb540ce994fb9b6263",
+  "status": {
+    "status": "running",
+    "service": "SPARK Core",
+    "conversation_memory": {
+      "revision": 3,
+      "persistent": true,
+      "explicit_details": true
+    },
+    "gemini_configured": false,
+    "groq_configured": false,
+    "ai_provider": "gemini",
+    "pc_autonomy_enabled": true,
+    "jarvis_bridge_configured": true,
+    "pc_autonomy_session_authorized": false,
+    "live_model": "gemini-3.8-live",
+    "live_profile": "cinematic",
+    "audio_transport": "browser_aec",
+    "groq_vision_available": false,
+    "graphify_ready": false,
+    "graphiti_ready": false,
+    "hermes_ready": false,
+    "obsidian_ready": false,
+    "file_organizer_ready": false,
+    "file_intelligence_ready": true,
+    "hands_free_ready": false,
+    "live_state": "setup_required",
+    "live_message": "Configure the SPARK Gemini key.",
+    "live_error_code": null
+  },
+  "host_mcp_config": "explicit empty catalog; no inherited registration",
+  "expired_old_marker": {
+    "created": 1792695118.6658413,
+    "explanation": "Expected expiration; replaced with isolated 86400-second marker before final restart",
+    "id": "6a1b837d280f9e91a6f04a12e630cc36",
+    "expires": 1792698718.6658413,
+    "ttl_seconds": 3600
+  }
+}

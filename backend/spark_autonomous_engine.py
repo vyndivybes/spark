@@ -117,7 +117,7 @@ def inspect_self() -> Dict[str, Any]:
             try:
                 git_rev = subprocess.run(
                     ["git", "rev-parse", "--short", ref],
-                    c=str(PROJECT_ROOT),
+                    cwd=str(PROJECT_ROOT),
                     capture_output=True,
                     text=True,
                     timeout=5,
@@ -136,7 +136,7 @@ def inspect_self() -> Dict[str, Any]:
     try:
         branch = subprocess.run(
             ["git", "branch", "--show-current"],
-            c=str(PROJECT_ROOT),
+            cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True,
             timeout=5,
@@ -223,16 +223,20 @@ def read_source_file(rel_path: str, base: str = "backend") -> Tuple[Optional[str
     """
     root = PROJECT_ROOT
     base_path = (root / base).resolve()
+    if base_path not in [(root / name).resolve() for name in ("backend", "src", "scripts", "tests")]:
+        return None, "refused: invalid source base"
     target = (base_path / rel_path).resolve()
     # Safety: ensure the resolved path is still under the base
     try:
         target.relative_to(base_path)
     except ValueError:
         return None, f"refused: path escapes base directory '{base}'"
+    if target.suffix not in {".py", ".js", ".jsx", ".cjs", ".mjs", ".css"} or any(part.startswith(".") for part in Path(rel_path).parts if part != ".."):
+        return None, "refused: only source files may be read"
     if not target.is_file():
         return None, f"file not found: {rel_path}"
     try:
-        content = target.read_text(encoding="utf-8")
+        content = target.open(encoding="utf-8").read(16000)
         return content, None
     except Exception as e:
         return None, str(e)
@@ -253,13 +257,13 @@ def search_source_code(pattern: str, scope: Optional[List[str]] = None) -> Dict[
     results: Dict[str, List[Dict[str, str]]] = {}
     for base in scopes:
         base_path = (root / base).resolve()
-        if not base_path.is_dir():
+        if base_path not in [(root / name).resolve() for name in ("backend", "src", "scripts", "tests")] or not base_path.is_dir():
             continue
         try:
             for dirpath, __, filenames in os.walk(base_path):
                 for fname in filenames:
                     fpath = Path(dirpath) / fname
-                    if not fpath.is_file():
+                    if not fpath.is_file() or not fpath.resolve().is_relative_to(base_path) or fpath.suffix not in {".py", ".js", ".jsx", ".cjs", ".mjs", ".css"}:
                         continue
                     try:
                         rel = str(fpath.relative_to(root))
@@ -267,7 +271,7 @@ def search_source_code(pattern: str, scope: Optional[List[str]] = None) -> Dict[
                         continue
                     # Skip binary / large files
                     try:
-                        text = fpath.read_text(encoding="utf-8", errors="replace")
+                        text = fpath.open(encoding="utf-8", errors="replace").read(16000)
                     except Exception:
                         continue
                     matches: List[Dict[str, str]] = []
@@ -352,10 +356,14 @@ def create_upgrade_branch(branch_name: str, base: str = "main") -> Tuple[Optiona
     checked out; the caller can work in it and later merge or submit a PR.
     """
     try:
+        if not re.fullmatch(r"codex/[A-Za-z0-9][A-Za-z0-9/_-]{0,80}", branch_name):
+            return None, "upgrade branches must use a valid codex/ name"
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9/_.-]{0,100}", base):
+            return None, "invalid base reference"
         # Verify base exists
         base_ref = subprocess.run(
             ["git", "rev-parse", base],
-            c=str(PROJECT_ROOT),
+            cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True,
             timeout=10,
@@ -364,22 +372,14 @@ def create_upgrade_branch(branch_name: str, base: str = "main") -> Tuple[Optiona
             return None, f"base branch '{base}' not found"
         # Create the new branch
         create_res = subprocess.run(
-            ["git", "branch", branch_name],
-            c=str(PROJECT_ROOT),
+            ["git", "branch", branch_name, base],
+            cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True,
             timeout=10,
         )
         if create_res.returncode != 0:
             return None, f"failed to create branch: {create_res.stderr}"
-        # Also set the branch to the current HEAD so it starts clean
-        subprocess.run(
-            ["git", "symbolic-set-head", branch_name],
-            c=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
         return branch_name, None
     except Exception as e:
         return None, str(e)
@@ -410,8 +410,15 @@ def write_upgrade_patch(patch_spec: Dict[str, Any]) -> Tuple[Optional[str], Opti
         applied: List[str] = []
         for rel_path, content in files.items():
             target = (root / rel_path).resolve()
+            base = (root / "backend").resolve()
+            if not target.is_relative_to(base) or target.suffix != ".py" or not isinstance(content, str):
+                return None, "refused: patches must target Python source inside backend/"
+            if not target.is_file():
+                return None, f"file not found: {rel_path}"
+        for rel_path, content in files.items():
+            target = (root / rel_path).resolve()
             base = (root / "backend").resolve()  # only allow backend edits for now
-            if not str(target).startswith(str(base)):
+            if not target.is_relative_to(base):
                 return None, f"refused: '{rel_path}' outside allowed base"
             if not target.is_file() and not content.startswith("append:"):
                 return None, f"file not found for overwrite: {rel_path}"
@@ -436,108 +443,47 @@ def write_upgrade_patch(patch_spec: Dict[str, Any]) -> Tuple[Optional[str], Opti
 # ---------------------------------------------------------------------------
 
 def execute_development_command(command: str, timeout_sec: int = 120) -> Dict[str, Any]:
-    """Run an allowlisted development command with a timeout.
-
-    Only commands in DEV_CMD_WHITELIST may be used. The function returns
-    stdout, stderr, and return code.
-    """
-    # Simple parsing for the known commands
-    result: Dict[str, Any] = {"stdout": None, "stderr": None, "returncode": None, "error": None}
-    # python -m pytest {test_file}
-    if command.strip().startswith("python -m pytest "):
-        test_file = command.strip()[len("python -m pytest "):].strip()
-        stdout, rc, stderr = _sandbox_cmd("python", timeout_sec=timeout_sec)
-        # Actually run pytest directly
-        try:
-            completed = subprocess.run(
-                [sys.executable, "-m", "pytest", test_file],
-                c=str(PROJECT_ROOT / "tests"),
-                capture_output=True,
-                text=True,
-                timeout=timeout_sec,
-            )
-            stdout = completed.stdout or stdout
-            stderr = completed.stderr or stderr
-            rc = completed.returncode
-        except subprocess.TimeoutExpired:
-            rc = -1
-            stderr = f"timed out after {timeout_sec}s"
-        result["stdout"] = stdout
-        result["stderr"] = stderr
-        result["returncode"] = rc
-        return result
-    # pytest {test_file}
-    if command.strip().startswith("pytest "):
-        test_file = command.strip()[len("pytest "):].strip()
-        try:
-            completed = subprocess.run(
-                [sys.executable, "-m", "pytest", test_file],
-                c=str(PROJECT_ROOT / "tests"),
-                capture_output=True,
-                text=True,
-                timeout=timeout_sec,
-            )
-            result["stdout"] = completed.stdout
-            result["stderr"] = completed.stderr
-            result["returncode"] = completed.returncode
-        except subprocess.TimeoutExpired:
-            result["stderr"] = f"timed out after {timeout_sec}s"
-            result["returncode"] = -1
-        return result
-    # git {git_cmd}
-    if command.strip().startswith("git "):
-        git_cmd = command.strip()[4:].strip()
-        try:
-            completed = subprocess.run(
-                ["git", git_cmd],
-                c=str(PROJECT_ROOT),
-                capture_output=True,
-                text=True,
-                timeout=timeout_sec,
-            )
-            result["stdout"] = completed.stdout
-            result["stderr"] = completed.stderr
-            result["returncode"] = completed.returncode
-        except subprocess.TimeoutExpired:
-            result["stderr"] = f"timed out after {timeout_sec}s"
-            result["returncode"] = -1
-        return result
-    # fallback: try _sandbox_cmd which handles python/pytest/git patterns
-    stdout, rc, stderr = _sandbox_cmd(command, timeout_sec=timeout_sec)
-    result["stdout"] = stdout
-    result["stderr"] = stderr
-    result["returncode"] = rc
+    """Run a bounded read-only Git query or an explicitly selected project test."""
+    import shlex
+    result = {"stdout": "", "stderr": "", "returncode": None, "error": None}
+    try:
+        parts = shlex.split(command)
+        if parts[:2] == ["git", "status"] and parts[2:] in ([], ["--short"]):
+            argv = parts
+        elif parts == ["git", "diff", "--stat"]:
+            argv = parts
+        elif parts == ["git", "log", "-5", "--oneline"]:
+            argv = parts
+        else:
+            test_args = parts[3:] if parts[:3] == ["python", "-m", "pytest"] else parts[1:] if parts[:1] == ["pytest"] else []
+            if len(test_args) != 1:
+                raise ValueError("Choose git status, git diff --stat, git log -5 --oneline, or pytest tests/<file>.py")
+            target = (PROJECT_ROOT / test_args[0]).resolve()
+            target.relative_to((PROJECT_ROOT / "tests").resolve())
+            if not target.is_file() or target.suffix != ".py":
+                raise ValueError("Select an existing Python test under tests/")
+            argv = [sys.executable, "-m", "pytest", str(target), "-q", "--tb=short"]
+        completed = subprocess.run(argv, cwd=str(PROJECT_ROOT), capture_output=True,
+                                   text=True, timeout=min(max(timeout_sec, 1), 180))
+        result.update(stdout=completed.stdout[-16000:], stderr=completed.stderr[-4000:], returncode=completed.returncode)
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+        result["error"] = str(exc)
     return result
 
 
-# ---------------------------------------------------------------------------
-# 8. run_upgrade_tests
-# ---------------------------------------------------------------------------
-
 def run_upgrade_tests(test_filter: Optional[str] = None) -> Dict[str, Any]:
-    """Execute the test suite and return results.
-
-    *test_filter* may be a pytest marker expression or filename pattern;
-    if None, the full test suite runs.
-    """
-    cmd = ["python", "-m", "pytest"]
+    """Run actual tests with the current interpreter; report execution failures as failures."""
+    cmd = [sys.executable, "-m", "pytest", "tests", "--tb=short", "-q"]
     if test_filter:
-        cmd.append(f"-k {test_filter}")
-    cmd.append("--tb=short")
-    cmd.append("-q")
-    completed = subprocess.run(
-        cmd,
-        c=str(PROJECT_ROOT),
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
-    return {
-        "returncode": completed.returncode,
-        "stdout": completed.stdout,
-        "stderr": completed.stderr,
-        "failed": completed.returncode != 0,
-    }
+        if len(test_filter) > 120:
+            return {"returncode": -1, "failed": True, "stderr": "test filter too long"}
+        cmd.extend(["-k", test_filter])
+    try:
+        completed = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=180)
+        return {"returncode": completed.returncode, "stdout": completed.stdout[-16000:],
+                "stderr": completed.stderr[-4000:], "failed": completed.returncode != 0}
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"returncode": -1, "stdout": "", "stderr": str(exc), "failed": True}
 
 
 # ---------------------------------------------------------------------------
@@ -574,26 +520,6 @@ def diagnose_and_repair(failure_summary: str) -> Dict[str, Any]:
     if not suggestions:
         return {"diagnosis": "no obvious pattern matched", "repairs": [], "test_result": run_upgrade_tests()}
 
-    # Apply the first applicable suggestion (safe, read-only config change)
-    # Here we only modify requirements-test.txt which is a config file, not destructive
-    if "requirements-test.txt" in failure_summary.lower():
-        # Read current content
-        rt_path = PROJECT_ROOT / "requirements-test.txt"
-        if rt_path.is_file():
-            current = rt_path.read_text(encoding="utf-8")
-            # Pin google-genai if not already pinning it
-            if "google-genai" not in current:
-                new_content = current.strip() + "\ngoogle-genai>=1,<2\n"
-                rt_path.write_text(new_content, encoding="utf-8")
-                repairs_applied.append("pinned google-genai in requirements-test.txt")
-                # Re-run tests
-                test_result = run_upgrade_tests()
-                return {
-                    "diagnosis": "missing google-genai pin",
-                    "repairs": repairs_applied,
-                    "test_result": test_result,
-                }
-
     return {
         "diagnosis": "; ".join(suggestions),
         "repairs": repairs_applied,
@@ -610,7 +536,7 @@ def verify_upgrade(change_description: str, test_result: Dict[str, Any]) -> Dict
 
     Returns a verdict and a short evidence summary.
     """
-    passed = not test_result.get("failed", True)
+    passed = test_result.get("returncode") == 0 and test_result.get("failed") is False
     evidence: List[str] = []
     if passed:
         evidence.append("test suite passed")
@@ -635,7 +561,7 @@ def stage_upgrade(change_description: str, test_result: Dict[str, Any]) -> Dict[
     Returns a stage summary that the AI can review before requesting production
     deployment. No persistent state is written beyond the test run itself.
     """
-    verdict = "ready for review" if not test_result.get("failed", True) else "fails tests"
+    verdict = "ready for review" if test_result.get("returncode") == 0 and test_result.get("failed") is False else "fails tests"
     return {
         "stage": verdict,
         "change_description": change_description,
@@ -650,30 +576,5 @@ def stage_upgrade(change_description: str, test_result: Dict[str, Any]) -> Dict[
 # ---------------------------------------------------------------------------
 
 def rollback_upgrade() -> Tuple[Optional[str], Optional[str]]:
-    """Restore the previous verified state by resetting the working tree.
-
-    Returns (restore_message, error_message). Uses git reset --hard to the
-    last committed state; this is destructive for any uncommitted changes.
-    """
-    try:
-        # Reset the working tree and index to HEAD
-        reset = subprocess.run(
-            ["git", "reset", "--hard", "HEAD"],
-            c=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if reset.returncode != 0:
-            return None, f"git reset failed: {reset.stderr}"
-        # Also clean any untracked files that shouldn't be there
-        clean = subprocess.run(
-            ["git", "clean", "-fd"],
-            c=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        return "working tree reset to last committed state", None
-    except Exception as e:
-        return None, str(e)
+    """Require the existing reviewed upgrade rollback workflow; never reset unrelated work."""
+    return None, "Use Upgrade Studio to review and roll back the selected upgrade; whole-checkout reset is disabled."

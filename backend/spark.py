@@ -1,13 +1,18 @@
 import asyncio
 import base64
 import io
+import json
 import os
 import sys
 import traceback
 from dotenv import load_dotenv
 from pathlib import Path
+from spark_assistant_tools import (ASSISTANT_NAMES as WEB_NAMES,
+                                   execute_assistant_tool as execute_web_tool,
+                                   assistant_live_config as web_live_config)
 from spark_live_config import live_model, live_error_message, live_error_requires_user_action
 from spark_live_profile import live_profile, select_live_config
+from spark_python_tools import GATEWAY_NAME, generated_live_config
 from spark_pc_access import pc_live_config
 from spark_jarvis import jarvis_live_config
 from spark_workbench_voice import parse_workbench_command
@@ -32,6 +37,7 @@ if sys.version_info < (3, 11, 0):
 from tools import tools_list
 from spark_desktop import launch_allowed_app
 from spark_grounding import extract_grounding_sources
+from spark_conversation_memory import RECALL_TOOL, REMEMBER_TOOL, conversation_live_config, prime_conversation
 from spark_cinematic_tools import allowed_live_tool, tool_confirmation_required, get_system_status
 from spark_autonomous_engine import (inspect_self, list_project_files, read_source_file,
                                      search_source_code, inspect_github_repository,
@@ -294,8 +300,9 @@ MCP_VOICE_WINDOW = 90
 
 class AudioLoop:
     pc_access = None
+    generated_tools = None
     jarvis_access = None
-    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None, on_graphiti_query=None, on_graphiti_entity=None, on_hermes_query=None, on_obsidian_search=None):
+    def __init__(self, video_mode=DEFAULT_MODE, on_audio_data=None, on_video_frame=None, on_cad_data=None, on_web_data=None, on_transcription=None, on_tool_confirmation=None, on_cad_status=None, on_cad_thought=None, on_project_update=None, on_device_update=None, on_error=None, on_live_status=None, on_mic_safety=None, on_browser_audio=None, on_web_sources=None, browser_audio=False, input_device_index=None, input_device_name=None, output_device_index=None, kasa_agent=None, on_graphify_query=None, on_graphiti_query=None, on_graphiti_entity=None, on_hermes_query=None, on_obsidian_search=None, on_executive_briefing=None, on_workspace_action=None):
         self.video_mode = video_mode
         self.on_audio_data = on_audio_data
         self.on_video_frame = on_video_frame
@@ -317,19 +324,10 @@ class AudioLoop:
         self.on_graphiti_entity = on_graphiti_entity
         self.on_hermes_query = on_hermes_query
         self.on_obsidian_search = on_obsidian_search
-        self.on_inspect_self = on_inspect_self
-        self.on_list_project_files = on_list_project_files
-        self.on_read_source_file = on_read_source_file
-        self.on_search_source_code = on_search_source_code
-        self.on_inspect_github_repo = on_inspect_github_repo
-        self.on_create_upgrade_branch = on_create_upgrade_branch
-        self.on_write_upgrade_patch = on_write_upgrade_patch
-        self.on_execute_dev_command = on_execute_dev_command
-        self.on_run_upgrade_tests = on_run_upgrade_tests
-        self.on_diagnose_and_repair = on_diagnose_and_repair
-        self.on_verify_upgrade = on_verify_upgrade
-        self.on_stage_upgrade = on_stage_upgrade
-        self.on_rollback_upgrade = on_rollback_upgrade
+        self.on_executive_briefing = on_executive_briefing
+        self.on_workspace_action = on_workspace_action
+        # The autonomous-engineering callbacks are AudioLoop methods below;
+        # do not shadow them with undefined constructor names.
         # Per-tool call timestamps and per-(tool, argument) answers, both bounded
         # to MCP_VOICE_WINDOW seconds.
         self._mcp_calls = {}
@@ -425,6 +423,10 @@ class AudioLoop:
         call, so it needs a function response even when the argument is bad, the
         service is unconfigured, or the call fails.
         """
+        if name in {"create_upgrade_branch", "write_upgrade_patch", "execute_dev_command",
+                    "run_upgrade_tests", "diagnose_and_repair", "verify_upgrade",
+                    "stage_upgrade", "rollback_upgrade"}:
+            return "Use Upgrade Studio for reviewed engineering actions; this voice route is read-only."
         spec = MCP_VOICE_TOOLS[name]
         label = spec["label"]
         value = (args if isinstance(args, dict) else {}).get(spec["argument"])
@@ -484,7 +486,7 @@ class AudioLoop:
         if self._graphify_dispatched:
             return
         if (self.on_graphify_query is None and self.on_graphiti_query is None
-                and self.on_obsidian_search is None):
+                and self.on_obsidian_search is None and self.on_executive_briefing is None):
             return
         if self._graphify_tool_used:
             self._graphify_dispatched = True
@@ -494,6 +496,24 @@ class AudioLoop:
             return
         command = parse_workbench_command(utterance)
         if not command:
+            return
+        if command.get("action") == "executive_briefing" and self.on_executive_briefing:
+            self._graphify_dispatched = True
+            try:
+                answer = await asyncio.wait_for(self.on_executive_briefing(), timeout=25)
+                if isinstance(answer, str) and answer.strip():
+                    await session.send_client_content(
+                        turns={"role": "user", "parts": [{
+                            "text": ("The user requested a Google executive briefing. "
+                                     "Answer ONLY from this verified local snapshot status, "
+                                     "without inventing emails, meetings or Drive records. "
+                                     "Say plainly when the snapshot is stale or unavailable.\n"
+                                     + answer[:1900])
+                        }]}, turn_complete=True)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+            except Exception:
+                pass
             return
         if command.get("action") == "graphify_voice_query":
             self._graphify_dispatched = True
@@ -1040,14 +1060,16 @@ class AudioLoop:
 
     async def on_verify_upgrade(self, change_description: str = "") -> str:
         try:
-            result = verify_upgrade(change_description, {"failed": False})
+            test_result = await asyncio.to_thread(run_upgrade_tests)
+            result = verify_upgrade(change_description, test_result)
             return json.dumps(result, indent=2)
         except Exception as e:
             return f"verify_upgrade error: {e}"
 
     async def on_stage_upgrade(self, change_description: str = "") -> str:
         try:
-            result = stage_upgrade(change_description, {"failed": False})
+            test_result = await asyncio.to_thread(run_upgrade_tests)
+            result = stage_upgrade(change_description, test_result)
             return json.dumps(result, indent=2)
         except Exception as e:
             return f"stage_upgrade error: {e}"
@@ -1122,7 +1144,8 @@ class AudioLoop:
                             if (self._user_utterance and not self._graphify_dispatched
                                     and (self.on_graphify_query is not None
                                          or self.on_graphiti_query is not None
-                                         or self.on_obsidian_search is not None)):
+                                         or self.on_obsidian_search is not None
+                                    or self.on_executive_briefing is not None)):
                                 asyncio.create_task(
                                     self.maybe_dispatch_graphify(self.session))
 
@@ -1201,11 +1224,47 @@ class AudioLoop:
                         print("[SPARK] Gemini requested: " + ", ".join(str(getattr(fc, "name", "unknown")) for fc in (response.tool_call.function_calls or [])))
                         function_responses = []
                         for fc in response.tool_call.function_calls:
+                            if fc.name in WEB_NAMES:
+                                arguments = dict(fc.args or {})
+                                if self.on_workspace_action:
+                                    async def workspace_handler(name, args):
+                                        return await self.on_workspace_action(
+                                            name, args, self._user_utterance.strip())
+                                    result = await execute_web_tool(
+                                        fc.name, arguments, workspace_handler)
+                                else:
+                                    result = await execute_web_tool(fc.name, arguments)
+                                if result.get('sources') and self.on_web_sources:
+                                    self.on_web_sources({'sources': result['sources']})
+                                function_responses.append(types.FunctionResponse(id=fc.id, name=fc.name, response=result))
+                                continue
+                            if fc.name == REMEMBER_TOOL:
+                                args = dict(fc.args or {})
+                                try:
+                                    result = (await asyncio.to_thread(self.project_manager.remember_detail,
+                                              args.get('key'), args.get('detail')) if live_profile() != 'voice'
+                                              else {'saved': False, 'error': 'Unavailable in diagnostic voice mode.'})
+                                except Exception:
+                                    result = {'saved': False, 'error': 'Detail was not saved. Check the memory key, content and local storage.'}
+                                function_responses.append(types.FunctionResponse(id=fc.id,name=fc.name,response=result))
+                                continue
+                            if fc.name == RECALL_TOOL:
+                                query = (fc.args or {}).get('query')
+                                result = (await asyncio.to_thread(self.project_manager.format_memory_context, query)
+                                          if live_profile() != 'voice' else 'Conversation recall unavailable in diagnostic voice mode.')
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name,
+                                    response={'result': result or 'No saved conversation matched this query.'}))
+                                continue
                             if fc.name == 'ask_vaos_jarvis':
                                 result = (await self.jarvis_access.ask((fc.args or {}).get('question'))
                                           if self.jarvis_access else {'ok': False, 'message': 'Jarvis connection unavailable.'})
                                 function_responses.append(types.FunctionResponse(
                                     id=fc.id, name=fc.name, response=result))
+                                continue
+                            if fc.name == GATEWAY_NAME:
+                                result = await self.generated_tools.call(dict(fc.args or {})) if self.generated_tools else {'ok':False,'error':'Generated tools unavailable.'}
+                                function_responses.append(types.FunctionResponse(id=fc.id,name=fc.name,response=result))
                                 continue
                             if fc.name == 'pc_action':
                                 result = (await asyncio.to_thread(self.pc_access.execute, dict(fc.args or {}))
@@ -1220,6 +1279,20 @@ class AudioLoop:
                                     id=fc.id, name=fc.name,
                                     response={"result": "Tool unavailable in the current SPARK voice profile."}
                                 ))
+                                continue
+
+                            if fc.name == "read_executive_briefing":
+                                self._graphify_tool_used = True
+                                if self.on_executive_briefing:
+                                    try:
+                                        answer = await asyncio.wait_for(
+                                            self.on_executive_briefing(), timeout=25)
+                                    except Exception:
+                                        answer = "Verified Google briefing is unavailable."
+                                else:
+                                    answer = "Google executive briefing is not connected."
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id, name=fc.name, response={"result": answer}))
                                 continue
 
                             if fc.name in MCP_VOICE_TOOLS:
@@ -1673,6 +1746,10 @@ class AudioLoop:
             traceback.print_exc()
             # CRITICAL: Re-raise to crash the TaskGroup and trigger outer loop reconnect
             raise e
+        finally:
+            # Preserve a partially received turn when the session disconnects
+            # or is cancelled, before a new connection restores its history.
+            self.flush_chat()
 
     async def play_audio(self):
         try:
@@ -1746,9 +1823,9 @@ class AudioLoop:
                     self.on_live_status({"state": "connecting", "model": MODEL, "message": "Connecting to Gemini Live..."})
                 print(f"[SPARK] Connecting to Gemini Live model {MODEL}; profile={live_profile()}...")
                 async with (
-                    client.aio.live.connect(model=MODEL, config=jarvis_live_config(pc_live_config(
-                        config, bool(self.pc_access and self.pc_access.enabled())),
-                        bool(self.jarvis_access and self.jarvis_access.enabled()))) as session,
+                    client.aio.live.connect(model=MODEL, config=generated_live_config(jarvis_live_config(pc_live_config(
+                        web_live_config(conversation_live_config(config, live_profile()), live_profile()), bool(self.pc_access and self.pc_access.enabled())),
+                        bool(self.jarvis_access and self.jarvis_access.enabled())), self.generated_tools)) as session,
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session = session
@@ -1782,37 +1859,14 @@ class AudioLoop:
                     if not self.browser_audio:
                         tg.create_task(self.play_audio())
 
-                    # Handle Startup vs Reconnect Logic
-                    if not is_reconnect:
-                        # Prime a fresh session with the recent conversation so
-                        # SPARK resumes with continuity instead of greeting the
-                        # user cold. This is silent context, not a spoken turn:
-                        # turn_complete is never set, so the model waits for the
-                        # user before it speaks.
-                        try:
-                            history_text = (
-                                self.project_manager.format_recent_chat_context(12)
-                                if self.project_manager else "")
-                        except Exception:
-                            history_text = ""
-                        if history_text:
-                            try:
-                                await self.session.send_client_content(
-                                    turns={"role": "user", "parts": [{
-                                        "text": (
-                                            "Recent conversation for continuity. "
-                                            "Use it naturally so a returning user "
-                                            "feels remembered; never read it back "
-                                            "as a list and never invent anything "
-                                            "beyond it.\n\n" + history_text
-                                        )
-                                    }]},
-                                    turn_complete=True,
-                                )
-                                print("[SPARK] Primed session with recent conversation history.")
-                            except Exception as e:
-                                print(f"[SPARK] History priming skipped: {e}")
+                    # Every new transport gets the saved conversation, including
+                    # reconnects. turn_complete=False keeps restoration silent.
+                    try:
+                        await prime_conversation(self.session, self.project_manager)
+                    except Exception:
+                        print("[SPARK] Conversation restoration unavailable; saved logs retained.")
 
+                    if not is_reconnect:
                         if start_message:
                             print(f"[SPARK DEBUG] [INFO] Sending start message: {start_message}")
                             await self.session.send_client_content(turns={"role": "user", "parts": [{"text": start_message}]}, turn_complete=True)

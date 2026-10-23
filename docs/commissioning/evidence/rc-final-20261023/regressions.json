@@ -1,0 +1,54 @@
+{
+  "javascript": {
+    "command": "node --test --test-concurrency=1",
+    "exit_code": 0,
+    "tests": 142,
+    "passed": 141,
+    "skipped": 1
+  },
+  "focused_regressions": {
+    "tests": 7,
+    "passed": 7,
+    "exit_code": 0
+  },
+  "python_runtime": {
+    "command": "SPARK installed Python 3.11 runtime -B -m unittest discover -s tests -p test_spark*.py",
+    "tests": 827,
+    "skipped": 6,
+    "failures": 0,
+    "errors": 0,
+    "exit_code": 0
+  },
+  "python_system_interpreter_first_attempt": {
+    "tests": 828,
+    "failures": 1,
+    "errors": 4,
+    "skipped": 10,
+    "exit_code": 1,
+    "cause": "missing pytest, croniter and MCP runtime dependencies; installed SPARK runtime passed full suite"
+  },
+  "web_agent_safety": {
+    "tests": 3,
+    "exit_code": 0
+  },
+  "build": {
+    "command": "npm run build",
+    "exit_code": 0,
+    "seconds": 59.08,
+    "warnings": [
+      "Vite CJS API deprecated",
+      "Browserslist data old",
+      "large CAD chunk"
+    ]
+  },
+  "launcher": {
+    "syntax": "PASS",
+    "owned restart": "PASS after waiting for process handles",
+    "refusals": [
+      "protected original PID",
+      "original data path",
+      "occupied ports"
+    ]
+  },
+  "scope": "Local fixtures and transports. No live cloud generation or business mutation."
+}

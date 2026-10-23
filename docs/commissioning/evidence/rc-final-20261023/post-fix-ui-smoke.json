@@ -1,0 +1,31 @@
+{
+  "captured_at": "2026-10-22T20:37:57.206Z",
+  "cdp_target": {
+    "type": "page",
+    "url": "file:///<rc>/dist/index.html?sparkBackendPort=8010",
+    "title": "SPARK \u2014 Immersive AI Workstation"
+  },
+  "page": {
+    "href": "file:///<rc>/dist/index.html?sparkBackendPort=8010",
+    "title": "SPARK \u2014 Immersive AI Workstation",
+    "readyState": "complete",
+    "bodyLength": 647,
+    "hasSparkText": true,
+    "geminiRequired": true,
+    "buttons": 14,
+    "links": 0,
+    "audioContext": "available",
+    "mediaDevices": true,
+    "secureContext": true
+  },
+  "media_devices": {
+    "total": 7,
+    "audioinput": 3,
+    "audiooutput": 3,
+    "videoinput": 1,
+    "labels_available": true
+  },
+  "microphone_permission": "granted",
+  "screenshot": "post-fix-dashboard.png",
+  "note": "Device enumeration and UI rendering only. No microphone stream was opened and no spoken command was dispatched."
+}

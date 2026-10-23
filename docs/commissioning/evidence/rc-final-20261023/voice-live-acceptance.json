@@ -1,0 +1,17 @@
+{
+  "captured_at": "2026-10-22T20:58:03.444Z",
+  "mute_requested": true,
+  "camera_share_button_present": true,
+  "live_state": "connected",
+  "hands_free_ready": true,
+  "provider": "gemini",
+  "pc_autonomy_session_authorized": true,
+  "note": "Owner consented to brief real mic/speaker test; connection and dialogue observed; private transcript not persisted. Mic muted after observation.",
+  "owner_confirmed_audible": true,
+  "session_ended_after_test": true,
+  "inherited_pc_access_audit": {
+    "read_only_directory_lists": 1,
+    "writes": 0,
+    "final_private_settings_pc_enabled": false
+  }
+}

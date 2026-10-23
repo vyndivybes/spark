@@ -1,0 +1,24 @@
+{
+  "captured_at": "2026-10-22T20:26:19.578Z",
+  "target": "file:///<rc>/dist/index.html?sparkBackendPort=8010",
+  "vedm": {
+    "ok": true,
+    "code": null,
+    "readOnly": true,
+    "sourceKind": "published-engineering-library",
+    "limitation": "Published engineering reference; preserve development, superseded and release holds. No synchronization or release authority.",
+    "configuration_count": 7,
+    "gate_count": 10
+  },
+  "vyndi-os": {
+    "ok": false,
+    "code": "SIGN_IN_REQUIRED",
+    "message": "VYNDI OS read failed. Check portal sign-in and source availability."
+  },
+  "vaos_status": {
+    "configured": true,
+    "origin": "https://vaos.vayushastr.workers.dev",
+    "sessionPresent": false,
+    "scope": "VAOS advisory reads; authentication is verified on each question."
+  }
+}

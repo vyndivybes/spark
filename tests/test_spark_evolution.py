@@ -206,6 +206,7 @@ class EvolutionSocketTests(unittest.IsolatedAsyncioTestCase):
             "EVOLUTION_ACTIONS": ACTION_KEYS, "WorkspaceError": WorkspaceError,
             "MaintenanceError": MaintenanceError, "ReaError": ReaError, "SkillError": SkillError,
             "WORKBENCH_ACTIONS": WORKBENCH_ACTIONS, "WorkbenchError": WorkbenchError,
+            "CAPABILITY_READ_ONLY_ACTIONS": set(),
         }
         exec(compile(ast.Module(body=[handler], type_ignores=[]), str(source), "exec"), namespace)
         return namespace

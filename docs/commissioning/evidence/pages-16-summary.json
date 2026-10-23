@@ -1,0 +1,114 @@
+[
+  {
+    "page": "01",
+    "refresh_clicked": true,
+    "status_bar": "digest status completed for default.",
+    "page_description": "Local triage of yesterday's Google snapshot plus opt-in RSS; speak or acknowledge the composed digest.",
+    "last_result_trim": null
+  },
+  {
+    "page": "02",
+    "refresh_clicked": true,
+    "status_bar": "hub status completed for default.",
+    "page_description": "WhatsApp Cloud API with an approval nonce, rate limits and replay-protected inbound; nothing enabled by default.",
+    "last_result_trim": null
+  },
+  {
+    "page": "03",
+    "refresh_clicked": true,
+    "status_bar": null,
+    "page_description": "Tiered proposals with dedupe, decided by the owner; restricted tiers are never self-executed and everything is undoable.",
+    "last_result_trim": null
+  },
+  {
+    "page": "04",
+    "refresh_clicked": true,
+    "status_bar": "opencode status completed for default.",
+    "page_description": "Headless OpenCode sessions inside the scoped repository root, masked transcripts, human patch review, allow-listed tests only.",
+    "last_result_trim": null
+  },
+  {
+    "page": "05",
+    "refresh_clicked": true,
+    "status_bar": null,
+    "page_description": null,
+    "last_result_trim": null
+  },
+  {
+    "page": "06",
+    "refresh_clicked": true,
+    "status_bar": "hub status completed for default.",
+    "page_description": "Per-channel states across seven providers: allowlisted inbound, rate-limited approved outbound, honest configured-untested reporting.",
+    "last_result_trim": null
+  },
+  {
+    "page": "07",
+    "refresh_clicked": true,
+    "status_bar": "trace status completed for default.",
+    "page_description": "Masked trace capture with measured labels; policy changes require owner activation and a held-out benchmark gate.",
+    "last_result_trim": null
+  },
+  {
+    "page": "08",
+    "refresh_clicked": true,
+    "status_bar": "spec search status completed for default.",
+    "page_description": "Diagnose, plan, test, gate and record candidate specs; the planner is owner-granted only and stays honestly not configured otherwise.",
+    "last_result_trim": null
+  },
+  {
+    "page": "09",
+    "refresh_clicked": true,
+    "status_bar": "skill status completed for default.",
+    "page_description": "Imported bundles pass license, provenance and sha256 gates; executable code is refused and pipelines only run granted read-only tools.",
+    "last_result_trim": null
+  },
+  {
+    "page": "10",
+    "refresh_clicked": true,
+    "status_bar": "agents status completed for default.",
+    "page_description": "ReAct, CodeAct and recursive plans refuse before executing; step budgets hold and CodeAct is an AST-allowlisted pure interpreter.",
+    "last_result_trim": null
+  },
+  {
+    "page": "11",
+    "refresh_clicked": true,
+    "status_bar": "monitor status completed for default.",
+    "page_description": "Scoped monitor callbacks with checkpoints, backoff, dedupe, durable cancellation and JSONL notifications with owner receipts.",
+    "last_result_trim": null
+  },
+  {
+    "page": "12",
+    "refresh_clicked": true,
+    "status_bar": "learning status completed for default.",
+    "page_description": "Local-first model routing measured from labeled traces; cloud permission stays owner-gated with rollback to always-local.",
+    "last_result_trim": null
+  },
+  {
+    "page": "13",
+    "refresh_clicked": true,
+    "status_bar": "connector status completed for default.",
+    "page_description": "Two real local connectors ship attached; cloud connectors require the founder's consented credentialed session and are never auto-attached.",
+    "last_result_trim": null
+  },
+  {
+    "page": "14",
+    "refresh_clicked": true,
+    "status_bar": "eval status completed for default.",
+    "page_description": "Seven labeled suites with deterministic scoring, markdown export and provenance; live model runs need an owner-attached runner.",
+    "last_result_trim": null
+  },
+  {
+    "page": "15",
+    "refresh_clicked": true,
+    "status_bar": "telemetry status completed for default.",
+    "page_description": "Measured-only latency and token telemetry; TTFT is streaming-only and energy is refused without a real hardware meter.",
+    "last_result_trim": null
+  },
+  {
+    "page": "16",
+    "refresh_clicked": true,
+    "status_bar": null,
+    "page_description": "Honest per-engine states; cloud engines need explicit consent, optional engines need measured RAM and owner opt-in, downloads are refused.",
+    "last_result_trim": null
+  }
+]

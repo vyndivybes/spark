@@ -1,0 +1,9 @@
+{
+  "captured_at": "2026-10-22T19:33:16.529Z",
+  "nav": true,
+  "pageClick": true,
+  "runClick": true,
+  "beforeNotice": "opencode run was refused: Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+  "afterNotice": "opencode run was refused: Reconnect the Spark desktop workspace. If face lock is enabled, unlock it first.",
+  "afterResult": "{\"discovery\":{\"binary\":\"<opencode-binary>\",\"installed\":true,\"version\":null,\"status\":\"installed\",\"message\":\"Ready for headless sessions.\"},\"root\":\"<rc>\",\"sessions\":{\"count\":0,\"latest\":null},\"policy\":\"scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval\"}"
+}

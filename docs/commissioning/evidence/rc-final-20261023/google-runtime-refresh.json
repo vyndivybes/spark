@@ -1,0 +1,24 @@
+{
+  "captured_at": "2026-10-22T21:00:42.717Z",
+  "sources": [
+    {
+      "service": "gmail",
+      "state": "current",
+      "stale": false,
+      "last_success": 1792702826.548423
+    },
+    {
+      "service": "google-calendar",
+      "state": "current",
+      "stale": false,
+      "last_success": 1792702829.4263787
+    },
+    {
+      "service": "google-drive",
+      "state": "current",
+      "stale": false,
+      "last_success": 1792702530.6869054
+    }
+  ],
+  "all_current": true
+}

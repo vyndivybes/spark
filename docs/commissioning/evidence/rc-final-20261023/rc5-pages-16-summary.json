@@ -1,0 +1,435 @@
+{
+  "summary": [
+    {
+      "num": "01",
+      "title": "Morning Digest",
+      "expectedStatus": "digest_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "01 \u00b7 Morning Digest",
+      "notice": "digest status completed for default.",
+      "statusSummary": "Status loaded.",
+      "lastResultPresent": true,
+      "lastResult": "{\"schema\": \"spark.morning_digest.v1\", \"schedule_ist\": null, \"news_enabled\": false, \"news_url\": null, \"news_policy\": \"opt-in only; free RSS feed; bounded size and timeout\", \"latest_run\": {\"date\": \"2026-10-23\", \"status\": \"failed\", \"created_at\": 1792700568.9865127, \"last_fetched\": 1792700568.9906695, \"speech\": null, \"acknowledged\": false, \"acknowledged_at\": null}, \"final_states\": [\"completed\", \"failed\"], \"tts\": {\"engine\": \"Windows System.Speech (local, built-in)\", \"network_free\": true, \"requires_explicit_request\": true}}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-01.png",
+      "clicks": [
+        "01 \u00b7 Morning Digest"
+      ],
+      "filled": null
+    },
+    {
+      "num": "02",
+      "title": "WhatsApp Gateway",
+      "expectedStatus": "hub_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "02 \u00b7 WhatsApp Gateway",
+      "notice": "hub status completed for default.",
+      "statusSummary": "allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default \u00b7 providers: 7",
+      "lastResultPresent": true,
+      "lastResult": "{\"schema\": \"spark.messaging_hub.v1\", \"channels\": {}, \"providers\": [\"discord\", \"signal\", \"slack\", \"teams\", \"telegram\", \"whatsapp\", \"whatsapp_bridge\"], \"policy\": \"allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-02.png",
+      "clicks": [
+        "02 \u00b7 WhatsApp Gateway"
+      ],
+      "filled": null
+    },
+    {
+      "num": "03",
+      "title": "Proactive Agent",
+      "expectedStatus": "proactive_summary",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "03 \u00b7 Proactive Agent",
+      "notice": "proactive summary completed for default.",
+      "statusSummary": "Status loaded.",
+      "lastResultPresent": true,
+      "lastResult": "{\"proposed\": 0, \"approved\": 0, \"executed\": 0, \"denied\": 0, \"failed\": 0, \"day\": \"2026-10-22\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-03.png",
+      "clicks": [
+        "03 \u00b7 Proactive Agent"
+      ],
+      "filled": null
+    },
+    {
+      "num": "04",
+      "title": "OpenCode Agent",
+      "expectedStatus": "opencode_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "04 \u00b7 OpenCode Agent",
+      "notice": "opencode status completed for default.",
+      "statusSummary": "scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval",
+      "lastResultPresent": true,
+      "lastResult": "{\"discovery\": {\"binary\": \"<home>\\\\AppData\\\\Roaming\\\\npm\\\\opencode.CMD\", \"installed\": true, \"version\": null, \"status\": \"installed\", \"message\": \"Ready for headless sessions.\"}, \"root\": \"<rc>\", \"sessions\": {\"count\": 0, \"latest\": null}, \"policy\": \"scoped cwd, masked output, human patch review, allow-listed tests; no merge/deploy without approval\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-04.png",
+      "clicks": [
+        "04 \u00b7 OpenCode Agent"
+      ],
+      "filled": null
+    },
+    {
+      "num": "05",
+      "title": "Deep Research",
+      "expectedStatus": "research_run",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "05 \u00b7 Deep Research",
+      "notice": "research run completed for default.",
+      "statusSummary": "Status loaded.",
+      "lastResultPresent": true,
+      "lastResult": "{\"question\": \"What local SPARK documents and capabilities are available?\", \"hops\": 4, \"budget\": 4, \"documents\": 0, \"citations\": [], \"trace\": [{\"hop\": 1, \"query\": \"What local SPARK documents and capabilities are available?\", \"sources\": [], \"documents\": 0}, {\"hop\": 2, \"query\": \"What local SPARK documents and capabilities are available? (local)\", \"sources\": [], \"documents\": 0}, {\"hop\": 3, \"query\": \"What local SPARK documents and capabilities are available? (SPARK)\", \"sources\": [], \"documents\": 0}, {\"hop\": 4, \"query\": \"What local SPARK documents and capabilities are available? (documents)\", \"sources\": [], \"documents\": 0}], \"answer\": {\"text\": \"No evidence retrieved from the approved sources; stopping rather than inventing.\", \"verified\": false, \"unverified_terms\": [\"local\", \"SPARK\", \"documents\", \"capabilities\", \"available\"]}, \"contradictions\": [], \"verified\": false}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-05.png",
+      "clicks": [
+        "05 \u00b7 Deep Research",
+        "Run research"
+      ],
+      "filled": {
+        "ok": true,
+        "value": "What local SPARK documents and capabilities are available?"
+      }
+    },
+    {
+      "num": "06",
+      "title": "Messaging Hub",
+      "expectedStatus": "hub_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "06 \u00b7 Messaging Hub",
+      "notice": "hub status completed for default.",
+      "statusSummary": "allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default \u00b7 providers: 7",
+      "lastResultPresent": true,
+      "lastResult": "{\"schema\": \"spark.messaging_hub.v1\", \"channels\": {}, \"providers\": [\"discord\", \"signal\", \"slack\", \"teams\", \"telegram\", \"whatsapp\", \"whatsapp_bridge\"], \"policy\": \"allowlisted inbound; approved and rate-limited outbound; no open relay; nothing enabled by default\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-06.png",
+      "clicks": [
+        "06 \u00b7 Messaging Hub"
+      ],
+      "filled": null
+    },
+    {
+      "num": "07",
+      "title": "Trace Learning",
+      "expectedStatus": "trace_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "07 \u00b7 Trace Learning",
+      "notice": "trace status completed for default.",
+      "statusSummary": "Status loaded.",
+      "lastResultPresent": true,
+      "lastResult": "{\"summary\": []}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-07.png",
+      "clicks": [
+        "07 \u00b7 Trace Learning"
+      ],
+      "filled": null
+    },
+    {
+      "num": "08",
+      "title": "Spec Search",
+      "expectedStatus": "spec_search_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "08 \u00b7 Spec Search",
+      "notice": "spec search status completed for default.",
+      "statusSummary": "runs recorded: 0 \u00b7 planner: owner-granted only (never auto-configured)",
+      "lastResultPresent": true,
+      "lastResult": "{\"runs_recorded\": 0, \"active_spec\": null, \"active_since\": null, \"planner\": \"owner-granted only (never auto-configured)\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-08.png",
+      "clicks": [
+        "08 \u00b7 Spec Search"
+      ],
+      "filled": null
+    },
+    {
+      "num": "09",
+      "title": "Skill Ecosystem",
+      "expectedStatus": "skill_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "09 \u00b7 Skill Ecosystem",
+      "notice": "skill status completed for default.",
+      "statusSummary": "Status loaded.",
+      "lastResultPresent": true,
+      "lastResult": "{\"by_status\": {}, \"operations\": [\"search.obsidian\", \"search.snapshots\"], \"max_pipeline_steps\": 12, \"integrity_model\": \"sha256 digest match (integrity only, not signature-based trust)\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-09.png",
+      "clicks": [
+        "09 \u00b7 Skill Ecosystem"
+      ],
+      "filled": null
+    },
+    {
+      "num": "10",
+      "title": "Agent Runtimes",
+      "expectedStatus": "agents_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "10 \u00b7 Agent Runtimes",
+      "notice": "agents status completed for default.",
+      "statusSummary": "Not an OS-level sandbox; bounded interpreter and tool grants by construction only \u00b7 adapters: 3",
+      "lastResultPresent": true,
+      "lastResult": "{\"adapters\": [\"react\", \"codeact\", \"recursive\"], \"tools_registered\": [\"obsidian.search\", \"search.snapshots\"], \"side_effect_tools\": [\"obsidian.search\", \"search.snapshots\"], \"max_steps\": 12, \"max_depth\": 2, \"codeact_scope\": \"AST allowlisted pure expressions; no imports, calls, attributes or I/O\", \"sandbox_note\": \"Not an OS-level sandbox; bounded interpreter and tool grants by construction only\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-10.png",
+      "clicks": [
+        "10 \u00b7 Agent Runtimes"
+      ],
+      "filled": null
+    },
+    {
+      "num": "11",
+      "title": "Continuous Monitors",
+      "expectedStatus": "monitor_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "11 \u00b7 Continuous Monitors",
+      "notice": "monitor status completed for default.",
+      "statusSummary": "scoped check callbacks only; deduplicated events; exponential backoff; owner receipts; resume via persisted checkpoints before and after restart \u00b7 monitors listed: 1",
+      "lastResultPresent": true,
+      "lastResult": "{\"schema\": \"spark.monitor_agents.v1\", \"monitors\": [{\"name\": \"snapshot-freshness\", \"scope\": \"workspace\", \"interval\": 600, \"last_run\": null, \"last_success\": null, \"next_due\": 1792694096.9777236, \"failures\": 0, \"cancelled\": false, \"state\": \"configured, untested\"}], \"checks\": [\"snapshot-freshness\"], \"policy\": \"scoped check callbacks only; deduplicated events; exponential backoff; owner receipts; resume via persisted checkpoints before and after restart\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-11.png",
+      "clicks": [
+        "11 \u00b7 Continuous Monitors"
+      ],
+      "filled": null
+    },
+    {
+      "num": "12",
+      "title": "Adaptive Routing",
+      "expectedStatus": "learning_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "12 \u00b7 Adaptive Routing",
+      "notice": "learning status completed for default.",
+      "statusSummary": "active policy: policy_always_local",
+      "lastResultPresent": true,
+      "lastResult": "{\"candidates\": [], \"measured_summary\": [], \"active_policy\": \"policy_always_local\", \"registered_policies\": []}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-12.png",
+      "clicks": [
+        "12 \u00b7 Adaptive Routing"
+      ],
+      "filled": null
+    },
+    {
+      "num": "13",
+      "title": "Connector Catalog",
+      "expectedStatus": "connector_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "13 \u00b7 Connector Catalog",
+      "notice": "connector status completed for default.",
+      "statusSummary": "connector states: 7",
+      "lastResultPresent": true,
+      "lastResult": "{\"by_state\": {\"disabled\": 2}, \"states\": [\"disabled\", \"configured\", \"account_validated\", \"verified_read\", \"stale\", \"failed\", \"revoked\"], \"rate_limit_seconds\": 2, \"adapters_attached\": [\"obsidian-vault\", \"workspace-search\"], \"cloud_connectors\": \"account adapters require the founder's consented, credentialed session (capability-02 readers); they are never attached automatically\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-13.png",
+      "clicks": [
+        "13 \u00b7 Connector Catalog"
+      ],
+      "filled": null
+    },
+    {
+      "num": "14",
+      "title": "Standardized Evaluations",
+      "expectedStatus": "eval_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "14 \u00b7 Standardized Evaluations",
+      "notice": "eval status completed for default.",
+      "statusSummary": "fixture runs only; live model runs need an owner-attached runner \u00b7 runs recorded: 0 \u00b7 suites: 7",
+      "lastResultPresent": true,
+      "lastResult": "{\"suites\": [\"agent_tool_policy\", \"email_triage\", \"meeting_inference\", \"memory_retrieval\", \"research_citations\", \"safe_code_modification\", \"self_repair\"], \"runs_recorded\": 0, \"candidates\": [], \"honesty\": \"fixture runs only; live model runs need an owner-attached runner\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-14.png",
+      "clicks": [
+        "14 \u00b7 Standardized Evaluations"
+      ],
+      "filled": null
+    },
+    {
+      "num": "15",
+      "title": "Inference Telemetry",
+      "expectedStatus": "telemetry_status",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "15 \u00b7 Inference Telemetry",
+      "notice": "telemetry status completed for default.",
+      "statusSummary": "entries: 0 \u00b7 energy: not_measured (no hardware meter; estimates refused)",
+      "lastResultPresent": true,
+      "lastResult": "{\"entries\": 0, \"ttft\": \"recorded only for streamed measurements\", \"energy\": \"not_measured (no hardware meter; estimates refused)\", \"sampler\": \"injected (psutil-backed in production)\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-15.png",
+      "clicks": [
+        "15 \u00b7 Inference Telemetry"
+      ],
+      "filled": null
+    },
+    {
+      "num": "16",
+      "title": "Inference Backends",
+      "expectedStatus": "backend_describe",
+      "clicked": {
+        "ok": true
+      },
+      "pageHeading": "16 \u00b7 Inference Backends",
+      "notice": "backend describe completed for default.",
+      "statusSummary": "engines: 6",
+      "lastResultPresent": true,
+      "lastResult": "{\"engines\": [{\"engine\": \"ollama\", \"implemented\": true, \"cloud\": false, \"transport\": \"local http /api/tags + /api/generate\", \"state\": \"not_configured\"}, {\"engine\": \"gemini\", \"implemented\": true, \"cloud\": true, \"transport\": \"cloud v1beta generateContent\", \"state\": \"not_configured\"}, {\"engine\": \"groq\", \"implemented\": true, \"cloud\": true, \"transport\": \"cloud chat/completions\", \"state\": \"not_configured\"}, {\"engine\": \"llamacpp-local\", \"state\": \"declared_not_active\", \"note\": \"optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded\"}, {\"engine\": \"vllm-local\", \"state\": \"declared_not_active\", \"note\": \"optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded\"}, {\"engine\": \"sglang-local\", \"state\": \"declared_not_active\", \"note\": \"optional lazy adapter; needs measured host RAM >= 8.0 GB and explicit owner opt-in; nothing is downloaded\"}], \"downloads\": \"refused (no automatic model downloads)\", \"fallback\": \"refused (no automatic cloud fallback)\"}",
+      "screenshot": "<commission-temp>\\evidence\\rc5-page-16.png",
+      "clicks": [
+        "16 \u00b7 Inference Backends"
+      ],
+      "filled": null
+    }
+  ],
+  "sentActions": [
+    {
+      "event": "workspace_action",
+      "action": "digest_status",
+      "request_id": "capabilities-1",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "list_documents",
+      "request_id": "workspace-1",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "list_holo_notes",
+      "request_id": "workspace-2",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "list_skills",
+      "request_id": "workspace-3",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "hub_status",
+      "request_id": "capabilities-2",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "proactive_summary",
+      "request_id": "capabilities-3",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "opencode_status",
+      "request_id": "capabilities-4",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "research_run",
+      "request_id": "capabilities-5",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "hub_status",
+      "request_id": "capabilities-6",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "trace_status",
+      "request_id": "capabilities-7",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "spec_search_status",
+      "request_id": "capabilities-8",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "skill_status",
+      "request_id": "capabilities-9",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "agents_status",
+      "request_id": "capabilities-10",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "monitor_status",
+      "request_id": "capabilities-11",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "learning_status",
+      "request_id": "capabilities-12",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "connector_status",
+      "request_id": "capabilities-13",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "eval_status",
+      "request_id": "capabilities-14",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "telemetry_status",
+      "request_id": "capabilities-15",
+      "project": "default"
+    },
+    {
+      "event": "workspace_action",
+      "action": "backend_describe",
+      "request_id": "capabilities-16",
+      "project": "default"
+    }
+  ],
+  "requestUrls": [
+    "file:///<rc>/dist/assets/CommandCenter-DQUZ0viM.js",
+    "file:///<rc>/dist/assets/WorkspacePanel-Cxd65tFt.js"
+  ],
+  "logErrors": [
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zl0p90yh"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zl326mi2"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "url": "http://localhost:8010/socket.io/?EIO=4&transport=polling&t=zl705f5d"
+    }
+  ],
+  "failedRequests": [],
+  "dom": {
+    "hasRemoteNoise": false,
+    "hasSparkNoise": true
+  }
+}

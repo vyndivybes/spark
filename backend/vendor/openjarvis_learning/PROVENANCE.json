@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/open-jarvis/OpenJarvis",
+  "commit": "cf464de1ff13d84dede80eb07e5e45c1d06708ba",
+  "license": "Apache-2.0",
+  "modifications": "None to skill_discovery.py; Spark adapter is outside vendor directory.",
+  "notice": "No root NOTICE file exists at the pinned revision.",
+  "files": {
+    "skill_discovery.py": {
+      "upstream_path": "src/openjarvis/learning/agents/skill_discovery.py",
+      "sha256": "7bda7eb9c3c5292aefc8114250f45cd9b8988f275eb3bc91c4e6c236e9dba6e8"
+    },
+    "LICENSE": {
+      "upstream_path": "LICENSE",
+      "sha256": "ac617ecddb7ffeb27a239c6c9c8145212306baa90e23ee694849bf3cefb10743"
+    }
+  }
+}

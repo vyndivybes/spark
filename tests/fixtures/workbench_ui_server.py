@@ -37,7 +37,8 @@ def main():
             'SETTINGS':{'face_auth_enabled':False},'authenticator':None,'spark_workspace':workspace,
             'spark_workbench':workbench,'workspace_project_by_sid':{},'EVOLUTION_ACTIONS':{},
             'WORKBENCH_ACTIONS':WORKBENCH_ACTIONS,'WorkspaceError':WorkspaceError,'WorkbenchError':WorkbenchError,
-            'MaintenanceError':MaintenanceError,'ReaError':ReaError,'SkillError':SkillError}
+            'MaintenanceError':MaintenanceError,'ReaError':ReaError,'SkillError':SkillError,
+            'CAPABILITY_READ_ONLY_ACTIONS':set()}
         tree=ast.parse((ROOT/'backend'/'server.py').read_text(encoding='utf-8'))
         handler=next(node for node in tree.body if isinstance(node,ast.AsyncFunctionDef) and node.name=='workspace_action')
         handler.decorator_list=[]
