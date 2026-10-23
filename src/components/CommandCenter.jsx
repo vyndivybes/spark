@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Activity, ArrowUpRight, AudioLines, BookOpen, Box, BrainCircuit, ChevronRight, HelpCircle, Command, Cpu, Database, FlaskConical, GitBranch, LayoutDashboard, Menu, Network, Radio, Search, Settings, ShieldCheck, Sparkles, Terminal, Workflow, X} from 'lucide-react';
-import WorkspacePanel from './WorkspacePanel';
+const WorkspacePanel = React.lazy(() => import('./WorkspacePanel'));
 import Visualizer from './Visualizer';
 
 const destinations = [
@@ -32,7 +32,7 @@ function Signal({online, children}) {
     return <span className={`cc-signal ${online ? 'is-online' : ''}`}><i/>{children}</span>;
 }
 
-export default function CommandCenter({socket, connected, liveState, diagnostics, project, messages = [], muted, onCockpit, onSettings, onExperiences, onRefresh}) {
+export default function CommandCenter({brainGraph, brainError, socket, connected, liveState, diagnostics, project, messages = [], muted, requestedNavigation, onCockpit, onSettings, onExperiences, onRefresh}) {
     const [page, setPage] = useState('Overview');
     const [search, setSearch] = useState('');
     const [menuOpen, setMenuOpen] = useState(false);
@@ -40,6 +40,14 @@ export default function CommandCenter({socket, connected, liveState, diagnostics
     const [clock, setClock] = useState(() => new Date());
     useEffect(() => {const timer = setInterval(() => setClock(new Date()), 60000); return () => clearInterval(timer);}, []);
     const navigate = name => {setPage(name); setMenuOpen(false); setSearch('');};
+    useEffect(() => {
+        const requested = requestedNavigation?.screen;
+        if (destinations.some(([name]) => name === requested)) {
+            setPage(requested);
+            setMenuOpen(false);
+            setSearch('');
+        }
+    }, [requestedNavigation]);
     const target = destinations.find(([name]) => name === page)?.[2];
     const host = diagnostics?.host || {};
     const percentage = number => typeof number === 'number' && Number.isFinite(number) ? `${number.toFixed(0)}%` : '—';
@@ -67,11 +75,11 @@ export default function CommandCenter({socket, connected, liveState, diagnostics
                 {help && <div className="cc-help" role="status">Choose a screen on the left, or search by its name. Voice opens your existing cockpit. Repairs and upgrades keep their review and approval steps.<button onClick={() => setHelp(false)} aria-label="Dismiss help"><X size={16}/></button></div>}
                 {page === 'Overview' ? <>
                     <div className="cc-heading"><div><span className="cc-overline">Your personal command center</span><h2>Everything in orbit.</h2><p>Your intelligence, projects, and machine. One workspace.</p></div><div className="cc-heading-meta"><span>{clock.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'})}</span><Signal online={ready}>{ready ? 'AI session ready' : connected ? 'AI session idle' : 'Awaiting core'}</Signal></div></div>
-                    <section className="cc-hero" aria-label="Spark session"><div className="cc-hero-copy"><span className="cc-overline"><Radio size={13}/> SPARK intelligence</span><h3>Your workspace,<br/>in motion.</h3><p>{ready ? 'Your AI session is connected. Open the cockpit to continue your conversation.' : 'Open your voice cockpit to connect, talk, and work with Spark.'}</p><button className="cc-primary" onClick={onCockpit}><AudioLines size={18}/>Open voice cockpit<ArrowUpRight size={16}/></button><span className="cc-privacy"><ShieldCheck size={12}/>{muted ? 'Microphone muted' : 'Microphone enabled'} · Camera requires consent</span></div><div className="cc-spatial-preview"><Visualizer isListening={ready} width={400} height={300}/></div></section>
+                    <section className="cc-hero" aria-label="Spark session"><div className="cc-hero-copy"><span className="cc-overline"><Radio size={13}/> SPARK intelligence</span><h3>Your workspace,<br/>in motion.</h3><p>{ready ? 'Your AI session is connected. Open the cockpit to continue your conversation.' : 'Open your voice cockpit to connect, talk, and work with Spark.'}</p><button className="cc-primary" onClick={onCockpit}><AudioLines size={18}/>Open voice cockpit<ArrowUpRight size={16}/></button><span className="cc-privacy"><ShieldCheck size={12}/>{muted ? 'Microphone muted' : 'Microphone enabled'} · Camera requires consent</span></div><div className="cc-spatial-preview"><Visualizer graph={brainGraph} graphError={brainError} isListening={false} width={400} height={300}/></div></section>
                     <section className="cc-metrics" aria-label="Runtime readings"><article><span><Activity size={15}/>Core status</span><strong className={connected ? 'cc-value-good' : ''}>{connected ? 'Online' : 'Offline'}</strong><small>{connected ? 'Local backend connected' : 'No backend connection'}</small></article><article><span><Cpu size={15}/>CPU usage</span><strong>{connected ? percentage(host.cpu_percent) : '—'}</strong><small>{connected ? 'Latest diagnostic reading' : 'Connect core for readings'}</small></article><article><span><Database size={15}/>Memory usage</span><strong>{connected ? percentage(host.ram_percent) : '—'}</strong><small>{connected ? 'Latest diagnostic reading' : 'Connect core for readings'}</small></article><article><span><AudioLines size={15}/>AI session</span><strong>{ready ? 'Connected' : 'Standby'}</strong><small>{connected ? diagnostics?.ai_provider || 'Provider not reported' : 'Waiting for local core'}</small></article></section>
                     <div className="cc-lower-grid"><section className="cc-panel cc-session-panel"><div className="cc-section-heading"><div><span className="cc-overline">Current workspace</span><h3>Session activity</h3></div><span className="cc-count">{messages.length}</span></div>{messages.length ? <ol className="cc-activity">{messages.slice(-3).map((message, index) => <li key={index}><span className="cc-activity-dot"/><div><strong>{message.role === 'user' || message.sender === 'user' ? 'You' : 'Spark'}</strong><p>{String(message.text || message.content || 'Session message')}</p></div></li>)}</ol> : <div className="cc-empty"><Terminal size={26}/><strong>A fresh starting point</strong><p>Your conversation activity appears here once you begin a session.</p></div>}</section></div>
 
-                </> : <><div className="cc-heading cc-page-heading"><div><span className="cc-overline">SPARK / {project}</span><h2>{page}</h2></div><button className="cc-secondary" onClick={() => navigate('Overview')}>Back to overview</button></div><WorkspacePanel key={page} socket={socket} visible project={project} onClose={onCockpit} embedded initialTab={target?.startsWith('intelligence:') ? 'intelligence' : ['knowledge','workbench','skills','evolution'].includes(target) ? target : 'screens'} initialScreen={target} initialIntelligencePage={target?.split(':')[1]}/></>}
+                </> : <><div className="cc-heading cc-page-heading"><div><span className="cc-overline">SPARK / {project}</span><h2>{page}</h2></div><button className="cc-secondary" onClick={() => navigate('Overview')}>Back to overview</button></div><React.Suspense fallback={<p role="status">Loading workspace tools…</p>}><WorkspacePanel key={page} socket={socket} visible project={project} onClose={onCockpit} embedded initialTab={target?.startsWith('intelligence:') ? 'intelligence' : ['knowledge','workbench','skills','evolution'].includes(target) ? target : 'screens'} initialScreen={target} initialIntelligencePage={target?.split(':')[1]}/></React.Suspense></>}
                 <footer className="cc-footer"><span><i/>SPARK / Personal intelligence workstation</span><button onClick={onRefresh} disabled={!connected}><Activity size={13}/>Refresh diagnostics</button></footer>
             </main>
         </div>

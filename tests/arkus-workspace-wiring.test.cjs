@@ -8,10 +8,10 @@ const server=read('backend/server.py'), api=read('backend/spark_workspace.py');
 
 test('actual ARKUS workspace is mounted in the SPARK cockpit, not a mockup',()=>{
   const command=read('src/components/CommandCenter.jsx');
-  assert.match(app,/import CommandCenter from '.\/components\/CommandCenter'/);
+  assert.match(app,/const CommandCenter = deferredPanel\(\(\) => import\('.\/components\/CommandCenter'\)\)/);
   assert.match(app,/DASHBOARD/);
   assert.match(app,/showWorkspace && <CommandCenter socket=\{socket\}/);
-  assert.match(command,/import WorkspacePanel from '.\/WorkspacePanel'/);
+  assert.match(command,/const WorkspacePanel = React.lazy\(\(\) => import\('.\/WorkspacePanel'\)\)/);
   assert.match(command,/<WorkspacePanel key=\{page\} socket=\{socket\} visible project=\{project\}/);
   for(const action of ['import_document','search_documents','list_documents','remove_document',
                         'propose_skill','test_skill','activate_skill','run_skill','revise_skill','rollback_skill']){

@@ -16,12 +16,15 @@ function mockAudio(echoCancellation=true) {
     emit:(name,data)=>emitted.push({name,data})
   };
   const playback=[];
+  const analyser={frequencyBinCount:256,fftSize:512,
+    getByteFrequencyData(bins){bins.fill(96);},disconnect(){this.disconnected=true;}};
   class AudioContext {
     constructor(){
-      this.currentTime=0;this.state='running';this.destination={};
+      this.currentTime=0;this.state='running';this.destination={};this.sampleRate=48000;
       this.audioWorklet={addModule:async()=>{}};
     }
     createMediaStreamSource(){return {connect(){},disconnect(){}};}
+    createAnalyser(){return analyser;}
     createBuffer(_channels,count,rate){
       return {duration:count/rate,getChannelData:()=>new Float32Array(count)};
     }
@@ -39,16 +42,17 @@ function mockAudio(echoCancellation=true) {
     connect(){}
     disconnect(){}
   }
-  return {socket,tracks,events,emitted,playback,AudioContext,AudioWorkletNode};
+  return {socket,tracks,events,emitted,playback,analyser,AudioContext,AudioWorkletNode};
 }
 
 test('verified AEC streams multiple speech turns continuously with no manual rearm',async()=>{
   const originalNavigator=globalThis.navigator,originalWindow=globalThis.window;
   const originalWorklet=globalThis.AudioWorkletNode;
   const mock=mockAudio();
+  let microphoneRequests=0;
   try {
     Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{
-      getUserMedia:async()=>({getAudioTracks:()=>mock.tracks,getTracks:()=>mock.tracks})
+      getUserMedia:async()=>{microphoneRequests++;return {getAudioTracks:()=>mock.tracks,getTracks:()=>mock.tracks};}
     }}});
     globalThis.window={AudioContext:mock.AudioContext,AudioWorkletNode:mock.AudioWorkletNode,
       location:{href:'http://localhost:5173/'}};
@@ -57,6 +61,9 @@ test('verified AEC streams multiple speech turns continuously with no manual rea
     const bridge=new BrowserEchoAudio({socket:mock.socket});
     await bridge.start();
     assert.equal(bridge.ready,true);
+    assert.equal(bridge.readSpectrum().bins[0],96);
+    assert.equal(bridge.readSpectrum().sampleRate,48000);
+    assert.equal(microphoneRequests,1,'Spectrum must reuse the approved microphone stream');
     const port=mockAudio.lastWorklet.port;
     const chunk=()=>port.onmessage({data:{type:'pcm',pcm:new ArrayBuffer(3200)}});
     chunk(); // user speaks
@@ -67,10 +74,12 @@ test('verified AEC streams multiple speech turns continuously with no manual rea
     assert.equal(mock.emitted.filter(e=>e.name==='browser_mic_pcm').length,2);
     assert.equal(mock.playback.length,1);
     bridge.setMuted(true);chunk();
+    assert.equal(bridge.readSpectrum(),null,'Muted input must not feed voice pulses');
     assert.equal(mock.emitted.filter(e=>e.name==='browser_mic_pcm').length,2);
     bridge.stop();
     assert.equal(mock.tracks[0].stopped,true);
     assert.equal(mock.events.has('browser_audio'),false);
+    assert.equal(mock.analyser.disconnected,true);
   }finally{
     Object.defineProperty(globalThis,'navigator',{configurable:true,value:originalNavigator});
     globalThis.window=originalWindow;

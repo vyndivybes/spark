@@ -44,12 +44,16 @@ def _live_error_text(error):
 
 def live_error_requires_user_action(error):
     value=_live_error_text(error)
-    return any(code in value for code in ('429','quota','401','403','404','permission','1008','policy violation','requested entity was not found'))
+    return any(code in value for code in ('429','quota','401','403','404','permission','1007',
+                                           'invalid json payload','unknown name','1008',
+                                           'policy violation','requested entity was not found'))
 
 
 def live_error_message(error):
     """Classify errors without showing provider stack traces, key or query."""
     value = _live_error_text(error)
+    if "1007" in value or "invalid json payload" in value or "unknown name" in value:
+        return "Gemini Live rejected SPARK's session configuration (1007). Audio devices were not involved; update SPARK or disable the unsupported tool profile."
     if "1008" in value or "policy violation" in value or "requested entity was not found" in value:
         return "Gemini Live session closed (1008 policy violation). Check selected model and profile; do not retry automatically."
     if "429" in value or "quota" in value or "resource_exhausted" in value:
@@ -68,6 +72,10 @@ def live_status_report(state, message=""):
                 "live_message": "SPARK Core connected to Gemini Live.",
                 "live_error_code": None}
     if state == "error":
+        if isinstance(message,str) and message.startswith("Gemini Live rejected SPARK's session configuration (1007)."):
+            return {'live_state':'error',
+                    'live_message':'Gemini Live rejected the session configuration (1007). Restart after updating SPARK or choose a supported profile.',
+                    'live_error_code':1007}
         if isinstance(message,str) and message.startswith('Gemini Live session closed (1008 policy violation).'):
             return {'live_state':'error','live_message':'Gemini Live closed the session (1008). Check model/profile availability, then reconnect manually.','live_error_code':1008}
         # The backend supplies classified messages, not raw exception bodies.

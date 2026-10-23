@@ -21,6 +21,8 @@ class AutoEvolutionError(ValueError):
 
 
 PROTECTED = frozenset({
+    "spark_trace_learning.py",
+    "spark_python_tools.py", "spark_code_skills.py",
     "server.py", "spark_evolution.py", "spark_maintenance.py",
     "spark_rea.py", "spark_repo_upgrade.py", "spark_saee.py",
     "spark_auto_evolution.py", "spark_workspace_auth.py",
@@ -39,6 +41,7 @@ class AutoEvolution:
         self.file = self.root / "autonomy-policy.json"
         self.lock = asyncio.Lock()
         self.scheduler = None
+        self.notify = None
         self.state = {
             "enabled": False,
             "allow_model_source": False,
@@ -46,6 +49,8 @@ class AutoEvolution:
             "last_upgrade_day": "",
             "last_status": "not_run",
             "queued_goal": "",
+            "interval_seconds": INTERVAL_SECONDS,
+            "max_upgrades_per_day": MAX_UPGRADES_PER_UTC_DAY,
         }
         if self.file.exists():
             if self.file.is_symlink() or self.root.is_symlink():
@@ -65,6 +70,17 @@ class AutoEvolution:
                 self.state["enabled"] = False
                 self.state["allow_model_source"] = False
 
+        # Older running backends rewrite autonomy-policy.json without these fields.
+        # Keep explicitly chosen limits separately so an older writer cannot erase them.
+        limits_file=self.root/'background-limits.json'
+        if limits_file.exists() and not limits_file.is_symlink():
+            try:
+                limits=json.loads(limits_file.read_text(encoding='utf-8'))
+                interval=limits.get('interval_seconds');maximum=limits.get('max_upgrades_per_day')
+                if type(interval)is int and 60<=interval<=86400 and type(maximum)is int and maximum in (0,1):
+                    self.state.update(interval_seconds=interval,max_upgrades_per_day=maximum)
+            except (OSError,ValueError,TypeError):pass
+
     def _persist(self):
         if self.root.is_symlink() or self.file.is_symlink():
             raise AutoEvolutionError("Autonomy settings cannot be symbolic links.")
@@ -75,12 +91,28 @@ class AutoEvolution:
         return {
             **self.state,
             "running": self.lock.locked(),
-            "interval_minutes": INTERVAL_SECONDS // 60,
-            "max_upgrades_per_day": MAX_UPGRADES_PER_UTC_DAY,
+            "interval_minutes": self._interval() // 60,
+            "max_upgrades_per_day": self.state.get("max_upgrades_per_day", MAX_UPGRADES_PER_UTC_DAY),
             "scope": "existing non-protected backend Python files only",
             "rea_mode": "discovery only (no autonomous REA tool calls)",
             "review_required": "new files, dependencies, security, external data or PC operations",
         }
+
+    def _interval(self):
+        value=self.state.get('interval_seconds',INTERVAL_SECONDS)
+        return value if type(value)is int and 60<=value<=86400 else INTERVAL_SECONDS
+
+    def set_background_limits(self,interval_seconds=300,max_upgrades_per_day=0):
+        if type(interval_seconds)is not int or not 60<=interval_seconds<=86400 or max_upgrades_per_day not in (0,1):
+            raise AutoEvolutionError('Choose a valid interval and zero (no daily cap) or one daily upgrade.')
+        self.state.update(interval_seconds=interval_seconds,max_upgrades_per_day=max_upgrades_per_day)
+        limits_file=self.root/'background-limits.json'
+        if limits_file.is_symlink():raise AutoEvolutionError('Linked background limits prohibited.')
+        atomic_write(limits_file,json.dumps({'interval_seconds':interval_seconds,'max_upgrades_per_day':max_upgrades_per_day}).encode())
+        self._persist();return self.status()
+
+    def _daily_limit(self,day):
+        return self.state.get('max_upgrades_per_day',1)!=0 and self.state['last_upgrade_day']==day
 
     def configure(self, *, enabled, allow_model_source):
         if type(enabled) is not bool or type(allow_model_source) is not bool:
@@ -130,6 +162,9 @@ class AutoEvolution:
         return findings
 
     def _record(self, project, stage, outcome, evidence=None):
+        if self.notify:
+            try:self.notify({"phase":stage,"name":outcome[:120],"project":project})
+            except Exception:pass
         try:
             self.evolution.saee.record_attempt(
                 project, "autonomy", stage, outcome, evidence or {})
@@ -144,7 +179,7 @@ class AutoEvolution:
             self._persist()
             return {"status": "awaiting_model_permission", "queued_goal": goal, "rea": rea}
         day = time.strftime("%Y-%m-%d", time.gmtime(now))
-        if self.state["last_upgrade_day"] == day:
+        if self._daily_limit(day):
             self.state["last_status"] = "daily_limit"
             self._persist()
             return {"status": "daily_limit", "queued_goal": goal, "rea": rea}
@@ -251,8 +286,8 @@ class AutoEvolution:
             return {"status": "busy"}
         async with self.lock:
             now = self.clock()
-            if now - self.state["last_cycle"] < INTERVAL_SECONDS:
-                return {"status": "cooldown", "next_eligible_at": self.state["last_cycle"] + INTERVAL_SECONDS}
+            if now - self.state["last_cycle"] < self._interval():
+                return {"status": "cooldown", "next_eligible_at": self.state["last_cycle"] + self._interval()}
             self.state["last_cycle"] = now
             self.state["last_status"] = "inspecting"
             self._persist()
@@ -289,7 +324,7 @@ class AutoEvolution:
                 self._persist()
                 return {"status": "awaiting_model_permission", "findings": findings, "rea": rea}
             utc_day = time.strftime("%Y-%m-%d", time.gmtime(now))
-            if self.state["last_upgrade_day"] == utc_day:
+            if self._daily_limit(utc_day):
                 self.state["last_status"] = "daily_limit"
                 self._persist()
                 return {"status": "daily_limit", "findings": findings, "rea": rea}
@@ -358,7 +393,7 @@ class AutoEvolution:
 
     async def _schedule(self):
         while True:
-            await asyncio.sleep(INTERVAL_SECONDS)
+            await asyncio.sleep(self._interval())
             if self.state["enabled"]:
                 try:
                     await self.run_once("general")

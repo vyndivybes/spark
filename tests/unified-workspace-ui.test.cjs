@@ -39,15 +39,16 @@ test('Four main analytics choices preserve specialist capabilities',()=>{
   assert.match(html,/More analysis &amp; data tools/);
 });
 
-test('SPARK navigation keeps core destinations and gates specialized controls',()=>{
+test('SPARK navigation keeps core destinations in the unified command center',()=>{
+  const center=read('src/components/CommandCenter.jsx');
   const panel=read('src/components/WorkspacePanel.jsx');
   const app=read('src/App.jsx');
-  for(const label of ['Home','Workspace','Knowledge','Tools','Improve SPARK','Ask SPARK','Settings'])
-    assert.ok(panel.includes('>'+label+'</button>')||panel.includes('"'+label+'"'),'Missing '+label);
-  assert.match(panel,/advanced&&<>/);
-  assert.match(panel,/Developer screens/);
-  assert.match(panel,/Agent controls/);
-  assert.ok(app.includes('onSettings={() => {setShowWorkspace(false);setShowSettings(true);}}'));
+  for(const label of ['Overview','Missions','Knowledge','Skill forge','Repositories','Connections'])
+    assert.ok(center.includes("['"+label+"'"),'Missing '+label);
+  assert.match(center, /<WorkspacePanel[^>]*embedded/);
+  assert.match(panel, /!embedded &&/);
+  assert.match(app, /<CommandCenter/);
+  assert.match(center, /onClick=\{onSettings\}/);
 });
 
 test('Personal and business storage boundaries remain unchanged',()=>{

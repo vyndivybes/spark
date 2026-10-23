@@ -11,6 +11,7 @@ from spark_rea import ReaClient, ReaError
 from spark_productivity import WorkbenchError
 from spark_jarvis import JarvisClient, JARVIS_TOOL
 from spark_business import BusinessClient, BUSINESS_TOOLS
+from spark_google_mcp import GOOGLE_WRITE_TOOLS
 
 ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack')
 
@@ -58,8 +59,11 @@ class Integrations:
                 raise ValueError()
             for name, item in config.items():
                 if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{1,31}", name): raise ValueError()
-                if not isinstance(item, dict) or set(item)-{"command", "args", "env", "read_tools", "transport", "url", "headers"}: raise ValueError()
+                if not isinstance(item, dict) or set(item)-{"command", "args", "env", "read_tools", "write_tools", "transport", "url", "headers"}: raise ValueError()
                 if not isinstance(item.get("read_tools", []), list) or any(not isinstance(tool,str) or not 1<=len(tool)<=200 for tool in item.get("read_tools", [])): raise ValueError()
+                writes = item.get('write_tools', [])
+                if not isinstance(writes, list) or any(tool not in GOOGLE_WRITE_TOOLS.get(name, []) for tool in writes): raise ValueError()
+                if writes and '--allow-writes' not in item.get('args', []): raise ValueError()
                 transport=item.get('transport','stdio')
                 if transport not in ('stdio','streamable-http'):raise ValueError()
                 if transport=='stdio' and (not isinstance(item.get("command"), str) or not item["command"].strip()): raise ValueError()
@@ -75,7 +79,7 @@ class Integrations:
 
     def list(self):
         config=self.catalog()
-        configured=[{"name": name, "transport": item.get('transport','stdio'), "configured": True, "read_tools": item.get("read_tools",[]), "health": self.breakers[name].status() if name in self.breakers else {"state":"unprobed"}} for name,item in config.items()]
+        configured=[{"name": name, "transport": item.get('transport','stdio'), "configured": True, "read_tools": item.get("read_tools",[]), "write_tools": item.get('write_tools', []), "health": self.breakers[name].status() if name in self.breakers else {"state":"unprobed"}} for name,item in config.items()]
         if 'vaos-jarvis' not in config and self.jarvis.configured():
             configured.append({'name':'vaos-jarvis','transport':'electron-session','configured':True,
                 'state':'session-managed','read_tools':['ask_vaos_jarvis'],
@@ -115,9 +119,9 @@ class Integrations:
             raise WorkbenchError("Select a host-configured MCP service.")
         if action not in ('mcp_discover','mcp_call'):
             raise WorkbenchError('Unsupported MCP operation.')
-        if action == 'mcp_call' and args.get('name') not in config[server].get('read_tools',[]):
+        if action == 'mcp_call' and args.get('name') not in config[server].get('read_tools',[]) + config[server].get('write_tools', []):
             self._record({'server':server,'action':'denied_tool','ok':False})
-            raise WorkbenchError('Tool is not host-approved for read-only execution. Writes are disabled.')
+            raise WorkbenchError('Tool is not host-approved. Email sending is disabled.')
         breaker = self.breakers.setdefault(server,CircuitBreaker())
         if not breaker.allowed():
             raise WorkbenchError('MCP circuit is open after repeated failures; wait before reconnecting.')

@@ -20,7 +20,7 @@ function normalizeReply(payload){
     ...(data.sourceCoverage?{sourceCoverage:data.sourceCoverage}:{})};
 }
 
-function createJarvisBridge({BrowserWindow,session,token,origin=DEFAULT_ORIGIN,businessRead}){
+function createJarvisBridge({BrowserWindow,session,token,origin=DEFAULT_ORIGIN,businessRead,whatsappStatus,whatsappRead}){
   origin=jarvisOrigin(origin);
   const portalSession=session.fromPartition('persist:spark-vaos-jarvis');
   let window=null,server=null;
@@ -74,11 +74,21 @@ function createJarvisBridge({BrowserWindow,session,token,origin=DEFAULT_ORIGIN,b
       const provided=Buffer.from(req.headers.authorization||'');const expected=Buffer.from('Bearer '+token);
       const reply=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
       if(provided.length!==expected.length||!timingSafeEqual(provided,expected))return reply(403,{ok:false,message:'Unauthorized bridge client.'});
-      if(req.method!=='POST'||!['/ask','/business-read'].includes(req.url))return reply(404,{ok:false,message:'Not found.'});
+      if(req.method!=='POST'||!['/ask','/business-read','/whatsapp-status','/whatsapp-read'].includes(req.url))return reply(404,{ok:false,message:'Not found.'});
       try{
         let size=0,parts=[];
         for await(const chunk of req){size+=chunk.length;if(size>4096)return reply(413,{ok:false,message:'Request too large.'});parts.push(chunk);}
         const body=JSON.parse(Buffer.concat(parts).toString('utf8'));
+        if(req.url==='/whatsapp-read'){
+          if(!whatsappRead||!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['query','limit','unread_only'].includes(k)))
+            return reply(400,{ok:false,message:'Select a bounded chat-preview read.'});
+          return reply(200,await whatsappRead(body));
+        }
+        if(req.url==='/whatsapp-status'){
+          if(!whatsappStatus||!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==0)
+            return reply(400,{ok:false,state:'unknown',message:'WhatsApp status takes no arguments.'});
+          return reply(200,await whatsappStatus());
+        }
         if(req.url==='/business-read'){
           if(!businessRead||!body||Object.keys(body).length!==1||!['vyndi-os','vedm'].includes(body.portal))return reply(400,{ok:false,message:'Select a configured business read.'});
           return reply(200,await businessRead(body.portal));

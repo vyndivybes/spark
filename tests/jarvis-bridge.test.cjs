@@ -3,6 +3,39 @@ const assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events');
 const {createJarvisBridge,jarvisOrigin,validateQuestion,normalizeReply}=require('../electron/jarvis-bridge.cjs');
 
+test('WhatsApp preview bridge rejects unauthenticated reads and message actions',async()=>{
+  const calls=[];
+  const bridge=createJarvisBridge({session:{fromPartition:()=>({})},token:'r'.repeat(64),
+    whatsappRead:async args=>{calls.push(args);return {ok:true,readOnly:true,chats:[],sending_enabled:false};}});
+  try{
+    const base=await bridge.listen();
+    const request=body=>fetch(base+'/whatsapp-read',{method:'POST',headers:{Authorization:'Bearer '+'r'.repeat(64)},body:JSON.stringify(body)});
+    assert.equal((await fetch(base+'/whatsapp-read',{method:'POST',body:'{}'})).status,403);
+    assert.equal((await request({command:'send'})).status,400);
+    assert.equal((await request({url:'https://example.com'})).status,400);
+    assert.equal((await request({query:'review',limit:3})).status,200);
+    assert.deepEqual(calls,[{query:'review',limit:3}]);
+  }finally{bridge.close();}
+});
+
+test('WhatsApp status bridge requires the launch token and accepts no commands',async()=>{
+  let calls=0;
+  const bridge=createJarvisBridge({session:{fromPartition:()=>({})},token:'w'.repeat(64),
+    whatsappStatus:async()=>{calls++;return {ok:true,state:'connected',readOnly:true,sending_enabled:false};}});
+  try{
+    const base=await bridge.listen();
+    const request=body=>fetch(base+'/whatsapp-status',{method:'POST',headers:{Authorization:'Bearer '+'w'.repeat(64)},body:JSON.stringify(body)});
+    assert.equal((await fetch(base+'/whatsapp-status',{method:'POST',body:'{}'})).status,403);
+    assert.equal((await request({command:'send'})).status,400);
+    assert.equal((await request([])).status,400);
+    assert.equal((await request(17)).status,400);
+    const response=await request({});
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).state,'connected');
+    assert.equal(calls,1);
+  }finally{bridge.close();}
+});
+
 test('business bridge authenticates and accepts only fixed portal reads',async()=>{
   const calls=[];
   const bridge=createJarvisBridge({session:{fromPartition:()=>({})},token:'c'.repeat(64),
