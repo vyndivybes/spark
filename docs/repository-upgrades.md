@@ -1,13 +1,15 @@
 # Repository-driven Spark upgrades
 
-In a connected Spark session, open **Knowledge & Skills → Recovery & REA → Learn from a repository**.
+In the desktop workspace, open **Build → Repositories → Learn from a repository**.
+
+Use **Preview source without model** to inspect the sampled files and limits before requesting analysis. Preview works without an API key and does not save an analysis or execute repository code. GitHub previews make a temporary shallow clone, so they require Git and network access. **Load saved analyses** reopens reports for the current workspace; reopening a GitHub report restores its full URL.
 
 1. Enter an absolute path to a local source checkout, **or a public `https://github.com/<owner>/<repo>` URL**. A GitHub URL is cloned for you into a throwaway directory, inspected, then deleted. Clone remote repositories locally first only if you prefer a local path.
 2. Describe the behavior Spark should learn. Optionally enter up to 16 relative reference paths, one per line. Without a selection Spark samples README files, manifests and source files.
 3. Choose **Analyze repository with model**. This sends the selected source sample to the configured Groq model and requires `GROQ_API_KEY`.
 4. Inspect the summary, sampled source, limitations, source references, proposed Spark files and behavioral acceptance checks.
 5. Choose **Generate staged Spark upgrade** for one opportunity. Spark reads the current target files and generates complete replacements. It retains the original source hashes and the repository evidence identity with the candidate.
-6. Inspect the replacements, approve local regression tests, then approve activation separately. Activation verifies the candidate again, saves backups and restores originals if validation fails. Restart Spark after activation. Use **Refresh backups → Roll back** to restore a retained upgrade.
+6. In **Review staged repository upgrades** on the same screen, inspect the replacements, approve local regression tests, then approve activation separately. **Load staged upgrades** retrieves earlier candidates. Activation requires the active owner session, verifies the candidate again, saves backups and restores originals if validation fails. Restart Spark after activation. Use **Upgrade History** to restore a retained upgrade.
 
 Analysis reads source without executing repository code or installing dependencies. It supports text source from multiple languages, but does not promise full understanding of every repository. It inventories at most 5,000 eligible paths across 2,000 directories and reads up to 16 UTF-8 files, 64 KiB each and 192 KiB total. Hidden files, links, common dependency/build directories, and filenames suggesting credentials or settings are excluded. These filters cannot identify every embedded secret. Share only source you intend to send to the model.
 
@@ -44,6 +46,7 @@ Backend actions use the existing authenticated, owning-window `workspace_action`
 | Action | Payload |
 | --- | --- |
 | `analyze_repository` | `repository`, `goal`, `reference_paths` |
+| `preview_repository` | `repository`, `reference_paths` |
 | `import_repository` | `url`, `reference_paths` |
 | `list_repository_analyses` | empty object |
 | `read_repository_analysis` | `id` |

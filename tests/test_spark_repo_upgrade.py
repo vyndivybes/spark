@@ -9,6 +9,8 @@ from spark_evolution import Evolution
 from spark_maintenance import MaintenanceError
 from spark_repo_upgrade import snapshot
 from spark_workspace import SparkWorkspace
+from spark_repo_import import RepoImportError
+from unittest.mock import patch
 
 
 class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
@@ -53,6 +55,25 @@ class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
         return await self.engine.execute('analyze_repository', 'general', {
             'repository': str(self.reference), 'goal': 'Improve calculation behavior',
             'reference_paths': ['README.md', 'cache.py']})
+
+    async def test_preview_reads_sources_without_model_or_saved_analysis(self):
+        (self.reference / 'cache.py').write_text('raise RuntimeError("must not execute")')
+        report = await self.engine.execute('preview_repository', 'general', {
+            'repository': str(self.reference), 'reference_paths': ['cache.py']})
+        self.assertEqual([s['path'] for s in report['sources']], ['cache.py'])
+        self.assertIn('must not execute', report['sources'][0]['content'])
+        self.assertEqual(self.contexts, [])
+        self.assertEqual(self.engine.repositories.list('general'), [])
+
+    async def test_import_failures_reach_workspace_as_actionable_errors(self):
+        with patch('spark_evolution.import_evidence', side_effect=RepoImportError('Clone timed out; try a smaller repository.')):
+            for action, payload in (
+                ('import_repository', {'url': 'https://github.com/example/repo', 'reference_paths': []}),
+                ('preview_repository', {'repository': 'https://github.com/example/repo', 'reference_paths': []}),
+                ('analyze_repository', {'repository': 'https://github.com/example/repo', 'reference_paths': [], 'goal': 'Review caching'}),
+            ):
+                with self.subTest(action=action), self.assertRaisesRegex(MaintenanceError, 'Clone timed out'):
+                    await self.engine.execute(action, 'general', payload)
 
     async def test_analysis_stage_real_regression_activation_and_rollback(self):
         report = await self.analyze()

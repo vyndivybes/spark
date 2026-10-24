@@ -16,6 +16,7 @@ import re
 from spark_repo_import import RepoImportError, import_evidence, parse_github_url
 from spark_saee import AutonomousEvolutionEngine, SAEEError
 from spark_auto_evolution import AutoEvolution, AutoEvolutionError
+from spark_isolated_upgrade import IsolatedUpgradeManager
 from spark_security_scan import scan_sources, scan_secrets, scan_code
 from spark_self_healing import (
     RepairGate, SelfHealingError, diagnose, disk_forecast,
@@ -53,6 +54,7 @@ ACTION_KEYS = {
     "deactivate_code_skill": {"id"},
     "capture_rea_evidence": {"name", "arguments"},
     "analyze_repository": {"repository", "goal", "reference_paths"},
+    "preview_repository": {"repository", "reference_paths"},
     "list_repository_analyses": set(),
     "read_repository_analysis": {"id"},
     "stage_repository_upgrade": {"analysis_id", "opportunity"},
@@ -141,7 +143,9 @@ class Evolution:
         self.repositories = RepositoryUpgrades(self.maintenance, self.generator)
         self.rea = rea or ReaClient()
         self.saee = AutonomousEvolutionEngine(workspace, evolution=self)
-        self.autonomy = AutoEvolution(self, workspace.skills.root.parent)
+        self.autonomy = AutoEvolution(
+            self, workspace.skills.root.parent,
+            isolated=IsolatedUpgradeManager(self, self.maintenance.root))
         self.lock = asyncio.Lock()
 
     async def _saee(self, action, project, payload):
@@ -386,24 +390,31 @@ class Evolution:
             except PcInventoryError as error:
                 raise MaintenanceError(str(error)) from None
         if action == "import_repository":
-            return await asyncio.to_thread(import_evidence, payload["url"],
-                                           selected=payload["reference_paths"])
-        if action == "analyze_repository":
-            goal = payload['goal']
-            if not isinstance(goal, str) or not 1 <= len(goal.strip()) <= 2000:
-                raise MaintenanceError('Describe the desired Spark improvement in 1–2000 characters.')
+            try:
+                return await asyncio.to_thread(import_evidence, payload["url"],
+                                               selected=payload["reference_paths"])
+            except RepoImportError as error:
+                raise MaintenanceError(str(error)) from None
+        if action in {"analyze_repository", "preview_repository"}:
+            if action == 'analyze_repository':
+                goal = payload['goal']
+                if not isinstance(goal, str) or not 1 <= len(goal.strip()) <= 2000:
+                    raise MaintenanceError('Describe the desired Spark improvement in 1–2000 characters.')
             repository = payload['repository']
             try:
-                parse_github_url(repository)
-                is_url = True
-            except RepoImportError:
-                is_url = False
-            # Clone/read evidence outside the maintenance lock.
-            if is_url:
-                evidence = await asyncio.to_thread(import_evidence, repository,
-                                                   selected=payload['reference_paths'])
-            else:
-                evidence = await asyncio.to_thread(snapshot, repository, payload['reference_paths'])
+                # Clone/read evidence outside the maintenance lock.
+                if isinstance(repository, str) and ('://' in repository or repository.startswith('git@')):
+                    parse_github_url(repository)
+                    evidence = await asyncio.to_thread(import_evidence, repository,
+                                                       selected=payload['reference_paths'])
+                else:
+                    evidence = await asyncio.to_thread(snapshot, repository, payload['reference_paths'])
+            except RepoImportError as error:
+                raise MaintenanceError(str(error)) from None
+            except OSError:
+                raise MaintenanceError('Repository files could not be read. Check folder access and try again.') from None
+            if action == 'preview_repository':
+                return evidence
         else:
             evidence = None
         async with self.lock:

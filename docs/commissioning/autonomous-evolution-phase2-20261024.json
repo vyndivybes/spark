@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-24",
+  "phase": "SPARK Autonomous Evolution - Phase 2",
+  "platform": "Windows 11 native, Python 3.11/3.14, no WSL, no new dependencies",
+  "task1_constructor_compatibility": {
+    "allows": "AutoEvolution(None, data_dir) for configure(), status(), queue_goal(), cancel_goal() and emergency_stop()",
+    "blocks": "run_once() and start_scheduler() raise AutoEvolutionError without an attached engine; upgrades additionally fail closed unless a functioning Git Safety Gate inspects the work tree",
+    "status_fields_added": ["engine_attached", "git_gate_attached", "isolated_upgrades"],
+    "tests": "6 new DetachedConstructorTests in tests/test_spark_auto_evolution.py"
+  },
+  "task2_isolated_upgrading": {
+    "module": "backend/spark_isolated_upgrade.py (new)",
+    "storage": "D:\\SPARK-Evolution-Temp\\isolated-upgrades (default, overridable via SPARK_ISOLATED_ROOT)",
+    "minimal_copy_set": "target backend file + transitive backend/tests import closure (cap 40 files, 256 KiB each) + matching focused test files; whole-repository duplication avoided",
+    "cycle": "build -> analyze (mock/offline inference) -> staged candidate -> isolated apply -> syntax + secret scan + focused unittest subprocess -> tested/rejected",
+    "promotion_gates": [
+      "Git Safety Gate must prove a clean live work tree (dirty = candidate held in isolation)",
+      "daily live-promotion quota (0 = unlimited, else 1/day)",
+      "original sha256 comparison against live files (concurrent owner edits detected, candidate marked stale)",
+      "live regression gate (test_repair_candidate) and clean-tree recheck immediately before activation",
+      "post-activation health detect with rollback_repair + emergency stop on failure"
+    ],
+    "never_done": [
+      "no automatic promotion into a dirty live repository",
+      "no automatic commits of owner files",
+      "git reset/clean/checkout/stash never used anywhere"
+    ],
+    "same_day_sequence": "multiple sequential isolated upgrades per day supported (quota checked only at live promotion; FIFO promotion order by candidate age)",
+    "retained": "emergency stop, rollback_repair, per-workspace candidate records, shared audit.jsonl history, restart-safe on-disk reconstruction"
+  },
+  "task3_verification": {
+    "new_tests": {
+      "tests/test_spark_isolated_upgrade.py": 11,
+      "tests/test_spark_auto_evolution.py::DetachedConstructorTests": 6
+    },
+    "scenarios": [
+      "successful upgrade + promotion with every unrelated live byte proven unchanged",
+      "failed isolated tests -> rejected candidate, live untouched",
+      "rollback on failed post-activation health check -> emergency stop",
+      "concurrent owner modification -> stale candidate, owner edit preserved",
+      "quota exhaustion -> isolated_ready deferral",
+      "dirty live tree -> isolated_staged hold, later promotion after gate recovery",
+      "restart reconstruction over persisted D: state",
+      "emergency stop mid-promotion blocks activation",
+      "minimal workspace proof (30 noise backend files not copied)",
+      "end-to-end D: default smoke with mock inference"
+    ],
+    "commissioning_smoke": "docs/commissioning/isolated-upgrade-smoke-20261024.py -> SMOKE PASS",
+    "focused_regression": "85 passed, 1 skipped, 3 subtests across 6 focused files",
+    "full_suite": "1019 passed, 15 skipped, 296 subtests; 3 pre-existing ordering-dependent failures in tests/test_spark_cinematic_tools.py and tests/test_spark_connector_backend_workbench.py (reproduced identically with pre-Phase-2 code, unrelated to this change)"
+  },
+  "files_changed_by_phase2": [
+    "backend/spark_auto_evolution.py (modified; backup at D:\\SPARK-Evolution-Temp\\backup-originals\\phase2-20261024\\spark_auto_evolution.py.bak)",
+    "backend/spark_evolution.py (modified; backup at D:\\SPARK-Evolution-Temp\\backup-originals\\phase2-20261024\\spark_evolution.py.bak)",
+    "tests/test_spark_auto_evolution.py (modified; backup at D:\\SPARK-Evolution-Temp\\backup-originals\\phase2-20261024\\test_spark_auto_evolution.py.bak)",
+    "backend/spark_isolated_upgrade.py (new)",
+    "tests/test_spark_isolated_upgrade.py (new)",
+    "docs/commissioning/isolated-upgrade-smoke-20261024.py (new)",
+    "docs/commissioning/isolated_upgrade_smoke_fakes.py (new)"
+  ],
+  "production_autonomy": {
+    "state": "paused (autonomy-policy.json absent/unconfigured on the host; nothing enabled by Phase 2)",
+    "isolated_mode_note": "isolated continuous upgrading becomes active automatically the next time an owner explicitly enables autonomy; live promotion remains gated"
+  },
+  "production_blockers_remaining": [
+    "live repository has 80+ uncommitted entries; Git Safety Gate correctly blocks all live promotion until the owner commits/reviews",
+    "restart_required after any promoted live change (backend reload)",
+    "model generation requires a configured offline-capable provider for real upgrades; acceptance here used mock inference only",
+    "pre-existing full-suite ordering failures in cinematic-tools/connector-workbench tests (not introduced by Phase 2)"
+  ]
+}
