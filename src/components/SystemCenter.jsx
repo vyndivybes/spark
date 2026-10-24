@@ -1,4 +1,5 @@
 import React from 'react';
+import PcOptimizationPanel from './PcOptimizationPanel';
 import { Activity, X, RefreshCw, Copy, Download, ShieldCheck, Mic, AlertTriangle } from 'lucide-react';
 import {getPressureAdvice} from '../utils/systemPressure.mjs';
 
@@ -113,6 +114,7 @@ export default function SystemCenter({
         </div>
       )}
 
+      <PcOptimizationPanel/>
       <p className="mt-3 text-xs text-slate-400">
         API quota balances are not available through this diagnostics panel. Groq cloud session
         status means the local voice pipeline is ready; an actual provider request verifies its key.

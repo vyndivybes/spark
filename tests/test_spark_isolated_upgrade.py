@@ -14,6 +14,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from spark_auto_evolution import AutoEvolution, AutoEvolutionError
@@ -341,6 +342,30 @@ class IsolatedUpgradeTests(unittest.IsolatedAsyncioTestCase):
     def test_primary_storage_default_points_at_the_d_drive(self):
         self.assertTrue(DEFAULT_BASE_DIRECTORY.lower().startswith("d:"))
         self.assertIn("SPARK", DEFAULT_BASE_DIRECTORY)
+
+    def test_secret_findings_reject_without_crashing_or_exposing_values(self):
+        workspace = self.manager._build('Improve calculator double behavior')
+        finding = {'label': 'high_entropy_literal', 'line': 1, 'redacted': 'private-prefix'}
+        with patch('spark_isolated_upgrade.scan_secrets', return_value=[finding]):
+            result = self.manager._validate(workspace)
+        self.assertFalse(result['passed'])
+        self.assertIn('high_entropy_literal', result['findings'][0]['error'])
+        self.assertNotIn('private-prefix', json.dumps(result))
+
+    def test_real_scanner_keeps_isolated_secret_gate_closed(self):
+        workspace = self.manager._build('Improve calculator double behavior')
+        target = workspace.root / 'backend/calculator.py'
+        clean = ORIGIN + IMPROVE_DOUBLE + "\nheaders = {'Content-Type': 'application/x-www-form-urlencoded'}\n"
+        target.write_text(clean, encoding='utf-8')
+        self.assertTrue(self.manager._validate(workspace)['passed'])
+        for assignment in ('opaque = "9f4Aq7Zx2Lm8Pw3Rt6Yu1Io5Nb0Vc7Df"',
+                           'password = "application/x-www-form-urlencoded"'):
+            with self.subTest(assignment=assignment):
+                target.write_text(clean + assignment + '\n', encoding='utf-8')
+                result = self.manager._validate(workspace)
+                self.assertFalse(result['passed'])
+                self.assertEqual(result['returncode'], 0)
+                self.assertTrue(any('Credential scan finding:' in f.get('error', '') for f in result['findings']))
 
 
 if __name__ == "__main__":

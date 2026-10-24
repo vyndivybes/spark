@@ -49,6 +49,11 @@ STAGE_REPOSITORY_OPPORTUNITY_TOOL = {
 }
 WORKSPACE_TOOLS = [OPEN_WORKSPACE_SCREEN_TOOL, LIST_REPOSITORY_OPPORTUNITIES_TOOL,
                    STAGE_REPOSITORY_OPPORTUNITY_TOOL]
+WORKSPACE_TOOLS.append({
+    'name': 'rea_workflow_command',
+    'description': 'Analyze exact owner-selected targets and operate saved REA reports in this project. Commands: reverse engineer website HTTPS_URL; reverse engineer app ABSOLUTE_PATH; show REA reports; read REA report ID section 1 [part 1]; build notes from REA report ID; test REA app ID; open REA app ID. ID is a saved 24-character hexadecimal report ID or latest. Website analysis only inspects an already-open matching public page through host-configured CDP; app targets stay in host-approved roots. Use only the exact command explicitly spoken by the owner. Never invent a report ID or claim analysis/build/testing without tool results. Voice builds the original notes recipe. Broader local data-app blueprints are available in the dashboard, with optional explicitly approved free inference. No arbitrary native app reconstruction.',
+    'parameters': {'type': 'object', 'properties': {'command': {'type': 'string'}}, 'required': ['command']}
+})
 WORKSPACE_NAMES = {tool['name'] for tool in WORKSPACE_TOOLS}
 GOOGLE_WORKSPACE_TOOL = {
     'name': 'google_workspace',

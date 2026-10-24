@@ -1,3 +1,4 @@
+import ReaWorkflowPanel from './ReaWorkflowPanel';
 import React, {useEffect, useRef, useState} from 'react';
 
 const button = 'rounded-lg border border-cyan-600/50 bg-cyan-950/50 px-3 py-2 text-sm text-cyan-100 disabled:opacity-40';
@@ -96,9 +97,10 @@ export default function EvolutionPanel({socket, project}) {
     }
     const selected = tools.find(tool => tool.name === toolName);
     return <div className="mt-3 grid gap-4 lg:grid-cols-2">
+        <ReaWorkflowPanel socket={socket} project={project}/>
         <section aria-label="Autonomous self-evolution" className="space-y-3 rounded-xl border border-cyan-500/20 p-4 lg:col-span-2">
             <h3 className="text-lg font-semibold">Self-Evolution and REA</h3>
-            <p className="text-sm text-slate-300">SPARK can inspect its own backend, check REA availability and repair eligible Python syntax errors on its own. One change per day maximum. Every code repair runs staged and live checks and retains a rollback journal. It never runs unknown REA tools automatically.</p>
+            <p className="text-sm text-slate-300">SPARK can inspect its own backend, check REA availability and repair eligible Python syntax errors on its own. Upgrade frequency follows the persisted policy; zero daily cap allows successive success-gated upgrades. Every code repair runs staged and live checks and retains a rollback journal. It never runs unknown REA tools automatically.</p>
             <div className="flex flex-wrap gap-2">
                 <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_status')}>Check autonomy status</button>
                 <button type="button" className={button} disabled={busy} onClick={()=>request('saee_autonomy_configure',{enabled:true,allow_model_source:false})}>Enable hourly checks</button>

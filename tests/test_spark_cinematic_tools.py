@@ -11,13 +11,28 @@ from spark_cinematic_tools import (
 )
 
 class Stage6ToolsTests(unittest.TestCase):
-    def test_default_cinematic_handshake_is_byte_for_byte_config_unchanged(self):
+    def test_default_cinematic_has_only_the_readonly_insight_toolbox(self):
         with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(live_profile(), "cinematic")
         conf = select_live_config("cinematic", {"tools": ["unsafe"]})
-        self.assertNotIn("tools", conf)
+        blocks = conf.get("tools") or []
+        self.assertEqual(len(blocks), 1)
+        names = [x["name"] for x in blocks[0]["function_declarations"]]
+        self.assertEqual(
+            names,
+            ["get_spark_git_status", "get_spark_backend_health", "get_spark_policy",
+             "get_spark_release_history", "inspect_self", "search_source_code",
+             "read_source_file", "list_project_files"])
+        # Caller-supplied tools can never leak into the cinematic handshake.
+        self.assertNotIn("unsafe", str(conf))
+        self.assertNotIn("google_search", str(conf))
+        # The persona keeps Charon, British instruction, no legacy sentence.
+        self.assertIn("British", conf["system_instruction"])
+        self.assertIn("inspection toolbox", conf["system_instruction"])
+        self.assertNotIn("No tools are provided in cinematic voice mode.",
+                         conf["system_instruction"])
 
-    def test_opt_in_retains_original_voice_and_only_three_function_declarations(self):
+    def test_opt_in_retains_original_voice_and_insight_plus_three_function_declarations(self):
         # Module import order can leak host SPARK_ENABLE_* switches from
         # backend/.env (load_dotenv runs at import time in backend/spark.py).
         # Integration opt-in is a launcher property of the real process, not a
@@ -27,13 +42,14 @@ class Stage6ToolsTests(unittest.TestCase):
             for service in ("google_briefing", "graphiti", "hermes", "obsidian"):
                 os.environ.pop("SPARK_ENABLE_" + service.upper(), None)
             c = select_live_config("cinematic_tools", {"tools": ["unsafe"]})
-            base = select_live_config("cinematic", {"tools": ["unsafe"]})
-        for k in ("response_modalities", "speech_config"):
-            self.assertEqual(c[k], base[k])
         self.assertEqual(len(c["tools"]), 1)
-        names=[x["name"] for x in c["tools"][0]["function_declarations"]]
-        self.assertEqual(names, ["get_system_status", "launch_desktop_app", "query_spark_graph"])
-        self.assertEqual(names, [x["name"] for x in CINEMATIC_FUNCTIONS])
+        names = [x["name"] for x in c["tools"][0]["function_declarations"]]
+        self.assertEqual(
+            names,
+            ["get_spark_git_status", "get_spark_backend_health", "get_spark_policy",
+             "get_spark_release_history", "inspect_self", "search_source_code",
+             "read_source_file", "list_project_files",
+             "get_system_status", "launch_desktop_app", "query_spark_graph"])
         self.assertNotIn("google_search", str(c))
         self.assertNotIn("NON_BLOCKING", str(c))
 

@@ -17,6 +17,7 @@ const {createJarvisBridge}=require('./jarvis-bridge.cjs');
 const {createBusinessPortals}=require('./business-portals.cjs');
 const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
 const {readBrainDisplay}=require('./brain-display.cjs');
+const {createReaPreview}=require('./rea-preview.cjs');
 
 // A desktop click reuses the current application instead of starting another
 // frontend/backend pair and competing for Chromium's cache and loopback ports.
@@ -196,6 +197,14 @@ app.whenReady().then(async () => {
     const dataRoot = process.env.SPARK_WORKSPACE_DATA_ROOT || path.join(
         process.env.LOCALAPPDATA || path.join(require('node:os').homedir(),'.spark'),
         'SPARK','workspace');
+    const reaPreview=createReaPreview({BrowserWindow,session,root:dataRoot,recipeFile:resolveResource('backend','spark_rea_notes.html'),blueprintFile:resolveResource('backend','spark_rea_app.html')});
+    ipcMain.handle('spark:rea-preview',async(event,request)=>{
+        if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
+            throw Error('App previews require the owning SPARK cockpit.');
+        if(!request||!['test','open'].includes(request.action)||Object.keys(request).sort().join(',')!=='action,id,project')
+            throw Error('Invalid preview request.');
+        return reaPreview[request.action](request.project,request.id);
+    });
     ipcMain.handle('spark:brain-display', async event => {
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
             throw Error('Brain display requires the SPARK cockpit.');

@@ -49,6 +49,10 @@ _PLACEHOLDERS = re.compile(
 _ENTROPY_THRESHOLD = 4.0
 _ENTROPY_MIN_LEN = 32
 _LONG_LITERAL = re.compile(r"['\"]([A-Za-z0-9+/=_\-]{32,})['\"]")
+# Exact public protocol/diagnostic constants are not random credentials. This applies only
+# to the entropy heuristic; named/assigned-secret detection above stays active.
+_PUBLIC_LITERALS = frozenset({'application/x-www-form-urlencoded',
+                             'recovery_blocked_snapshot_integrity'})
 
 _UNSAFE_CALLS = {"eval": "eval", "exec": "exec"}
 
@@ -99,7 +103,8 @@ def scan_secrets(text, source="<text>"):
     for match in _LONG_LITERAL.finditer(text):
         candidate = match.group(1)
         if len(candidate) >= _ENTROPY_MIN_LEN and _entropy(candidate) >= _ENTROPY_THRESHOLD \
-                and not _PLACEHOLDERS.match(candidate) and not _looks_placeholder(candidate):
+                and not _PLACEHOLDERS.match(candidate) and not _looks_placeholder(candidate) \
+                and candidate not in _PUBLIC_LITERALS:
             findings.append({
                 "kind": "secret", "label": "high_entropy_literal", "source": source,
                 "line": text.count("\n", 0, match.start()) + 1,

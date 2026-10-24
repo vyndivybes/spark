@@ -12,6 +12,21 @@ from spark_security_scan import (
 
 
 class SecretScanTests(unittest.TestCase):
+    def test_standard_form_content_type_is_not_a_random_secret(self):
+        self.assertEqual(scan_secrets("headers = {'Content-Type': 'application/x-www-form-urlencoded'}"), [])
+
+    def test_public_recovery_code_is_not_a_secret_but_assignments_still_are(self):
+        self.assertEqual(scan_secrets('reason = "recovery_blocked_snapshot_integrity"'), [])
+        self.assertIn('assigned_secret', {h['label'] for h in scan_secrets('password = "recovery_blocked_snapshot_integrity"')})
+        self.assertIn('high_entropy_literal', {h['label'] for h in scan_secrets('reason = "recovery_blocked_snapshot_integrity_extra"')})
+
+    def test_public_literal_exception_does_not_hide_assigned_secrets_or_near_matches(self):
+        assigned = scan_secrets('password = "application/x-www-form-urlencoded"')
+        self.assertIn('assigned_secret', {hit['label'] for hit in assigned})
+        for value in ('application/x-www-form-urlencoded-extra', '9f4Aq7Zx2Lm8Pw3Rt6Yu1Io5Nb0Vc7Df'):
+            with self.subTest(value=value):
+                self.assertIn('high_entropy_literal', {hit['label'] for hit in scan_secrets('value = "' + value + '"')})
+
     def test_clean_source_has_no_findings(self):
         self.assertEqual(scan_secrets("def add(a, b):\n    return a + b\n"), [])
 

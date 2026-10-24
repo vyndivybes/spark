@@ -24,7 +24,7 @@ class VoiceProfileTests(unittest.TestCase):
         self.assertIs(select_live_config("full", full), full)
 
 
-    def test_cinematic_has_filmic_british_delivery_without_tools(self):
+    def test_default_cinematic_voice_and_insight_declarations(self):
         profile = select_live_config("cinematic", {"tools": ["unapproved"], "output_audio_transcription": {}})
         self.assertEqual(profile["response_modalities"], ["AUDIO"])
         self.assertEqual(
@@ -33,9 +33,16 @@ class VoiceProfileTests(unittest.TestCase):
         )
         self.assertIn("British", profile["system_instruction"])
         self.assertIn("SPARK", profile["system_instruction"])
-        self.assertNotIn("tools", profile)
         self.assertNotIn("output_audio_transcription", profile)
         self.assertNotIn("input_audio_transcription", profile)
+        # The only tools advertised: the bounded read-only inspection toolbox.
+        declared = [tool["name"] for tool in profile["tools"][0]["function_declarations"]]
+        self.assertEqual(declared, [
+            "get_spark_git_status", "get_spark_backend_health", "get_spark_policy",
+            "get_spark_release_history", "inspect_self", "search_source_code",
+            "read_source_file", "list_project_files"])
+        self.assertNotIn("unapproved", str(profile))
+        self.assertNotIn("google_search", str(profile))
 
     def test_unknown_profile_cannot_enable_sensitive_tools(self):
         with patch.dict("os.environ", {"SPARK_LIVE_PROFILE": "untrusted"}, clear=True):

@@ -45,6 +45,13 @@ from spark_autonomous_engine import (inspect_self, list_project_files, read_sour
                                      execute_development_command, run_upgrade_tests,
                                      diagnose_and_repair, verify_upgrade, stage_upgrade,
                                      rollback_upgrade)
+from spark_insight_tools import (git_state as insight_git_state,
+                                 backend_health as insight_backend_health,
+                                 autonomy_policy as insight_autonomy_policy,
+                                 release_summary as insight_release_summary,
+                                 search_spark_source as insight_search_source,
+                                 read_spark_source_file as insight_read_source)
+import spark_tool_trace as tool_trace
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -256,8 +263,20 @@ MCP_VOICE_TOOLS = {
         "argument": "query", "minimum": 1, "maximum": 120,
         "label": "Obsidian", "callback": "on_obsidian_search", "timeout": 30},
     "inspect_self": {
-        "argument": "prompt", "minimum": 1, "maximum": 200,
+        "argument": "prompt", "minimum": 0, "maximum": 200,
         "label": "Inspect Self", "callback": "on_inspect_self", "timeout": 30},
+    "get_spark_git_status": {
+        "argument": "", "minimum": 0, "maximum": 0,
+        "label": "Git Status", "callback": "on_get_spark_git_status", "timeout": 20},
+    "get_spark_backend_health": {
+        "argument": "", "minimum": 0, "maximum": 0,
+        "label": "Backend Health", "callback": "on_get_spark_backend_health", "timeout": 20},
+    "get_spark_policy": {
+        "argument": "", "minimum": 0, "maximum": 0,
+        "label": "Evolution Policy", "callback": "on_get_spark_policy", "timeout": 10},
+    "get_spark_release_history": {
+        "argument": "", "minimum": 0, "maximum": 0,
+        "label": "Release History", "callback": "on_get_spark_release_history", "timeout": 15},
     "list_project_files": {
         "argument": "allowed_dirs", "minimum": 0, "maximum": 10,
         "label": "List Project Files", "callback": "on_list_project_files", "timeout": 30},
@@ -422,6 +441,9 @@ class AudioLoop:
         Always returns a sentence rather than raising: the model asked for a tool
         call, so it needs a function response even when the argument is bad, the
         service is unconfigured, or the call fails.
+        choice argument is validated against its enum, an argument-less tool
+        passes an empty string, and an optional argument may be omitted by
+        the model.
         """
         if name in {"create_upgrade_branch", "write_upgrade_patch", "execute_dev_command",
                     "run_upgrade_tests", "diagnose_and_repair", "verify_upgrade",
@@ -438,9 +460,10 @@ class AudioLoop:
                 return f"{label} needs one of: {', '.join(choices)}."
             argument_value = key = value.strip().lower()
         else:
-            if not isinstance(value, str) or not spec["minimum"] <= len(value.strip()) <= spec["maximum"]:
+            text = value if isinstance(value, str) else ""
+            if not spec["minimum"] <= len(text.strip()) <= spec["maximum"]:
                 return f"Invalid {label} request."
-            argument_value = value.strip()
+            argument_value = text.strip()
             key = " ".join(argument_value.lower().split())
 
         callback = getattr(self, spec["callback"], None)
@@ -1005,22 +1028,35 @@ class AudioLoop:
         try:
             dirs = [d.strip() for d in allowed_dirs.split(",") if d.strip()] if allowed_dirs else None
             result = list_project_files(allowed_dirs=dirs)
+            # Voice-route redaction: file lists must never surface credential
+            # or cache artifacts. Content reads are refused separately
+            # (read_source_file only permits source extensions).
+            for base in list(result):
+                result[base] = [
+                    entry for entry in result[base]
+                    if Path(entry).name.startswith(".") is False
+                    and not entry.lower().endswith(".pyc")
+                    and "spark.local.json" not in entry.lower()
+                    and "settings.json" not in entry.lower()
+                ]
             return json.dumps(result, indent=2)
         except Exception as e:
             return f"list_project_files error: {e}"
 
     async def on_read_source_file(self, file_path: str = "") -> str:
         try:
-            content, error = read_source_file(file_path)
-            if error:
-                return f"read_source_file error: {error}"
-            return f"--- {file_path} ---" + chr(10) + content
+            result = insight_read_source(file_path)
+            if result.get("status") == "not_found":
+                return f"not_found: {result.get('message', 'file not found')}"
+            if result.get("status") != "ok":
+                return f"unavailable: {result.get('message', 'read failed')}"
+            return f"--- {file_path} ---" + chr(10) + result["content"]
         except Exception as e:
             return f"read_source_file error: {e}"
 
     async def on_search_source_code(self, pattern: str = "") -> str:
         try:
-            result = search_source_code(pattern)
+            result = insight_search_source(pattern)
             return json.dumps(result, indent=2)
         except Exception as e:
             return f"search_source_code error: {e}"
@@ -1031,6 +1067,31 @@ class AudioLoop:
             return json.dumps(result, indent=2)
         except Exception as e:
             return f"inspect_github_repo error: {e}"
+
+    # --- Read-only SPARK self-inspection tools (spark_insight_tools) ---
+    async def on_get_spark_git_status(self, _argument: str = "") -> str:
+        try:
+            return json.dumps(insight_git_state(), indent=2)
+        except Exception as e:
+            return f"get_spark_git_status error: {e}"
+
+    async def on_get_spark_backend_health(self, _argument: str = "") -> str:
+        try:
+            return json.dumps(insight_backend_health(), indent=2)
+        except Exception as e:
+            return f"get_spark_backend_health error: {e}"
+
+    async def on_get_spark_policy(self, _argument: str = "") -> str:
+        try:
+            return json.dumps(insight_autonomy_policy(), indent=2)
+        except Exception as e:
+            return f"get_spark_policy error: {e}"
+
+    async def on_get_spark_release_history(self, _argument: str = "") -> str:
+        try:
+            return json.dumps(insight_release_summary(), indent=2)
+        except Exception as e:
+            return f"get_spark_release_history error: {e}"
 
     async def on_create_upgrade_branch(self, branch_name: str = "") -> str:
         try:
@@ -1236,8 +1297,14 @@ class AudioLoop:
                     # 3. Handle Tool Calls
                     if response.tool_call:
                         print("[SPARK] Gemini requested: " + ", ".join(str(getattr(fc, "name", "unknown")) for fc in (response.tool_call.function_calls or [])))
+                        _trace_session = getattr(self, "trace_session", "")
                         function_responses = []
                         for fc in response.tool_call.function_calls:
+                            tool_trace.record(
+                                "tool_call_received", route="gemini_live",
+                                tool=getattr(fc, "name", "unknown"),
+                                call_id=getattr(fc, "id", ""), session=_trace_session,
+                                outcome="received")
                             if fc.name in WEB_NAMES:
                                 arguments = dict(fc.args or {})
                                 if self.on_workspace_action:
@@ -1289,6 +1356,10 @@ class AudioLoop:
                             # Enforce the configured provider tool boundary on
                             # execution; never trust a model-provided name.
                             if not allowed_live_tool(live_profile(), fc.name):
+                                tool_trace.record(
+                                    "dispatch_denied", route="gemini_live",
+                                    tool=fc.name, call_id=fc.id,
+                                    session=_trace_session, outcome="not_allowed")
                                 function_responses.append(types.FunctionResponse(
                                     id=fc.id, name=fc.name,
                                     response={"result": "Tool unavailable in the current SPARK voice profile."}
@@ -1315,6 +1386,11 @@ class AudioLoop:
                                     # this turn: the tool response is authoritative.
                                     self._graphify_tool_used = True
                                 answer = await self.answer_mcp_tool(fc.name, fc.args)
+                                tool_trace.record(
+                                    "tool_executed", route="gemini_live",
+                                    tool=fc.name, call_id=fc.id,
+                                    session=_trace_session, outcome="ok",
+                                    detail=f"answer_len={len(answer)}")
                                 function_responses.append(types.FunctionResponse(
                                     id=fc.id, name=fc.name,
                                     response={"result": answer}
@@ -1744,7 +1820,19 @@ class AudioLoop:
                                     )
                                     function_responses.append(function_response)
                         if function_responses:
-                            await self.session.send_tool_response(function_responses=function_responses)
+                            try:
+                                await self.session.send_tool_response(
+                                    function_responses=function_responses)
+                                tool_trace.record(
+                                    "responses_delivered", route="gemini_live",
+                                    tool=",".join(sorted({fr.name for fr in function_responses}))[:120],
+                                    call_id=str(len(function_responses)),
+                                    session=_trace_session, outcome="ok")
+                            except Exception as send_error:
+                                tool_trace.record(
+                                    "responses_delivered", route="gemini_live",
+                                    session=_trace_session, outcome="error",
+                                    detail=f"delivery_failed={type(send_error).__name__}")
                 
                 # The model turn has ended; release mic only after local
                 # output playback drains, plus a short acoustic cooldown.

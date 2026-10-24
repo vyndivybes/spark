@@ -24,6 +24,28 @@ def validate_schema_references(schema,depth=0):
             validate_schema_references(value,depth+1)
 
 
+async def call_sequence(session, tools, calls):
+    """Validate the entire host-selected sequence before changing active targets."""
+    from jsonschema import Draft202012Validator
+    if not isinstance(calls,list) or not 1 <= len(calls) <= 3:
+        raise ReaError('Use a bounded REA analysis sequence.')
+    for call in calls:
+        if not isinstance(call,dict) or set(call)!={'name','arguments'} or call['name'] not in tools or not isinstance(call['arguments'],dict):
+            raise ReaError('Invalid REA analysis sequence.')
+        schema=tools[call['name']]['inputSchema']
+        validate_schema_references(schema)
+        Draft202012Validator.check_schema(schema)
+        if list(Draft202012Validator(schema).iter_errors(call['arguments'])):
+            raise ReaError('Sequence arguments do not match the installed schema.')
+    results=[]
+    for call in calls:
+        result=(await session.call_tool(call['name'],call['arguments'])).model_dump(by_alias=True,exclude_none=True)
+        if result.get('isError'):raise ReaError('REA analysis step failed; no completed teardown is claimed.')
+        results.append(result)
+        if len(json.dumps(results).encode())>4_000_000:raise ReaError('REA analysis exceeds 4 MB.')
+    return {'content':[{'type':'text','text':json.dumps({'steps':results},ensure_ascii=False)}]}
+
+
 class ReaClient:
     def __init__(self, command=None, args=None, env=None, *, url=None, headers=None):
         self.queue = asyncio.Queue(maxsize=8)
@@ -108,6 +130,9 @@ class ReaClient:
                                 tools = discovered
                             if action == "rea_discover":
                                 value = list(tools.values())
+                            elif action == 'rea_sequence':
+                                # The single queue item owns every step; manual calls cannot interleave targets.
+                                value = await call_sequence(session, tools, payload.get('calls'))
                             elif action == "rea_call":
                                 name, arguments = payload.get("name"), payload.get("arguments")
                                 if name not in tools or not isinstance(arguments, dict):

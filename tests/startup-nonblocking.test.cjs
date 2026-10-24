@@ -23,6 +23,7 @@ async function startup(source) {
         './whatsapp-window.cjs':{createWhatsAppWindow:()=>({open:async()=>null,status:()=>null,readChats:async()=>[],close(){}})},
         './workspace-auth.cjs':{trustedWorkspaceSender:()=>false},
         './rea-evidence.cjs':{},
+        './rea-preview.cjs':require('../electron/rea-preview.cjs'),
         './brain-display.cjs':{readBrainDisplay:async()=>({nodes:[],edges:[]})},
         net:{createServer:()=>{const server=new EventEmitter();server.listen=()=>{queueMicrotask(()=>server.emit('listening'));};server.close=()=>{};return server;}},
         http:{get:()=>{const req=new EventEmitter();req.setTimeout=()=>{};queueMicrotask(()=>req.emit('error',Error('Offline')));return req;}},

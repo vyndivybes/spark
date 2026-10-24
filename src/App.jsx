@@ -1,3 +1,4 @@
+import ReaWorkflowBridge from './components/ReaWorkflowBridge';
 import React, { useEffect, useState, useRef } from 'react';
 import {createPortal} from 'react-dom';
 import socket from './sparkSocket.mjs';
@@ -1943,6 +1944,7 @@ function App() {
                 messages={messages} muted={isMuted} onCockpit={() => setShowWorkspace(false)}
                 onSettings={() => {setShowWorkspace(false); setShowSettings(true);}} onExperiences={() => setShowExperiences(true)}
                 onRefresh={() => socket.emit('get_diagnostics')}/>}
+            <ReaWorkflowBridge socket={socket}/>
             <ReminderToast socket={socket} project={currentProject}
                 enabled={isConnected && isAuthenticated && liveState.state === 'connected'} />
 

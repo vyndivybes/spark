@@ -41,8 +41,9 @@ class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
             self.contexts.append(context)
             if 'spark_sources' in context:
                 original = context['spark_sources'][0]
-                return {'changes': [{**original, 'content': 'def calculate(x):\n    return x * 2\n',
-                                     'path': 'backend/server.py' if self.bad_patch else original['path']}]}
+                return {'patches': [{'path': 'backend/server.py' if self.bad_patch else original['path'],
+                                    'sha256': original['sha256'],
+                                    'edits': [{'old': 'return x', 'new': 'return x * 2'}]}]}
             return {'summary': 'The sample suggests doubling calculations.', 'opportunities': [{
                 'title': 'Double the result', 'rationale': 'The sampled function doubles the input.',
                 'evidence': ['missing.py' if self.bad_evidence else 'cache.py'],

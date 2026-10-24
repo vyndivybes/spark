@@ -51,6 +51,8 @@ import signal
 import time
 from spark_diagnostics import safe_diagnostics
 from spark_host_vitals import collect_host_vitals
+from spark_pc_optimizer import PcOptimizer
+pc_optimizer = PcOptimizer()
 from spark_google_briefing_voice import spoken_briefing
 from spark_workspace import SparkWorkspace, WorkspaceError
 from spark_evolution import Evolution, ACTION_KEYS as EVOLUTION_ACTIONS
@@ -166,6 +168,37 @@ _VOICE_WORKSPACE_SCREENS = frozenset({
 })
 
 
+async def rea_voice_result(sid, project, command):
+    """Called only after the existing active-owner/session guard."""
+    action, payload = command['action'], command['payload']
+    payload=dict(payload)
+    if payload.get('id')=='latest':
+        reports=await spark_evolution.execute('rea_workflow_list',project,{})
+        if not reports:return 'No saved REA reports in this project.'
+        payload['id']=reports[0]['id']
+
+    try:
+        if action == 'rea_workflow_preview':
+            result = await sio.call('rea_workflow_preview', {**payload, 'project': project}, to=sid, timeout=45)
+            return str(result.get('message', 'Preview completed.')) if isinstance(result, dict) else 'Preview did not return a result.'
+        if action == 'rea_workflow_voice_section':
+            result = await spark_evolution.execute('rea_workflow_section', project,
+                {'id': payload['id'], 'section': payload['section']})
+            part = payload['part']
+            if part >= len(result['chunks']): return 'That report section has no such part.'
+            return result['chunks'][part] + f" Part {part+1} of {len(result['chunks'])}."
+        result = await spark_evolution.execute(action, project, payload)
+        if action == 'rea_workflow_analyze':
+            return 'REA teardown saved as report ' + result['id'] + '. Analysis coverage and limitations are in the report.'
+        if action == 'rea_workflow_list':
+            return ('Saved REA reports: ' + '; '.join(r['title'] + ' ID ' + r['id'] for r in result[:4])) if result else 'No saved REA reports in this project.'
+        return 'Original notes app staged for report ' + result['id'] + '. Run its hidden browser test before opening.'
+    except (MaintenanceError, ReaError, OSError, ValueError):
+        return 'REA workflow could not complete. Check the saved report and target in Recovery and REA.'
+    except Exception:
+        return 'The desktop preview did not respond. No successful test or launch is claimed.'
+
+
 async def voice_workspace_action(sid, name, arguments, utterance):
     """Run the small, project-bound workspace surface exposed to voice."""
     if (audio_loop is None
@@ -179,6 +212,15 @@ async def voice_workspace_action(sid, name, arguments, utterance):
         return {'ok': False, 'error': 'Invalid workspace arguments.'}
     project = workspace_project_by_sid.get(sid, 'default')
     try:
+        if name == 'rea_workflow_command':
+            from spark_rea_voice import parse_rea_command
+            if set(arguments) != {'command'}:
+                return {'ok': False, 'error': 'Use an exact REA workflow command.'}
+            selected = parse_rea_command(arguments['command'])
+            requested = parse_rea_command(re.sub(r'^(?:spark|jarvis),?\s+', '', utterance.strip().rstrip('.?!'), flags=re.I)) if isinstance(utterance,str) else None
+            if not selected or selected != requested:
+                return {'ok': False, 'error': 'Name the exact saved report and requested operation yourself.'}
+            return {'ok': True, 'text': await rea_voice_result(sid, project, selected)}
         if name == 'morning_digest':
             if arguments:
                 return {'ok': False, 'error': 'Morning Digest playback takes no arguments.'}
@@ -643,6 +685,32 @@ async def get_diagnostics(sid):
 
 
 @sio.event
+async def pc_optimizer_action(sid, data):
+    if not isinstance(data, dict):
+        return
+    request_id = data.get('request_id')
+    if not isinstance(request_id, str) or len(request_id) > 64:
+        return
+    try:
+        if not workspace_access_allowed(data.get('workspace_token'), os.environ.get('SPARK_WORKSPACE_TOKEN'),
+                face_required=SETTINGS.get('face_auth_enabled', False),
+                face_authenticated=bool(authenticator and authenticator.authenticated)):
+            raise ValueError('Reconnect the Spark desktop workspace and unlock face lock if enabled.')
+        if data.get('action') == 'scan':
+            result = await asyncio.to_thread(pc_optimizer.scan)
+        elif data.get('action') == 'cleanup':
+            result = await asyncio.to_thread(pc_optimizer.cleanup, data.get('payload'))
+        else:
+            raise ValueError('Unknown PC optimisation action.')
+        response = {'request_id': request_id, 'ok': True, 'result': result}
+    except ValueError as error:
+        response = {'request_id': request_id, 'ok': False, 'message': str(error)}
+    except Exception:
+        response = {'request_id': request_id, 'ok': False, 'message': 'PC optimisation unavailable. Temporary folder access may be restricted.'}
+    await sio.emit('pc_optimizer_result', response, room=sid)
+
+
+@sio.event
 async def get_telegram_status(sid):
     """Read-only Telegram health for the owner cockpit; token excluded."""
     await sio.emit('telegram_status', _telegram_status_payload(), room=sid)
@@ -680,6 +748,8 @@ async def workspace_action(sid, data):
         'test_python_tool','activate_python_tool','run_python_tool','deactivate_python_tool',
         'list_code_skills','generate_code_skill','propose_code_skill','test_code_skill',
         'activate_code_skill','run_code_skill','deactivate_code_skill',
+        'rea_workflow_status','rea_workflow_blueprint','rea_workflow_generate',
+        'rea_workflow_list','rea_workflow_read','rea_workflow_section','rea_workflow_build','rea_workflow_index',
         'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit',
     )) | CAPABILITY_READ_ONLY_ACTIONS
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
@@ -715,6 +785,11 @@ async def workspace_action(sid, data):
             phases={'generate_python_tool':'generating','repair_python_tool':'repairing','test_python_tool':'testing','activate_python_tool':'registering','run_python_tool':'running'}
             if action in phases:await sio.emit('generated_tool_progress',{'phase':phases[action],'name':action.replace('_',' '),'project':project},room=sid)
             result = await spark_evolution.execute(action, project, payload)
+            if action == 'rea_workflow_speak':
+                if getattr(audio_loop, 'provider', None) != 'groq' or not callable(getattr(audio_loop, '_speak_browser', None)):
+                    raise MaintenanceError('Connect local Windows speech in Groq mode for quota-free report narration.')
+                await audio_loop._speak_browser(result['text'])
+                result = {'id': result['id'], 'state': 'narration submitted', 'section': result['section']}
             if action in phases:
                 phase='completed' if action=='run_python_tool' else 'registered' if action=='activate_python_tool' else 'generated' if action in ('generate_python_tool','repair_python_tool') else result.get('status','completed')
                 await sio.emit('generated_tool_progress',{'phase':phase,'name':result.get('name','Python tool'),'project':project},room=sid)
@@ -874,6 +949,9 @@ async def start_groq_audio(sid, data=None):
             return "Authenticate to SPARK before using saved preferences, reminders or knowledge lookups."
         project = workspace_project_by_sid.get(sid, "default")
         try:
+
+            if command.get('action', '').startswith('rea_workflow_'):
+                return await rea_voice_result(sid, project, command)
 
             # MCP-backed intents share one authorization and transport path with
             # the Gemini Live tools, so the Groq loop cannot end up carrying a
@@ -1194,6 +1272,7 @@ async def start_audio(sid, data=None):
         session_loop = audio_loop
 
         audio_loop.owner_sid = sid  # Approval ownership even in native fallback.
+        audio_loop.trace_session = str(sid)[:20]  # Redacted tool-trace correlation.
         audio_loop.pc_access = session_pc_access(sid, data)
         audio_loop.jarvis_access = session_jarvis_access(sid, data)
         audio_loop.generated_tools = session_generated_tools(sid)
@@ -1483,7 +1562,19 @@ async def user_input(sid, data):
         return
     text = data.get('text')
     print(f"[SPARK] Received typed input ({len(text or '')} characters)")
-    
+    from spark_tool_trace import record as tool_trace_record
+    if text and getattr(audio_loop, "provider", None) == "groq":
+        tool_trace_record("typed_input", route="groq_engine", session=str(sid)[:20],
+                          outcome="text_engine_no_provider_tools",
+                          detail=f"text_chars={len(text)}")
+    elif text:
+        tool_trace_record("typed_input", route="gemini_live", session=str(sid)[:20],
+                          outcome="routed_to_live_session",
+                          detail=f"text_chars={len(text)}")
+    else:
+        tool_trace_record("typed_input", route="gemini_live", session=str(sid)[:20],
+                          outcome="empty_text")
+
     if not audio_loop:
         await sio.emit('error', {'msg': 'SPARK Core unavailable. Configure Gemini and reconnect.'}, room=sid)
         return
@@ -1534,6 +1625,8 @@ async def user_input(sid, data):
                     video=spark.types.Blob(data=frame, mime_type="image/jpeg"))
             await audio_loop.session.send_client_content(
                 turns={"role": "user", "parts": [{"text": memory}, {"text": text}] if memory else [{"text": text}]}, turn_complete=True)
+            tool_trace_record("typed_turn_sent", route="gemini_live",
+                              session=str(sid)[:20], outcome="ok")
         except Exception:
             await sio.emit('error', {
                 'msg': 'Could not send text to Gemini Live. The session may have closed.'}, room=sid)

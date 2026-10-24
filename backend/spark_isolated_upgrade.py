@@ -344,7 +344,9 @@ class IsolatedUpgradeManager:
                 findings.append({"path": "backend/" + source.name, "error": str(error)[:180]})
                 continue
             for hit in scan_secrets(text, "backend/" + source.name):
-                findings.append({"path": "backend/" + source.name, "error": hit[:180]})
+                findings.append({"path": "backend/" + source.name,
+                                 "error": "Credential scan finding: " + str(hit.get('label', 'unknown'))[:80],
+                                 "line": hit.get('line')})
         tests_run, returncode, tail = False, None, ""
         if workspace.manifest["tests"]:
             try:

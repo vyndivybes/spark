@@ -16,7 +16,7 @@ SPARK's **Improve SPARK → Self-Evolution and REA** offers a persisted, revocab
 - Read local Python syntax and discover the connected REA MCP tool catalog.
 - Without a queued goal, attempt to repair **one eligible Python syntax error** using existing `heal_sources → test_repair_candidate → activate_repair_candidate` gates, if model-source permission is granted.
 - With a queued goal and no syntax errors, select **one** eligible existing SPARK backend module by matching the goal to its filename, analyze that module through the existing repository intelligence engine, accept only a **single-file** opportunity, and use the existing staging, regression tests, security scan, rollback journal and post-activation verification.
-- Limit checks to once per 60 minutes and automatic successful upgrades to one per UTC day.
+- Check frequency and daily live-promotion cap follow the persisted background limits. A cap of zero allows successive success-gated promotions without a daily ceiling; a cap of one permits one per UTC day.
 - Maintain project-specific SAEE attempt records. Decline changes to authorization, recovery, integration, and security modules.
 - Roll back if the post-activation regression gate fails; disable autonomy after rollback.
 

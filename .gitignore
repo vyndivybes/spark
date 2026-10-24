@@ -38,6 +38,7 @@ public/spark.ico
 public/spark.png
 
 # IDE
+.codex/
 .vscode/
 .idea/
 

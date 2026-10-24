@@ -1,8 +1,10 @@
 """Minimal Gemini Live function-call policy for SPARK's opt-in cinematic tools.
 
-The default 'cinematic' profile remains tool-free. Only explicit
-'cinematic_tools' sessions advertise these exact synchronous declarations.
-Authorization is enforced again on execution, regardless of Gemini output.
+The default 'cinematic' profile advertises only the read-only SPARK
+self-inspection list (INSIGHT_DECLARATIONS below) - every other capability
+stays closed. Only explicit 'cinematic_tools' sessions additionally advertise
+these exact synchronous declarations. Authorization is enforced again on
+execution, regardless of Gemini output.
 
 Graphiti and Hermes declarations are advertised only when the launcher enabled
 that service, and only through live_function_declarations(); see below.
@@ -10,6 +12,109 @@ that service, and only through live_function_declarations(); see below.
 import datetime
 import os
 import platform
+
+# Read-only SPARK self-inspection: version/Git state, backend health,
+# evolution policy, release evidence and bounded source search/read. These
+# are the only functions a plain cinematic session may call; each executes
+# through answer_mcp_tool()'s argument budget/cache/timeout path in spark.py.
+INSIGHT_DECLARATIONS = [
+    {
+        "name": "get_spark_git_status",
+        "description": (
+            "Report SPARK's actual Git state: HEAD commit, branch, last commit "
+            "and the working-tree changed files. Use this before claiming "
+            "anything about the repository or the active release. Read-only."
+        )
+    },
+    {
+        "name": "get_spark_backend_health",
+        "description": (
+            "Report SPARK's actual backend health from its status endpoints: "
+            "AI provider, live session state, audio transport, hands-free "
+            "state and channel states. Read-only."
+        )
+    },
+    {
+        "name": "get_spark_policy",
+        "description": (
+            "Report SPARK's actual evolution/autonomy policy settings "
+            "(enabled, model source, daily limits, interval). Read-only."
+        )
+    },
+    {
+        "name": "get_spark_release_history",
+        "description": (
+            "List recent controlled SPARK releases from the local release "
+            "store with their statuses, files and integrity hashes. Use this "
+            "for any question about releases, upgrades or test evidence. "
+            "Read-only."
+        )
+    },
+    {
+        "name": "inspect_self",
+        "description": (
+            "Report SPARK's runtime self-inspection: Python version, project "
+            "location and available tool families. Read-only."
+        )
+    },
+    {
+        "name": "search_source_code",
+        "description": (
+            "Search SPARK's source code for a regular expression and return "
+            "file, line number and text. Use this to check whether a symbol "
+            "actually exists before claiming it does not. Read-only."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "pattern": {
+                    "type": "STRING",
+                    "description": "Regular expression to search for in SPARK source"
+                }
+            },
+            "required": ["pattern"]
+        }
+    },
+    {
+        "name": "read_source_file",
+        "description": (
+            "Read one existing SPARK source file under backend, src, scripts "
+            "or tests, e.g. backend/spark_echo_gate.py. Quote only what it "
+            "returns; if it reports file-not-found, say so plainly. Read-only."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "file_path": {
+                    "type": "STRING",
+                    "description": "Source-relative path under one allowed base, e.g. spark_echo_gate.py"
+                }
+            },
+            "required": ["file_path"]
+        }
+    },
+    {
+        "name": "list_project_files",
+        "description": (
+            "List file names in SPARK's bounded project source directories. "
+            "Read-only."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "allowed_dirs": {
+                    "type": "STRING",
+                    "description": "Optional comma-separated source directories (defaults to all allowed)"
+                }
+            }
+        }
+    },
+]
+INSIGHT_TOOL_NAMES = frozenset(x["name"] for x in INSIGHT_DECLARATIONS)
+
+def insight_function_declarations():
+    """The exact read-only inspection declarations advertised to Gemini Live."""
+    return list(INSIGHT_DECLARATIONS)
 
 CINEMATIC_FUNCTIONS = [
     {
@@ -214,7 +319,13 @@ def live_integration_summary():
 
 
 def allowed_live_tool(profile, name):
-    if profile in ("cinematic_tools", "cinematic_search"):
+    if profile in ("cinematic", "cinematic_tools", "cinematic_search"):
+        # The read-only self-inspection list is permitted in every cinematic
+        # profile; everything else stays profile-fail-closed as before.
+        if name in INSIGHT_TOOL_NAMES:
+            return True
+        if profile == "cinematic":
+            return False
         if name in _ALLOWED:
             return True
         enabled = enabled_integrations()

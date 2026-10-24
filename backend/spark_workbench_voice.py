@@ -10,6 +10,10 @@ def parse_workbench_command(value, now=None):
     value = re.sub(r"^spark,?\s+", "", value, flags=re.I)
 
     utterance = re.sub(r"^(?:jarvis|spark),?\s+", "", value, flags=re.I)
+    from spark_rea_voice import parse_rea_command
+    rea_command = parse_rea_command(utterance)
+    if rea_command:
+        return rea_command
     # Explicit natural-language read-only executive briefing intents.
     # No model may invent an email or calendar item without this source read.
     if re.fullmatch(
