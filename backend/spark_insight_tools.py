@@ -266,7 +266,21 @@ def read_spark_source_file(file_path, base="backend"):
     content, error = read_source_file(str(file_path), base=base)
     if error is None:
         return {"status": "ok", "file_path": str(file_path), "content": content}
+    # If file not found, try stripping a leading base segment if present
     if error.startswith("file not found:"):
-        return {"status": "not_found",
-                "message": _clip(error), "file_path": str(file_path)}
+        # Determine if the original path starts with the base followed by a separator
+        sep_candidates = ['/', '\\']
+        for sep in sep_candidates:
+            prefix = f"{base}{sep}"
+            if str(file_path).startswith(prefix):
+                # Retry with the remaining part of the path
+                retry_path = str(file_path)[len(prefix):]
+                content, retry_error = read_source_file(retry_path, base=base)
+                if retry_error is None:
+                    return {"status": "ok", "file_path": str(file_path), "content": content}
+                if retry_error.startswith("file not found:"):
+                    return {"status": "not_found", "message": _clip(retry_error), "file_path": str(file_path)}
+                return _unavailable(_clip(retry_error))
+        # No matching prefix, return original not_found
+        return {"status": "not_found", "message": _clip(error), "file_path": str(file_path)}
     return _unavailable(_clip(error))
