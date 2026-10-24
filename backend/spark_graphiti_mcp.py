@@ -12,8 +12,10 @@ This process reads SPARK's own SQLite stores in read-only mode and writes only
 to its own Kuzu database and ingest manifest. It never mutates SPARK state.
 """
 import argparse
+import asyncio
 import hashlib
 import importlib.util
+import json
 import os
 import re
 import sqlite3
@@ -33,12 +35,177 @@ MAX_FACT_CHARS = 600
 MAX_QUERY_CHARS = 400
 MAX_ENTITY_CHARS = 120
 MAX_GROUP_EDGES = 400
-GRAPH_BUFFER_BYTES = 128 * 1024 * 1024
+GRAPH_BUFFER_BYTES = 256 * 1024 * 1024
 PROJECT = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
 
 
 class GraphitiUnavailable(RuntimeError):
     """Raised for any condition the caller should report as a plain sentence."""
+
+
+class GraphitiRateLimited(GraphitiUnavailable):
+    """Stop the batch at the first provider quota response."""
+
+
+def strict_schema(schema):
+    """Copy a Pydantic schema into Groq's closed, required-field form."""
+    if isinstance(schema, list):
+        return [strict_schema(value) for value in schema]
+    if not isinstance(schema, dict):
+        return schema
+    result = {key:strict_schema(value) for key,value in schema.items() if key != 'default'}
+    if result.get('type') == 'object' and 'properties' in result:
+        result['additionalProperties'] = False
+        result['required'] = list(result['properties'])
+    return result
+
+
+def structured_groq_client(config, cache_path=None):
+    """Keep Graphiti's LLM interface, enforcing response values at the API boundary."""
+    import groq
+    from graphiti_core.llm_client.groq_client import GroqClient
+
+    class StructuredGroqClient(GroqClient):
+        def __init__(self, config):
+            super().__init__(config=config)
+            self.request_lock = asyncio.Lock()
+            self.next_request = 0
+            if cache_path is not None:
+                db = sqlite3.connect(cache_path)
+                try:
+                    with db:
+                        db.execute('CREATE TABLE IF NOT EXISTS responses(key TEXT PRIMARY KEY,body TEXT)')
+                finally:
+                    db.close()
+
+        async def _generate_response(self, messages, response_model=None, max_tokens=None,
+                                     model_size=None, *, model=None):
+            key = hashlib.sha256(json.dumps([model or self.model,
+                [(message.role,message.content) for message in messages],
+                response_model.model_json_schema() if response_model else None],sort_keys=True).encode()).hexdigest()
+            async with self.request_lock:
+                if cache_path is not None:
+                    db = sqlite3.connect(cache_path)
+                    try:
+                        row = db.execute('SELECT body FROM responses WHERE key=?',(key,)).fetchone()
+                    finally:
+                        db.close()
+                    if row:
+                        return json.loads(row[0])
+                await asyncio.sleep(max(0,self.next_request-time.monotonic()))
+                value = await self._request_response(messages,response_model,max_tokens,model=model)
+                if cache_path is not None:
+                    db = sqlite3.connect(cache_path)
+                    try:
+                        with db:
+                            db.execute('INSERT OR REPLACE INTO responses VALUES(?,?)',(key,json.dumps(value)))
+                    finally:
+                        db.close()
+                return value
+
+        async def _request_response(self, messages, response_model=None, max_tokens=None, *, model=None):
+            selected = model or self.model
+            options = {}
+            response_format = {'type':'json_object'}
+            if selected in ('openai/gpt-oss-20b', 'openai/gpt-oss-120b'):
+                options = {'reasoning_effort':'low', 'reasoning_format':'hidden'}
+                if response_model is not None:
+                    response_format = {'type':'json_schema', 'json_schema':{
+                        'name':response_model.__name__, 'strict':True,
+                        'schema':strict_schema(response_model.model_json_schema())}}
+            for attempt in range(2):
+                try:
+                    response = await self.client.with_options(timeout=30, max_retries=0).chat.completions.create(
+                    model=selected,
+                    messages=[{'role':message.role, 'content':message.content} for message in messages],
+                    temperature=0, max_completion_tokens=min(max_tokens or self.max_tokens, 4096),
+                        response_format=response_format, **options)
+                    break
+                except groq.BadRequestError as error:
+                    details = error.body.get('error', {}) if isinstance(error.body, dict) else {}
+                    raw = details.get('failed_generation') if isinstance(details, dict) else None
+                    # Groq can reject an otherwise complete values object for an
+                    # extra schema keyword. Recover only actual model fields that
+                    # independently pass Pydantic validation, never a schema copy.
+                    if response_model is not None and raw and details.get('code') == 'json_validate_failed':
+                        try:
+                            generated = json.loads(raw)
+                            if not isinstance(generated,dict) or not set(generated).intersection(response_model.model_fields):
+                                raise ValueError('No response values.')
+                            validated = response_model.model_validate(generated).model_dump(mode='json')
+                        except (ValueError, TypeError):
+                            raise GraphitiUnavailable('Groq returned invalid extraction values.') from None
+                        self.next_request = time.monotonic()+(sum(len(message.content) for message in messages)+len(raw))/4*60/7000
+                        return validated
+                    raise GraphitiUnavailable('Groq rejected the structured extraction request.') from None
+                except groq.RateLimitError as error:
+                    details = error.body.get('error', {}) if isinstance(error.body, dict) else {}
+                    message = details.get('message', '') if isinstance(details, dict) else ''
+                    delay = re.search(r'Please try again in ([0-9.]+)s',message)
+                    if not attempt and delay and float(delay[1]) <= 60:
+                        await asyncio.sleep(float(delay[1])+1)
+                        continue
+                    numbers = re.findall(r'(?:Limit|Requested|Used)\s*[:=]?\s*[\d,.]+|(?:tokens per minute|tokens per day)|Please try again in [\d.hms ]+', message, re.I)
+                    raise GraphitiRateLimited('Groq extraction rate limit reached. ' + '; '.join(numbers)) from None
+                except groq.APITimeoutError:
+                    raise GraphitiUnavailable('Groq extraction request timed out.') from None
+            usage = getattr(response,'usage',None)
+            tokens = getattr(usage,'total_tokens',0) or 1000
+            self.next_request = time.monotonic()+tokens*60/7000
+            value = json.loads(response.choices[0].message.content or '{}')
+            if response_model is not None:
+                response_model.model_validate(value)
+            return value
+
+    return StructuredGroqClient(config=config)
+
+
+def paced_gemini_embedder(config, cache_path):
+    """Reuse embeddings and stay below the provider's 100 requests/minute tier."""
+    from graphiti_core.embedder.gemini import GeminiEmbedder
+    from google.genai.errors import ClientError
+
+    class PacedGeminiEmbedder(GeminiEmbedder):
+        def __init__(self):
+            super().__init__(config=config)
+            self.request_lock = asyncio.Lock()
+            self.next_request = 0
+            db = sqlite3.connect(cache_path)
+            try:
+                with db:
+                    db.execute('CREATE TABLE IF NOT EXISTS embeddings(key TEXT PRIMARY KEY,body TEXT)')
+            finally:
+                db.close()
+
+        async def create(self, input_data):
+            key = hashlib.sha256(json.dumps([config.embedding_model, config.embedding_dim, input_data], sort_keys=True).encode()).hexdigest()
+            async with self.request_lock:
+                db = sqlite3.connect(cache_path)
+                try:
+                    row = db.execute('SELECT body FROM embeddings WHERE key=?',(key,)).fetchone()
+                    if row:
+                        return json.loads(row[0])
+                    for attempt in range(2):
+                        await asyncio.sleep(max(0, self.next_request-time.monotonic()))
+                        self.next_request = time.monotonic()+.8
+                        try:
+                            vector = await super().create(input_data)
+                            break
+                        except ClientError as error:
+                            delay = re.search(r'Please retry in ([0-9.]+)s', str(error))
+                            if error.code != 429 or attempt or not delay or float(delay[1]) > 60:
+                                raise GraphitiUnavailable('Gemini embeddings unavailable; provider quota or request failed.') from None
+                            self.next_request = time.monotonic()+float(delay[1])+1
+                    with db:
+                        db.execute('INSERT OR REPLACE INTO embeddings VALUES(?,?)',(key,json.dumps(vector)))
+                    return vector
+                finally:
+                    db.close()
+
+        async def create_batch(self, input_data_list):
+            return [await self.create([item]) for item in input_data_list]
+
+    return PacedGeminiEmbedder()
 
 
 def bounded_kuzu_driver(path):
@@ -133,8 +300,8 @@ class TemporalGraph:
         await self._ensure_indices(driver, get_range_indices(GraphProvider.KUZU) + get_fulltext_indices(GraphProvider.KUZU))
         self._graphiti = Graphiti(
             graph_driver=driver,
-            llm_client=GroqClient(config=LLMConfig(api_key=groq_key, model=self.llm_model, max_tokens=2048)),
-            embedder=GeminiEmbedder(config=GeminiEmbedderConfig(api_key=gemini_key, embedding_model='gemini-embedding-001')),
+            llm_client=structured_groq_client(LLMConfig(api_key=groq_key, model=self.llm_model, max_tokens=8192), self.directory/'extraction-cache.sqlite3'),
+            embedder=paced_gemini_embedder(GeminiEmbedderConfig(api_key=gemini_key, embedding_model='gemini-embedding-001'), self.directory/'embeddings.sqlite3'),
             cross_encoder=GeminiRerankerClient(config=LLMConfig(api_key=gemini_key)),
         )
         self._driver = driver
@@ -194,42 +361,84 @@ class TemporalGraph:
                     continue
                 when = _epoch(uploaded)
                 found.append((f'document:{record_id}', f'[{title}] {body[:MAX_BODY]}', when, record_id))
+        bridge = _read_only(self.workspace/'knowledge-bridge'/'episodes.sqlite3')
+        if bridge is not None:
+            try:
+                rows = bridge.execute('SELECT record_id,body,created FROM episodes WHERE project=? ORDER BY created', (project,)).fetchall()
+            finally:
+                bridge.close()
+            for record_id, body, created in rows:
+                if record_id not in already:
+                    found.append((record_id, body, created, record_id))
         found.sort(key=lambda item: _epoch(item[2]))
         return found[:limit]
 
-    async def refresh(self, project):
+    async def refresh(self, project, *, time_limit_seconds=120, combined_extraction=False):
         project = _project(project)
         graphiti = await self._client()
         from graphiti_core.nodes import EpisodeType
         pending = self._pending(project, MAX_EPISODES_PER_REFRESH)
         ingested, failures = 0, 0
+        errors = []
+        deadline = time.monotonic() + time_limit_seconds
+        timed_out = False
         for source_id, body, when, record_id in pending:
+            remaining_seconds = deadline - time.monotonic()
+            if remaining_seconds <= 0:
+                timed_out = True
+                break
             try:
                 # graphiti-core 0.31.1: add_episode(uuid=...) is documented as
                 # "optional uuid of the episode" but is implemented as a lookup of
                 # an EXISTING episode, so a caller-supplied uuid for a new record
                 # always raises NodeNotFoundError. Idempotency comes from the
                 # ingest manifest instead, which is written on success below.
-                result = await self._await(graphiti.add_episode(
+                if combined_extraction:
+                    from graphiti_core.utils.bulk_utils import RawEpisode
+                    result = await asyncio.wait_for(self._await(graphiti.add_episode_bulk([
+                        RawEpisode(name=source_id[:200], content=body[:MAX_BODY],
+                            source_description='SPARK local intelligence record; preserve source limitations and release holds.',
+                            reference_time=_as_datetime(when), source=EpisodeType.text)],
+                        group_id=project, use_combined_extraction=True)), timeout=remaining_seconds)
+                    episode = result.episodes[0]
+                else:
+                    result = await asyncio.wait_for(self._await(graphiti.add_episode(
                     name=source_id[:200],
                     episode_body=body[:MAX_BODY],
                     source_description='SPARK local intelligence record',
                     reference_time=_as_datetime(when),
                     source=EpisodeType.text,
                     group_id=project,
-                ))
-            except Exception:
+                    # Bridge records are self-contained source excerpts. Avoid
+                    # replaying unrelated cached episodes into every extraction;
+                    # entity/edge resolution still queries the temporal graph.
+                    previous_episode_uuids=[] if source_id.startswith('bridge:') else None,
+                    )), timeout=remaining_seconds)
+                    episode = getattr(result, 'episode', None)
+            except asyncio.TimeoutError:
+                timed_out = True
+                break
+            except GraphitiRateLimited as error:
                 failures += 1
+                errors.append(str(error))
+                break
+            except Exception as error:
+                failures += 1
+                # _await exposes a bounded, credential-free diagnosis. Keep
+                # raw provider responses and episode text out of tool results.
+                if isinstance(error, GraphitiUnavailable) and str(error) not in errors:
+                    errors.append(str(error)[:200])
                 continue
             ingested += 1
-            episode = getattr(result, 'episode', None)
             with self._manifest:
                 self._manifest.execute('INSERT OR REPLACE INTO ingested VALUES (?,?,?,?)',
                                        (record_id, project, str(getattr(episode, 'uuid', '') or ''), time.time()))
         remaining = len(self._pending(project, 100000))
         return {'project': project, 'episodes_added': ingested, 'episodes_failed': failures,
                 'remaining': remaining, 'batch_limit': MAX_EPISODES_PER_REFRESH,
-                'note': 'Facts are LLM-extracted associations, not verified statements.'}
+                'time_limit_seconds': time_limit_seconds, 'time_limit_reached': timed_out,
+                'errors': errors[:3],
+                'note': 'Source-labelled reference records and model-extracted associations; not independently verified.'}
 
     # -- queries ----------------------------------------------------------
     async def search(self, project, question, limit=MAX_FACTS):
@@ -250,7 +459,7 @@ class TemporalGraph:
                 'facts': [_fact(edge) for edge in results.edges][:bound],
                 'entities': [_entity(node) for node in results.nodes][:bound],
                 'episode_count': len(results.episodes),
-                'note': 'Temporal graph associations from LLM extraction; not independently verified.'}
+                'note': 'Source-labelled inventory relationships and model-extracted associations; not independently verified.'}
 
     async def timeline(self, project, entity):
         project = _project(project)
@@ -297,6 +506,7 @@ class TemporalGraph:
 
 def _fact(edge):
     return {'fact': (getattr(edge, 'fact', '') or '')[:MAX_FACT_CHARS],
+            'source_kind':(getattr(edge,'attributes',None) or {}).get('source_kind','model-extracted'),
             'name': getattr(edge, 'name', None),
             'valid_at': _iso(getattr(edge, 'valid_at', None)),
             'invalid_at': _iso(getattr(edge, 'invalid_at', None)),
@@ -306,6 +516,7 @@ def _fact(edge):
 
 def _entity(node):
     return {'name': getattr(node, 'name', None),
+            'source_kind':(getattr(node,'attributes',None) or {}).get('source_kind','model-extracted'),
             'summary': (getattr(node, 'summary', '') or '')[:MAX_FACT_CHARS],
             'uuid': getattr(node, 'uuid', None)}
 
@@ -344,6 +555,12 @@ def _epoch(value):
 
 
 def main(argv=None):
+    # NumPy's Windows DLL initialization can deadlock when its first import is
+    # inside a FastMCP request after AnyIO's stdio worker threads have started.
+    # Load that native dependency before starting the server event loop.
+    if os.name == 'nt' and importlib.util.find_spec('numpy') is not None:
+        os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+        importlib.import_module('numpy')
     # MCP transports inherit only a minimal environment. Load this checkout's
     # private provider configuration in the sidecar, never in tool arguments.
     from dotenv import load_dotenv

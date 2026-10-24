@@ -10,6 +10,9 @@ row with reachable window controls. See [the upgrade guide](docs/workspace-upgra
 
 ## VAOS Jarvis
 
+For Graphify, Graphiti and Obsidian controls and data refresh steps, see
+[Connected knowledge](docs/connected-knowledge.md).
+
 Open **Experience Deck → VAOS Jarvis** to sign in to your VAOS founder session
 and ask advisory questions. Voice supports “Ask Jarvis, …”. The connection
 preserves VAOS authentication, evidence holds and business authority checks.

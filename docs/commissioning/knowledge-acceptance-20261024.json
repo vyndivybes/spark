@@ -1,0 +1,81 @@
+{
+  "status": {
+    "backend": "graphiti-core + embedded Kuzu",
+    "installed": true,
+    "credentials_configured": true,
+    "model": "openai/gpt-oss-20b",
+    "telemetry": "0",
+    "episodes_ingested_by_project": {
+      "default": 262
+    },
+    "graph_path": "C:\\Users\\ASUS\\AppData\\Local\\SPARK\\workspace\\graphiti\\graph.kuzu"
+  },
+  "VAOS": {
+    "facts": 3,
+    "entities": 3,
+    "source_kinds": [
+      "model-extracted",
+      "packaged-reference"
+    ]
+  },
+  "Vyndi OS": {
+    "facts": 3,
+    "entities": 3,
+    "source_kinds": [
+      "model-extracted",
+      "packaged-reference"
+    ]
+  },
+  "VEDM": {
+    "facts": 3,
+    "entities": 3,
+    "source_kinds": [
+      "cached-business-evidence",
+      "cached-business-source",
+      "model-extracted",
+      "packaged-reference"
+    ]
+  },
+  "timeline": {
+    "facts": 3,
+    "error": null
+  },
+  "refresh": {
+    "project": "default",
+    "episodes_added": 0,
+    "episodes_failed": 0,
+    "remaining": 0,
+    "batch_limit": 12,
+    "time_limit_seconds": 120,
+    "time_limit_reached": false,
+    "errors": [],
+    "note": "Source-labelled reference records and model-extracted associations; not independently verified."
+  },
+  "project_isolation": {
+    "facts": 0,
+    "entities": 0
+  },
+  "graphify": {
+    "ok": true,
+    "node_count": 5873
+  },
+  "spark_backend": {
+    "status": "running",
+    "graphify_ready": true,
+    "graphiti_ready": true,
+    "obsidian_ready": true
+  },
+  "inventory": {
+    "entities": 239,
+    "relationships": 292
+  },
+  "obsidian": {
+    "notes": 248,
+    "internal_links": 786,
+    "broken_links": 0
+  },
+  "validation": {
+    "focused_tests_passed": 20,
+    "mcp_queries_verified": true
+  }
+}
