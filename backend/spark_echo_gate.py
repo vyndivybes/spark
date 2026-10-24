@@ -63,3 +63,18 @@ class EchoGate:
             return False
         self._needs_rearm = False
         return True
+
+    def block_reason(self, now=None):
+        """Read-only cockpit diagnostic: why the mic is currently blocked.
+
+        Additive companion of mic_blocked(); logic duplication is avoided by
+        deriving the reason from the same state mic_blocked inspects.
+        """
+        current = time.monotonic() if now is None else now
+        if self._output_active:
+            return "speaker"
+        if current < self._release_at:
+            return "tail"
+        if self.require_rearm and self._needs_rearm:
+            return "rearm"
+        return None
