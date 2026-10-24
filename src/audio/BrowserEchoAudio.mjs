@@ -5,10 +5,17 @@
    No audio is recorded or saved to local files.
 */
 export class BrowserEchoAudio {
-  constructor({socket, onError = () => {}, onWarning = () => {}}) {
+  constructor({socket, onError = () => {}, onWarning = () => {}, onCaptureState = () => {}}) {
     this.socket = socket;
     this.onError = onError;
     this.onWarning = onWarning;
+    this.onCaptureState = onCaptureState;
+    this.captureTrack = null;
+    this.onCaptureChange = () => {
+      if (this.ready && !this.closed) {
+        this.onCaptureState({available: this.isCaptureAvailable()});
+      }
+    };
     this.audioContext = null;
     this.stream = null;
     this.input = null;
@@ -52,6 +59,11 @@ export class BrowserEchoAudio {
       this.stream = await navigator.mediaDevices.getUserMedia({audio, video: false});
       if (this.closed) throw new Error('SPARK audio cancelled.');
       const track = this.stream.getAudioTracks()[0];
+      if (!track) throw new Error('No microphone track is available.');
+      this.captureTrack = track;
+      for (const event of ['mute', 'unmute', 'ended']) {
+        track.addEventListener?.(event, this.onCaptureChange);
+      }
       // Digital output-monitor devices bypass normal acoustic AEC and can
       // create an endless model-to-model audio loop. Never use them as mic.
       if (/stereo mix|what u hear|loopback/i.test(track?.label || '')) {
@@ -86,7 +98,7 @@ export class BrowserEchoAudio {
       }
       this.worklet = new AudioWorkletNode(this.audioContext, 'spark-mic-capture');
       this.worklet.port.onmessage = ({data}) => {
-        if (!this.ready || this.muted || !this.socket.connected || data?.type !== 'pcm') return;
+        if (!this.isCaptureAvailable() || this.muted || !this.socket.connected || data?.type !== 'pcm') return;
         if (!(data.pcm instanceof ArrayBuffer) || data.pcm.byteLength !== 3200) return;
         this.socket.emit('browser_mic_pcm', new Uint8Array(data.pcm));
       };
@@ -117,8 +129,13 @@ export class BrowserEchoAudio {
     this.worklet?.port.postMessage({type: 'enabled', enabled: this.ready && !this.muted});
   }
 
+  isCaptureAvailable() {
+    return this.ready && !this.closed && Boolean(this.captureTrack)
+      && !this.captureTrack.muted && this.captureTrack.readyState !== 'ended';
+  }
+
   readSpectrum() {
-    if (!this.ready || this.closed || this.muted || !this.analyser) return null;
+    if (!this.isCaptureAvailable() || this.muted || !this.analyser) return null;
     this.analyser.getByteFrequencyData(this.spectrumBins);
     return {bins:this.spectrumBins,sampleRate:this.audioContext.sampleRate,fftSize:this.analyser.fftSize};
   }
@@ -210,6 +227,10 @@ export class BrowserEchoAudio {
     this.analyser?.disconnect();
     this.analyser = null;
     this.spectrumBins = null;
+    for (const event of ['mute', 'unmute', 'ended']) {
+      this.captureTrack?.removeEventListener?.(event, this.onCaptureChange);
+    }
+    this.captureTrack = null;
     for (const track of this.stream?.getTracks() || []) track.stop();
     // A cancelled or failed AudioContext may not expose a usable close()
     // method on mocked / partially initialized devices.

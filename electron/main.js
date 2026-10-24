@@ -39,6 +39,8 @@ app.on('second-instance', () => {
         if (mainWindow.isMinimized()) mainWindow.restore();
         mainWindow.show();
         mainWindow.focus();
+    } else {
+        createWindow();
     }
 });
 let pythonProcess;
@@ -129,6 +131,9 @@ function createWindow() {
 
     mainWindow.on('closed', () => {
         mainWindow = null;
+        // Hidden account/experience windows must not keep the Windows cockpit
+        // instance locked after its owner closes the main window.
+        if (process.platform !== 'darwin') app.quit();
     });
 }
 

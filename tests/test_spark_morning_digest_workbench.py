@@ -41,7 +41,8 @@ class DigestWorkbenchWiringTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(status["latest_run"])
         self.assertEqual(status["final_states"], ("completed", "failed"))
         self.assertTrue(status["tts"]["requires_explicit_request"])
-        self.assertTrue(status["tts"]["network_free"])
+        self.assertFalse(status["tts"]["network_free"])
+        self.assertEqual(status['tts']['engine'], 'SPARK Gemini Live voice')
 
     async def test_digest_run_through_unconfigured_sources_is_final_failed(self):
         result = await self.action("digest_run")

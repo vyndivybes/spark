@@ -104,13 +104,15 @@ class DigestEngine:
                            "acknowledged_at REAL,delta TEXT)")
                 db.execute("CREATE TABLE IF NOT EXISTS settings("
                            "key TEXT PRIMARY KEY,value TEXT NOT NULL)")
+                db.execute("CREATE TABLE IF NOT EXISTS deliveries("
+                           "date TEXT PRIMARY KEY,state TEXT NOT NULL,attempted REAL,"
+                           "shown REAL,next_retry REAL,lease_until REAL,error TEXT)")
             yield db
             db.commit()
         finally:
             db.close()
 
-    def configure(self, *, schedule_ist="08:30", news_enabled=False, news_url=None):
-        """Persist the IST schedule and the opt-in news switch."""
+    def validate_configuration(self, *, schedule_ist="08:30", news_enabled=False, news_url=None):
         if not re.fullmatch(r"([01]\d|2[0-3]):([0-5]\d)", str(schedule_ist)):
             raise DigestError("Choose a daily schedule time as HH:MM (IST).")
         if type(news_enabled) is not bool:
@@ -118,6 +120,12 @@ class DigestEngine:
         if news_enabled:
             news_url = news_url or self._stored("news_url")
             NewsSource(news_url)  # URL validation happens in NewsSource
+        return {'schedule_ist': schedule_ist, 'news_enabled': news_enabled, 'news_url': news_url}
+
+    def configure(self, *, schedule_ist="08:30", news_enabled=False, news_url=None):
+        """Persist the IST schedule and the opt-in news switch."""
+        validated = self.validate_configuration(schedule_ist=schedule_ist, news_enabled=news_enabled, news_url=news_url)
+        news_url = validated['news_url']
         with self._db() as db:
             db.execute("INSERT OR REPLACE INTO settings VALUES('schedule_ist',?)", (schedule_ist,))
             db.execute("INSERT OR REPLACE INTO settings VALUES('news_enabled',?)",
@@ -147,6 +155,8 @@ class DigestEngine:
             config = {row["key"]: row["value"] for row in db.execute("SELECT key,value FROM settings")}
             row = db.execute("SELECT date,status,created,last_fetched,speech,acknowledged,"
                              "acknowledged_at FROM runs ORDER BY date DESC LIMIT 1").fetchone()
+            delivery = db.execute('SELECT date,state,attempted,shown,next_retry,error '
+                                  'FROM deliveries ORDER BY date DESC LIMIT 1').fetchone()
         latest = None
         if row:
             latest = {"date": row["date"], "status": row["status"],
@@ -159,9 +169,10 @@ class DigestEngine:
                 "news_url": config.get("news_url"),
                 "news_policy": "opt-in only; free RSS feed; bounded size and timeout",
                 "latest_run": latest,
+                "notification_delivery": dict(delivery) if delivery else None,
                 "final_states": FINAL_STATES,
-                "tts": {"engine": "Windows System.Speech (local, built-in)",
-                        "network_free": True,
+                "tts": {"engine": "SPARK Gemini Live voice",
+                        "network_free": False,
                         "requires_explicit_request": True}}
 
     def history(self, *, limit=14):
@@ -226,6 +237,8 @@ class DigestEngine:
                                "last_success": value.get("last_success"),
                                "message": value.get("message"),
                                "error": value.get("error"),
+                               "possibly_truncated": bool(value.get('possibly_truncated')),
+                               "note": value.get('note'),
                                "account": value.get("account")}
         return states
 
@@ -247,6 +260,9 @@ class DigestEngine:
             if self.tasks is not None:
                 tasks = self.tasks(None)
                 sources["tasks"] = {"state": "current", "stale": False}
+            elif 'google-tasks' in sources:
+                tasks = briefing.get('tasks') or []
+                sources['tasks'] = sources.pop('google-tasks')
             else:
                 sources["tasks"] = {"state": "not_configured",
                                     "message": "No task source is enabled for this account."}
@@ -323,6 +339,13 @@ class DigestEngine:
             lines.append(f"Email change since previous digest: {email_change:+d}.")
         if tasks:
             lines.append(f"Tasks pending: {len(tasks)}.")
+            for task in tasks[:5]:
+                if isinstance(task, dict):
+                    due = str(task.get('due') or '')[:10]
+                    lines.append('- Task: ' + str(task.get('title') or '(untitled task)')[:240]
+                                 + (f' (due {due})' if due else ''))
+        if sources.get('tasks', {}).get('possibly_truncated'):
+            lines.append('Google Tasks results are limited; more tasks may be available.')
         if news:
             lines.append(f"News headlines: {len(news['items'])} (opt-in feed).")
         unavailable = [f"{name}={value.get('state')}" for name, value in sources.items()
@@ -345,8 +368,8 @@ class DigestEngine:
                        (self.clock(), digest_id))
         return {"acknowledged": True, "digest": digest_id, "at": self.clock()}
 
-    def speech_payload(self, digest_id=None):
-        """Return the bounded Windows-local TTS payload without speaking."""
+    def narration_payload(self, digest_id=None):
+        """Read the saved digest for the existing SPARK voice session."""
         digest_id = digest_id or ist_date(self.clock())
         with self._db() as db:
             row = db.execute("SELECT text,status FROM runs WHERE date=?", (digest_id,)).fetchone()
@@ -354,11 +377,17 @@ class DigestEngine:
             raise DigestError("Digest not found for speech.")
         if row["status"] != "completed":
             raise DigestError("Only a completed digest can be spoken.")
+        return {'digest': digest_id, 'text': row['text'][:MAX_SPEECH],
+                'engine': 'SPARK Gemini Live voice', 'state': 'ready'}
+
+    def speech_payload(self, digest_id=None):
+        """Legacy local speech helper; product playback uses narration_payload."""
+        payload = self.narration_payload(digest_id)
         command = ["powershell", "-NoProfile", "-Command",
                    "Add-Type -AssemblyName System.Speech; "
                    "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-                   "$s.Speak('" + row["text"].replace("'", "''") + "'); $s.Dispose()"]
-        return {"digest": digest_id, "command": command, "network_free": True,
+                   "$s.Speak('" + payload['text'].replace("'", "''") + "'); $s.Dispose()"]
+        return {"digest": payload['digest'], "text": payload['text'], "command": command, "network_free": True,
                 "engine": "Windows System.Speech"}
 
     def speak(self, digest_id=None, *, timeout=90):

@@ -1,0 +1,72 @@
+{
+  "captured_at": "2026-10-24T02:43:20.1016152+05:30",
+  "capability": "01 Morning Digest",
+  "google_tasks": {
+    "read_verified": true,
+    "pending_task_count": 1,
+    "read_only": true
+  },
+  "windows_schedule": {
+    "name": "SPARK Morning Digest",
+    "time_ist": "07:00",
+    "start_boundary": "2026-10-24T07:00:00+05:30",
+    "next_run": "2026-10-24T07:00:00+05:30",
+    "logon_type": "Interactive",
+    "run_level": "Limited",
+    "start_when_available": true,
+    "allows_battery": true,
+    "execution_limit": "PT5M",
+    "daily_occurrence_observed": false
+  },
+  "acceptance": {
+    "last_test_started": "2026-10-24T02:41:44+05:30",
+    "windows_exit_code": 0,
+    "receipt": {
+      "mode": "delivery_test",
+      "date": "2026-10-24",
+      "state": "shown",
+      "notification_state": "shown",
+      "partial": false,
+      "sources": {
+        "gmail": "current",
+        "google-calendar": "current",
+        "google-drive": "current",
+        "tasks": "current"
+      },
+      "task_count": 1
+    },
+    "start_menu_registration_verified": true,
+    "windows_notification_state": "QUNS_ACCEPTS_NOTIFICATIONS",
+    "user_visual_confirmation": "confirmed by owner: Yes, I saw the new banner",
+    "daily_receipt_consumed": false,
+    "windows_toast_setting": "Enabled",
+    "temporary_test_task_removed": true
+  },
+  "verification": {
+    "python_passed": 62,
+    "python_subtests_passed": 2,
+    "node_passed": 7,
+    "frontend_build": "passed earlier in this change",
+    "diff_whitespace": "passed"
+  },
+  "corrections": [
+    "Preserve Windows PowerShell native stderr without aborting the worker",
+    "Reuse the bundled account-bound Google reader without cold MCP server startup",
+    "Recognize Electron bootstrap entry when require.main differs",
+    "Allow 90 seconds for measured slow Electron startup",
+    "Register a Start Menu shortcut with the application notification identity"
+  ],
+  "limitations": [
+    "The next real daily 07:00 occurrence has not happened yet",
+    "Windows user must be signed in; missed runs catch up when available",
+    "Drive remains a bounded recent-files preview; source truncation is displayed in the digest"
+  ],
+  "desktop_reload": {
+    "resolved_at": "2026-10-24T02:48:27.4955976+05:30",
+    "reason": "Repair hidden single-instance window after owner reported icon failed",
+    "window_title": "SPARK — Immersive AI Workstation",
+    "responding": true,
+    "backend_status_http": 200,
+    "startup_tests_passed": 12
+  }
+}

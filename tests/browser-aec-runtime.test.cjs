@@ -8,7 +8,10 @@ const bridgePath=pathToFileURL(path.resolve(__dirname,'../src/audio/BrowserEchoA
 function mockAudio(echoCancellation=true) {
   const events = new Map();
   const emitted = [];
-  const tracks = [{getSettings:()=>({echoCancellation}),stop(){this.stopped=true;}}];
+  const tracks = [Object.assign(new EventTarget(), {
+    muted:false, readyState:'live',
+    getSettings:()=>({echoCancellation}),stop(){this.stopped=true;}
+  })];
   const socket={
     connected:true,
     on:(name,fn)=>events.set(name,fn),
@@ -104,6 +107,58 @@ test('AEC unsupported means capture fails closed instead of falling back to raw 
     assert.equal(mock.tracks[0].stopped,true);
     assert.equal(mock.emitted.some(e=>e.name==='browser_mic_pcm'),false);
   }finally{
+    Object.defineProperty(globalThis,'navigator',{configurable:true,value:originalNavigator});
+    globalThis.window=originalWindow;
+    globalThis.AudioWorkletNode=originalWorklet;
+  }
+});
+
+test('Windows mute and device loss suppress capture, report recovery, and respect user mute', async () => {
+  const originalNavigator=globalThis.navigator, originalWindow=globalThis.window;
+  const originalWorklet=globalThis.AudioWorkletNode;
+  const mock=mockAudio();
+  const states=[];
+  let bridge;
+  try {
+    Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{
+      getUserMedia:async()=>({getAudioTracks:()=>mock.tracks,getTracks:()=>mock.tracks})
+    }}});
+    globalThis.window={AudioContext:mock.AudioContext,AudioWorkletNode:mock.AudioWorkletNode,
+      location:{href:'http://localhost:5173/'}};
+    globalThis.AudioWorkletNode=mock.AudioWorkletNode;
+    const {BrowserEchoAudio}=await import(bridgePath);
+    bridge=new BrowserEchoAudio({socket:mock.socket,onCaptureState:state=>states.push(state)});
+    mock.tracks[0].muted=true;
+    await bridge.start();
+    const chunk=()=>mockAudio.lastWorklet.port.onmessage({data:{type:'pcm',pcm:new ArrayBuffer(3200)}});
+    assert.equal(bridge.isCaptureAvailable(),false,'A running context cannot prove the device is unmuted');
+    chunk();
+    assert.equal(mock.emitted.length,0);
+    assert.equal(bridge.readSpectrum(),null);
+    mock.tracks[0].muted=false;
+    mock.tracks[0].dispatchEvent(new Event('unmute'));
+    chunk();
+    assert.equal(mock.emitted.length,1);
+    mock.tracks[0].muted=true;
+    mock.tracks[0].dispatchEvent(new Event('mute'));
+    chunk();
+    assert.equal(mock.emitted.length,1);
+    bridge.setMuted(true);
+    mock.tracks[0].muted=false;
+    mock.tracks[0].dispatchEvent(new Event('unmute'));
+    chunk();
+    assert.equal(mock.emitted.length,1,'Device recovery must preserve explicit user mute');
+    bridge.setMuted(false);
+    mock.tracks[0].readyState='ended';
+    mock.tracks[0].dispatchEvent(new Event('ended'));
+    chunk();
+    assert.equal(mock.emitted.length,1);
+    assert.deepEqual(states,[{available:true},{available:false},{available:true},{available:false}]);
+    bridge.stop();
+    mock.tracks[0].dispatchEvent(new Event('mute'));
+    assert.equal(states.length,4,'Stopped capture must remove device listeners');
+  } finally {
+    bridge?.stop();
     Object.defineProperty(globalThis,'navigator',{configurable:true,value:originalNavigator});
     globalThis.window=originalWindow;
     globalThis.AudioWorkletNode=originalWorklet;
