@@ -58,6 +58,7 @@ from spark_rea import ReaError
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
+from spark_digest_voice import submit_digest_voice
 from spark_workbench_voice import (VOICE_WORKBENCH_ACTIONS,
                                    CAPABILITY_VOICE_ACTIONS,
                                    CAPABILITY_READ_ONLY_ACTIONS,
@@ -84,6 +85,7 @@ _BACKEND_BOOT_AT = time.monotonic()
 spark_workspace = SparkWorkspace(_SPARK_WORKSPACE_ROOT)
 spark_evolution = Evolution(spark_workspace)
 spark_workbench = Workbench(spark_workspace)
+spark_telegram_worker = None
 pc_tasks=PcTasks(_SPARK_WORKSPACE_ROOT/'pc-tasks')
 # File organization stays off until PC autonomy is enabled; it is also confined
 # to an allowed root (SPARK_FILE_ORG_ROOT, else the user's home folder).
@@ -177,6 +179,10 @@ async def voice_workspace_action(sid, name, arguments, utterance):
         return {'ok': False, 'error': 'Invalid workspace arguments.'}
     project = workspace_project_by_sid.get(sid, 'default')
     try:
+        if name == 'morning_digest':
+            if arguments:
+                return {'ok': False, 'error': 'Morning Digest playback takes no arguments.'}
+            return await spark_workbench.execute('digest_speech', project, {'digest': ''})
         if name == 'open_workspace_screen':
             screen = arguments.get('screen')
             if set(arguments) != {'screen'} or screen not in _VOICE_WORKSPACE_SCREENS:
@@ -512,6 +518,47 @@ async def startup_event():
     print("[SERVER] Startup: Initializing Kasa Agent...")
     await kasa_agent.initialize()
 
+
+@app.on_event("startup")
+async def start_telegram_worker():
+    """Start the single owner-only Telegram long-poll worker when enrolled.
+
+    The token comes from the DPAPI store, never from SQLite or this module.
+    Missing enrollment is a normal idle state, not a startup failure.
+    """
+    global spark_telegram_worker
+    try:
+        from spark_telegram import build_telegram_worker
+        async def telegram_server_status():
+            return await status()
+        spark_telegram_worker = build_telegram_worker(
+            workspace_root=_SPARK_WORKSPACE_ROOT,
+            workbench=spark_workbench,
+            server_status=telegram_server_status)
+        if spark_telegram_worker is None:
+            print("[SPARK] Telegram is not enrolled; remote chat stays disabled.")
+            return
+        state = await spark_telegram_worker.start()
+        if state.get("state") == "running":
+            print(f"[SPARK] Telegram owner channel running as @{state.get('bot_username')} (long polling).")
+        else:
+            print(f"[SPARK] Telegram worker idle: {state.get('state')}.")
+    except Exception as error:
+        spark_telegram_worker = None
+        print(f"[SPARK] Telegram worker unavailable ({type(error).__name__}); SPARK continues.")
+
+
+@app.on_event("shutdown")
+async def stop_telegram_worker():
+    global spark_telegram_worker
+    worker, spark_telegram_worker = spark_telegram_worker, None
+    if worker is not None:
+        try:
+            await worker.stop()
+        except Exception:
+            pass
+
+
 @app.get("/status")
 async def status():
     return {"status": "running", "service": "SPARK Core",
@@ -549,6 +596,39 @@ async def whatsapp_session_status():
     return {key: result[key] for key in ('ok', 'state', 'chat_reading_available', 'sending_enabled') if key in result}
 
 
+def _telegram_status_payload():
+    """Non-secret Telegram health for the local cockpit and HTTP status."""
+    worker = spark_telegram_worker
+    if worker is None:
+        return {"ok": True, "configured": False, "state": "unconfigured",
+                "polling": False, "transport": "long_polling",
+                "message": "Telegram is not enrolled on this PC."}
+    try:
+        status_data = worker.status()
+    except Exception:
+        return {"ok": False, "configured": True, "state": "error",
+                "polling": False, "transport": "long_polling",
+                "message": "Telegram status is temporarily unavailable."}
+    allowed = (
+        "state", "polling", "configured", "token_present", "bot_username",
+        "authorized_chat_id", "pairing", "last_poll", "last_inbound",
+        "last_outbound", "last_failure", "consecutive_failures",
+        "processed_updates", "model", "voice", "started_at", "conversation",
+        "delivery", "offset", "last_digest",
+    )
+    payload = {key: status_data[key] for key in allowed if key in status_data}
+    payload.update(ok=True, transport="long_polling",
+                   commands=["start", "help", "status", "digest", "missions",
+                             "agents", "integrations", "memory"])
+    return payload
+
+
+@app.get('/status/telegram')
+async def telegram_status():
+    """Read-only Telegram health. Never returns the bot token or messages."""
+    return _telegram_status_payload()
+
+
 @sio.event
 async def get_diagnostics(sid):
     # Existing status values are filtered before reaching the cockpit.
@@ -560,6 +640,12 @@ async def get_diagnostics(sid):
     health = safe_diagnostics(status_data,
         uptime_seconds=time.monotonic() - _BACKEND_BOOT_AT)
     await sio.emit('spark_diagnostics', health, room=sid)
+
+
+@sio.event
+async def get_telegram_status(sid):
+    """Read-only Telegram health for the owner cockpit; token excluded."""
+    await sio.emit('telegram_status', _telegram_status_payload(), room=sid)
 
 
 @sio.event
@@ -587,7 +673,7 @@ async def workspace_action(sid, data):
         'list_documents','search_documents','list_holo_notes','list_skills',
         'import_document','propose_skill','test_skill','activate_skill','run_skill',
         'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
-        'analyze_repository','import_repository','list_repository_analyses','read_repository_analysis',
+        'analyze_repository','preview_repository','import_repository','list_repository_analyses','read_repository_analysis',
         'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
         'saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop','saee_autonomy_goal','saee_autonomy_cancel_goal','saee_autonomy_cycle',
         'generate_python_tool','repair_python_tool','propose_python_tool','list_python_tools','python_tools_policy','configure_python_tools',
@@ -638,6 +724,8 @@ async def workspace_action(sid, data):
             except ValueError as error:raise WorkbenchError(str(error)) from None
         elif isinstance(action, str) and action in WORKBENCH_ACTIONS:
             result = await spark_workbench.execute(action, project, payload)
+            if action == 'digest_speak':
+                result = await submit_digest_voice(audio_loop, sid, result)
         elif isinstance(action, str) and action in FILE_ORGANIZER_ACTIONS:
             if action in ('organize_apply', 'organize_undo'):
                 access = getattr(audio_loop, 'pc_access', None)
@@ -1415,6 +1503,16 @@ async def user_input(sid, data):
         return
 
     if text:
+        from spark_workbench_voice import parse_workbench_command
+        command = parse_workbench_command(text)
+        if command and command.get('action') == 'digest_speech':
+            try:
+                project = workspace_project_by_sid.get(sid, 'default')
+                payload = await spark_workbench.execute('digest_speech', project, {'digest': ''})
+                await submit_digest_voice(audio_loop, sid, payload)
+            except WorkbenchError as error:
+                await sio.emit('error', {'msg': str(error)}, room=sid)
+            return
         print("[SPARK] Sending typed turn to Gemini Live")
         memory = ""
         if audio_loop.project_manager:

@@ -78,6 +78,17 @@ class WhatsAppStatusTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result['ok'])
         self.assertEqual(result['state'], 'link_required')
 
+    async def test_global_search_preserves_synced_history_scope_and_truncation(self):
+        self.payload.update(search_scope='global_history', possibly_truncated=True,
+                            chats=[{'title': 'Project team', 'preview': 'An older matching message', 'unread': None}])
+        with patch('spark_whatsapp.JarvisClient', return_value=self.bridge):
+            result = await execute_assistant_tool('read_whatsapp_chats', {'query': 'project'})
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['search_scope'], 'global_history')
+        self.assertTrue(result['possibly_truncated'])
+        self.assertIn('synced history', result['scope'])
+        self.assertFalse(result['sending_enabled'])
+
     async def test_preview_read_rejects_send_commands_and_invalid_limits(self):
         with patch('spark_whatsapp.JarvisClient', return_value=self.bridge):
             for args in ({'command': 'send'}, {'limit': True}, {'limit': 100}, {'unread_only': 'yes'}):

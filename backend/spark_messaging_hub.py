@@ -36,6 +36,8 @@ RATE_WINDOW = 3600
 MAX_PER_HOUR = 50
 POLL_LIMIT = 50
 APPROVAL_TTL = 600
+# Persisted marker for a Telegram token that lives only in the DPAPI store.
+TELEGRAM_TOKEN_SENTINEL = "__dpapi_telegram_bot_token__"
 
 
 class HubError(ValueError):
@@ -101,10 +103,15 @@ class TelegramProvider(Provider):
         allowed = str(config["allowed_chat_id"]).split(",")
         if str(recipient) not in allowed:
             raise HubError("Recipient is not on the channel allowlist.")
-        status, body = default_transport(
-            "POST", f"https://api.telegram.org/bot{config['bot_token']}/sendMessage",
-            headers={"Content-Type": "application/json"},
-            body=json.dumps({"chat_id": recipient, "text": text[:MAX_TEXT]}))
+        try:
+            status, body = default_transport(
+                "POST", f"https://api.telegram.org/bot{config['bot_token']}/sendMessage",
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({"chat_id": recipient, "text": text[:MAX_TEXT]}))
+        except (OSError, TimeoutError) as error:
+            # urllib errors can contain the request URL, which includes the
+            # bot token. Never persist or surface that detail.
+            raise HubError("Telegram transport failed (" + type(error).__name__ + ").") from None
         payload = json.loads(body)
         if status != 200 or not payload.get("ok"):
             raise HubError("Telegram rejected the message: " + str(payload)[:200])
@@ -114,12 +121,16 @@ class TelegramProvider(Provider):
     def receive(self, config):
         self._require(config, "bot_token", "allowed_chat_id")
         allowed = {str(chat) for chat in str(config["allowed_chat_id"]).split(",")}
-        status, body = default_transport(
-            "POST", f"https://api.telegram.org/bot{config['bot_token']}/getUpdates",
-            headers={"Content-Type": "application/json"},
-            body=json.dumps({"limit": POLL_LIMIT, "timeout": 5,
-                             "allowed_updates": ["message"]}),
-            timeout=30)
+        try:
+            status, body = default_transport(
+                "POST", f"https://api.telegram.org/bot{config['bot_token']}/getUpdates",
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({"limit": POLL_LIMIT, "timeout": 5,
+                                 "allowed_updates": ["message"]}),
+                timeout=30)
+        except (OSError, TimeoutError) as error:
+            raise HubError("Telegram inbound transport failed ("
+                           + type(error).__name__ + ").") from None
         payload = json.loads(body)
         if status != 200 or not payload.get("ok"):
             raise HubError("Telegram inbound failed: " + str(payload)[:200])
@@ -300,9 +311,12 @@ def register_provider(name, provider_class):
 class MessagingHub:
     """Persisted, consenting, allow-listed messaging hub."""
 
-    def __init__(self, root, *, clock=time.time):
+    def __init__(self, root, *, clock=time.time, secret_store=None):
         self.root = Path(root) / "messaging-hub"
         self.clock = clock
+        # When supplied, Telegram's bot token is written only through the
+        # user-scoped DPAPI store; SQLite keeps a non-secret marker instead.
+        self.secret_store = secret_store
         if self.root.is_symlink():
             raise HubError("Linked messaging storage is prohibited.")
 
@@ -335,17 +349,106 @@ class MessagingHub:
             db.close()
 
     # -- configuration ---------------------------------------------------
+    def _protect_config(self, channel, config):
+        """Keep Telegram outbound credentials in DPAPI, never in SQLite."""
+        if channel != "telegram" or "bot_token" not in config:
+            return config
+        token = config.get("bot_token")
+        if token == TELEGRAM_TOKEN_SENTINEL:
+            return config
+        if self.secret_store is None:
+            # Backwards-compatible local hubs without a secret store keep the
+            # pre-existing behaviour; the production workbench always injects
+            # the DPAPI store, so the plaintext path is never used there.
+            return config
+        if not isinstance(token, str) or not token.strip():
+            raise HubError("A Telegram bot token is required.")
+        try:
+            self.secret_store.save_telegram_token(token.strip())
+        except Exception as error:
+            raise HubError("Telegram credential could not be protected ("
+                           + type(error).__name__ + ").") from None
+        return {**config, "bot_token": TELEGRAM_TOKEN_SENTINEL}
+
+    def _load_telegram_token(self):
+        try:
+            resolved = self.secret_store.load_telegram_token()
+        except Exception as error:
+            raise HubError("Telegram credential could not be read ("
+                           + type(error).__name__ + ").") from None
+        if not resolved:
+            raise HubError("Telegram is not enrolled. Run the secure Telegram "
+                           "configuration script on this PC first.")
+        return resolved
+
+    def _resolve_config(self, channel, config):
+        """Resolve the DPAPI marker for a transport call, migrating legacy rows."""
+        if channel != "telegram" or self.secret_store is None:
+            return config
+        token = config.get("bot_token")
+        if token == TELEGRAM_TOKEN_SENTINEL:
+            return {**config, "bot_token": self._load_telegram_token()}
+        if isinstance(token, str) and token:
+            # Scrub a plaintext token persisted by an older SPARK build.
+            protected = self._protect_config(channel, config)
+            if protected.get("bot_token") == TELEGRAM_TOKEN_SENTINEL:
+                with self._db() as db:
+                    db.execute("UPDATE provider_config SET config=? WHERE channel=?",
+                               (json.dumps(protected), channel))
+                return {**config, "bot_token": self._load_telegram_token()}
+        return config
+
+    def _scrub_legacy_secrets(self):
+        """Move plaintext Telegram tokens left by older builds into DPAPI."""
+        if self.secret_store is None:
+            return
+        try:
+            with self._db() as db:
+                rows = db.execute("SELECT channel,config FROM provider_config"
+                                  ).fetchall()
+                for row in rows:
+                    try:
+                        config = json.loads(row["config"])
+                    except (TypeError, ValueError):
+                        continue
+                    if not isinstance(config, dict):
+                        continue
+                    if config.get("__kind") != "telegram":
+                        continue
+                    token = config.get("bot_token")
+                    if not isinstance(token, str) or not token.strip():
+                        continue
+                    if token == TELEGRAM_TOKEN_SENTINEL:
+                        continue
+                    try:
+                        self.secret_store.save_telegram_token(token.strip())
+                    except Exception:
+                        # Keep the old row rather than lose the credential; a
+                        # later status read retries the migration.
+                        continue
+                    protected = {**config, "bot_token": TELEGRAM_TOKEN_SENTINEL}
+                    db.execute("UPDATE provider_config SET config=? WHERE channel=?",
+                               (json.dumps(protected), row["channel"]))
+        except (sqlite3.Error, OSError):
+            # Status must stay readable even if the local audit store is
+            # damaged; no credential is ever logged or returned.
+            return
+
     def configure(self, channel, config):
         if not isinstance(channel, str) or channel not in PROVIDERS:
             raise HubError("Unknown messaging provider: " + str(channel))
         adapter = PROVIDERS[channel]
         config = _store_config(config)
+        config = self._protect_config(channel, config)
         config["__kind"] = channel
         with self._db() as db:
             db.execute("INSERT OR REPLACE INTO provider_config VALUES(?,?,?)",
                        (channel, json.dumps(config), self.clock()))
         return {"channel": channel, "configured": True,
-                "inbound_polling": PROVIDERS[channel].inbound_polling}
+                "inbound_polling": PROVIDERS[channel].inbound_polling,
+                "credential_store": ("dpapi" if channel == "telegram"
+                                     and config.get("bot_token") == TELEGRAM_TOKEN_SENTINEL
+                                     else "provider")}
 
     def disconnect(self, channel):
         if not isinstance(channel, str) or channel not in PROVIDERS:
@@ -368,7 +471,7 @@ class MessagingHub:
         config = json.loads(row["config"])
         if config.get("__kind") not in PROVIDERS:
             raise HubError("The configured provider type is not registered.")
-        return config
+        return self._resolve_config(channel, config)
 
     # -- approvals -------------------------------------------------------
     def approve_outbound(self, channel, recipient, text, *, ttl=APPROVAL_TTL):
@@ -516,6 +619,7 @@ class MessagingHub:
                 "note": "Envelope audit for delivery evidence, retained locally."}
 
     def status(self):
+        self._scrub_legacy_secrets()
         with self._db() as db:
             configured = {row["channel"]: json.loads(row["config"]).get("__kind")
                           for row in db.execute(

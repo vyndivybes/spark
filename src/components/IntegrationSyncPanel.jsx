@@ -43,7 +43,9 @@ export default function IntegrationSyncPanel({socket}){
                     {[60,300,900,1800,3600].map(value=><option key={value} value={value}>{value/60} minutes</option>)}</select></label>
                 <button className={button} disabled={status.running} onClick={()=>request('sync_now')}>{status.running?'Pulling updates…':'Refresh now'}</button>
                 <button className={button} onClick={()=>request('sync_status')}>Refresh status</button>
+                <button className={button} disabled={status.running} onClick={()=>request('sync_knowledge')}>Update connected knowledge</button>
             </div>
+            {status.knowledge_bridge&&<p className="text-sm text-cyan-100">{status.knowledge_bridge.error||`${status.knowledge_bridge.records} linked source records in Obsidian; ${status.knowledge_bridge.episodes_staged} episodes staged for Graphiti in project ${status.knowledge_bridge.project}. Use Services → graphiti → refresh_project_graph to extract facts.`}</p>}
             <p className="text-xs text-slate-400">Recent items and reference data within each reader’s limits. Jarvis advisory refreshes at most every 15 minutes. Status-only sources have no data feed. This is not a full account backup.</p>
             <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="text-slate-400"><th className="p-2">Source</th><th className="p-2">State</th><th className="p-2">Last successful pull</th><th className="p-2">Snapshot</th></tr></thead>
                 <tbody>{status.sources.map(source=><tr key={source.id} className="border-t border-white/10"><td className="p-2">{source.service}<small className="block text-slate-400">{source.tool} · {source.mode}</small></td>

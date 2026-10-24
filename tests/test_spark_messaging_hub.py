@@ -116,6 +116,54 @@ class ConfigureTests(unittest.TestCase):
             self.hub.disconnect("not-a-channel")
 
 
+class SecureTelegramConfigTests(unittest.TestCase):
+    class Store:
+        def __init__(self):
+            self.token = None
+        def save_telegram_token(self, token):
+            self.token = token
+        def load_telegram_token(self):
+            return self.token
+
+    def test_token_is_never_persisted_in_sqlite(self):
+        with _temp() as d:
+            store = self.Store()
+            hub = MessagingHub(Path(d), secret_store=store)
+            result = hub.configure("telegram", {"bot_token": "123:secret-token",
+                                                "allowed_chat_id": "42"})
+            self.assertEqual(result["credential_store"], "dpapi")
+            self.assertEqual(store.token, "123:secret-token")
+            db = Path(d) / "messaging-hub" / "messages.sqlite3"
+            raw = db.read_bytes()
+            self.assertNotIn(b"123:secret-token", raw)
+            self.assertIn(hub_module.TELEGRAM_TOKEN_SENTINEL.encode(), raw)
+
+    def test_unenrolled_marker_fails_closed(self):
+        with _temp() as d:
+            store = self.Store()
+            hub = MessagingHub(Path(d), secret_store=store)
+            hub.configure("telegram", {"bot_token": hub_module.TELEGRAM_TOKEN_SENTINEL,
+                                       "allowed_chat_id": "42"})
+            with self.assertRaises(HubError):
+                hub.receive("telegram")
+
+    def test_status_migrates_legacy_plaintext_token_into_dpapi(self):
+        with _temp() as d:
+            store = self.Store()
+            hub = MessagingHub(Path(d), secret_store=store)
+            legacy = {"__kind": "telegram", "bot_token": "999:legacy-token",
+                      "allowed_chat_id": "42"}
+            with hub._db() as db:
+                db.execute("INSERT INTO provider_config VALUES(?,?,?)",
+                           ("telegram", json.dumps(legacy), 1.0))
+            status = hub.status()
+            self.assertIn("telegram", status["channels"])
+            self.assertEqual(store.token, "999:legacy-token")
+            raw = (Path(d) / "messaging-hub" / "messages.sqlite3").read_bytes()
+            self.assertNotIn(b"999:legacy-token", raw)
+            self.assertIn(hub_module.TELEGRAM_TOKEN_SENTINEL.encode(), raw)
+
+
 class OutboundFlowTests(Base):
     def test_send_requires_prior_exact_approval(self):
         self.hub.configure("telegram", {"bot_token": "123", "allowed_chat_id": "42"})
