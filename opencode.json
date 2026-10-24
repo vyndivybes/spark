@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "shell": "powershell.exe",
+  "model": "omniroute/openrouter/liquid/lfm-2.5-2.6b:free",
+  "small_model": "omniroute/openrouter/liquid/lfm-2.5-2.6b:free",
+  "mcp": {
+    "Neon": {
+      "enabled": false
+    }
+  }
+}

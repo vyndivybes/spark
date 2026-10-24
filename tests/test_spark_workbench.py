@@ -32,6 +32,30 @@ class WorkbenchTests(unittest.IsolatedAsyncioTestCase):
     async def action(self,action,**payload):
         return await self.workbench.execute(action,self.project,payload)
 
+    async def test_graphiti_uses_selected_project_and_rejects_cross_project_arguments(self):
+        from unittest.mock import AsyncMock
+        self.workbench.integrations.execute = AsyncMock(return_value={'facts':[]})
+        for name, arguments in [('search_temporal_facts', {'question':'VAOS'}),
+                                 ('get_entity_timeline', {'entity':'VAOS'}),
+                                 ('refresh_project_graph', {})]:
+            await self.action('mcp_call', server='graphiti', name=name, arguments=arguments)
+            self.assertEqual(self.workbench.integrations.execute.await_args.args[2]['arguments']['project'], self.project)
+        with self.assertRaises(WorkbenchError):
+            await self.action('mcp_call', server='graphiti', name='search_temporal_facts',
+                              arguments={'question':'VAOS', 'project':'another-project'})
+
+    async def test_knowledge_notes_search_read_and_vault_boundary(self):
+        from unittest.mock import patch
+        from spark_obsidian_integration import obsidian
+        vault = Path(self.directory.name) / 'vault'
+        vault.mkdir()
+        (vault / 'VAOS.md').write_text('VAOS release holds remain in place.', encoding='utf-8')
+        with patch.object(obsidian, 'vault', vault):
+            self.assertEqual(len(await self.action('knowledge_notes', query='VAOS')), 1)
+            self.assertIn('release holds', (await self.action('knowledge_note', path='VAOS.md'))['text'])
+            with self.assertRaises(ValueError):
+                await self.action('knowledge_note', path='../outside.md')
+
     async def test_voice_status_intents_need_no_task_identifier_and_never_grant_execution(self):
         self.assertEqual(parse_workbench_command('show my agent status')['action'],'agent_snapshot')
         self.assertEqual(parse_workbench_command('check system health')['action'],'intelligence_health')

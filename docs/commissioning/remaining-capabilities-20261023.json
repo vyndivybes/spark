@@ -1,0 +1,276 @@
+{
+  "sync": [
+    {
+      "service": "graphiti",
+      "tool": "graph_status",
+      "state": "current",
+      "last_success": 1792759861.7236652,
+      "stale": false
+    },
+    {
+      "service": "hermes",
+      "tool": "hermes_learned_skills",
+      "state": "current",
+      "last_success": 1792759864.6766262,
+      "stale": false
+    },
+    {
+      "service": "hermes",
+      "tool": "hermes_memory_cards",
+      "state": "current",
+      "last_success": 1792759864.6937234,
+      "stale": false
+    },
+    {
+      "service": "github",
+      "tool": "github_repository_status",
+      "state": "current",
+      "last_success": 1792759866.6443882,
+      "stale": false
+    },
+    {
+      "service": "github",
+      "tool": "github_list_pull_requests",
+      "state": "current",
+      "last_success": 1792759867.4320097,
+      "stale": false
+    },
+    {
+      "service": "github",
+      "tool": "github_list_issues",
+      "state": "current",
+      "last_success": 1792759868.1373353,
+      "stale": false
+    },
+    {
+      "service": "gmail",
+      "tool": "google_daily_briefing",
+      "state": "current",
+      "last_success": 1792759884.1474452,
+      "stale": false
+    },
+    {
+      "service": "google-drive",
+      "tool": "google_daily_briefing",
+      "state": "current",
+      "last_success": 1792759886.6433141,
+      "stale": false
+    },
+    {
+      "service": "google-calendar",
+      "tool": "google_daily_briefing",
+      "state": "current",
+      "last_success": 1792759888.9213114,
+      "stale": false
+    },
+    {
+      "service": "slack",
+      "tool": "slack_list_channels",
+      "state": "current",
+      "last_success": 1792759890.9053109,
+      "stale": false
+    },
+    {
+      "service": "graphify",
+      "tool": "__catalog__",
+      "state": "current",
+      "last_success": 1792759892.8420234,
+      "stale": false
+    },
+    {
+      "service": "obsidian",
+      "tool": "vault_notes",
+      "state": "current",
+      "last_success": 1792759901.4957154,
+      "stale": false
+    },
+    {
+      "service": "connections",
+      "tool": "connection_status",
+      "state": "current",
+      "last_success": 1792759901.5475132,
+      "stale": false
+    }
+  ],
+  "digest": [
+    {
+      "date": "2026-10-23",
+      "status": "completed",
+      "triage_count": 22
+    }
+  ],
+  "capability_actions": {
+    "digest_status": {
+      "ok": true
+    },
+    "hub_status": {
+      "ok": true
+    },
+    "proactive_summary": {
+      "ok": true
+    },
+    "opencode_status": {
+      "ok": true
+    },
+    "trace_status": {
+      "ok": true
+    },
+    "spec_search_status": {
+      "ok": true
+    },
+    "skill_status": {
+      "ok": true
+    },
+    "agents_status": {
+      "ok": true
+    },
+    "monitor_status": {
+      "ok": true
+    },
+    "learning_status": {
+      "ok": true
+    },
+    "connector_status": {
+      "ok": true
+    },
+    "eval_status": {
+      "ok": true
+    },
+    "telemetry_status": {
+      "ok": true
+    },
+    "backend_describe": {
+      "ok": true
+    }
+  },
+  "connectors": {
+    "workspace-search": {
+      "state": "account_validated"
+    },
+    "obsidian-vault": {
+      "state": "account_validated"
+    }
+  },
+  "research": {
+    "hops": 2,
+    "budget": 2,
+    "documents": 12,
+    "verified": false
+  },
+  "local_generation": {
+    "probe": {
+      "available": true,
+      "state": "healthy",
+      "latency_ms": 1313
+    },
+    "ok": true,
+    "answer_matches": true,
+    "usage": {
+      "input_tokens": 18,
+      "output_tokens": 4,
+      "cost": null
+    }
+  },
+  "local_telemetry": {
+    "capture": {
+      "key": "t-1792770209146247",
+      "recorded": true,
+      "ttft": "not_measured",
+      "energy": "not_measured"
+    },
+    "measured": [
+      {
+        "model": "local-gemma",
+        "count": 1,
+        "latency_p50_ms": 6761.6,
+        "latency_p95_ms": 6761.6,
+        "latency_mean_ms": 6761.6,
+        "tokens_per_second_mean": 0.59,
+        "output_tokens_total": 4
+      }
+    ]
+  },
+  "monitor_cycle": {
+    "monitor": "snapshot-freshness",
+    "state": "completed",
+    "events": 0,
+    "next_due": 1792770809.1605036
+  },
+  "model_evaluation_attempts": [
+    {
+      "candidate": "model-local-gemma",
+      "suite": "memory_retrieval",
+      "passed": 0,
+      "total": 2,
+      "pass_rate": 0.0,
+      "failures": [
+        {
+          "id": "memory-exact",
+          "reason": "runner error: JSONDecodeError"
+        },
+        {
+          "id": "memory-absent",
+          "reason": "runner error: JSONDecodeError"
+        }
+      ],
+      "provenance": "fixture:memory_retrieval | candidate: model-local-gemma (local model:gemma3:1b; task:local-gemma; prompt:d6a992984511; model output scored on fixture inputs, no expected answers shared) | seed: 11"
+    }
+  ],
+  "model_evaluation": {
+    "candidate": "model-local-gemma",
+    "suite": "memory_retrieval",
+    "passed": 2,
+    "total": 2,
+    "pass_rate": 1.0,
+    "failures": [],
+    "provenance": "fixture:memory_retrieval | candidate: model-local-gemma (local model:gemma3:1b; task:local-gemma; prompt:afb74ff92cf3; model output scored on fixture inputs, no expected answers shared) | seed: 11"
+  },
+  "opencode_acceptance": {
+    "exit_code": 0,
+    "response_observed": true,
+    "stdout_bytes": 614,
+    "stderr_bytes": 0,
+    "model": "omniroute/openrouter/liquid/lfm-2.5-2.6b:free",
+    "diagnostics": [],
+    "workspace_entries_including_git": 1,
+    "patch_acceptance": false
+  },
+  "model_agent_acceptance": {
+    "completed": false,
+    "error_type": "WorkbenchError"
+  },
+  "restarted_runtime": {
+    "launcher_pid": 22152,
+    "runtime": {
+      "status": "running",
+      "gemini_configured": true,
+      "groq_configured": true,
+      "graphify_ready": true,
+      "graphiti_ready": true,
+      "hermes_ready": true,
+      "obsidian_ready": true
+    },
+    "actions": {
+      "eval_status": {
+        "ok": true,
+        "candidates": [
+          "model-local-gemma"
+        ]
+      },
+      "monitor_status": {
+        "ok": true,
+        "healthy_checkpoints": 1
+      },
+      "telemetry_status": {
+        "ok": true
+      },
+      "opencode_status": {
+        "ok": true
+      },
+      "list_integrations": {
+        "ok": true,
+        "configured": 11
+      }
+    }
+  }
+}

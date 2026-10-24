@@ -4,6 +4,7 @@ Connector lifecycle, evaluation reports, telemetry refusals and backend
 catalog honesty flow through real Workbench dispatch with real spark
 workspace storage. No network and no cloud calls in this suite.
 """
+import os
 import sys
 import tempfile
 import unittest
@@ -19,9 +20,34 @@ class CapabilityWorkC1Tests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.workspace = SparkWorkspace(self.directory.name)
+        # backend/.env is loaded into os.environ at import time (backend/
+        # spark.py load_dotenv), so a suite order that imports spark first
+        # leaks the host's SPARK_TASK_MODELS and SPARK_EVALUATION_MODEL here:
+        # Workbench.__init__ reads both and attaches local engine adapters or
+        # an evaluator inside the constructor. These acceptance tests verify
+        # the default unconfigured state, so pin both keys off before
+        # construction; the original values are restored on cleanup.
+        leaked = {name: os.environ.get(name) for name in
+                  ("SPARK_TASK_MODELS", "SPARK_EVALUATION_MODEL")}
+        if any(value is not None for value in leaked.values()):
+            for name in leaked:
+                os.environ.pop(name, None)
+            self.addAsyncCleanup(self._restore_host_env, leaked)
+        os.environ["SPARK_TASK_MODELS"] = "{}"
+        os.environ.pop("SPARK_EVALUATION_MODEL", None)
+        self.addAsyncCleanup(self._restore_host_env,
+                             {"SPARK_TASK_MODELS": None, "SPARK_EVALUATION_MODEL": None})
         self.workbench = Workbench(self.workspace)
         self.project = "general"
         self.addAsyncCleanup(self._close)
+
+    @staticmethod
+    def _restore_host_env(snapshot):
+        for name, value in snapshot.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
     async def _close(self):
         await self.workbench.integrations.close()

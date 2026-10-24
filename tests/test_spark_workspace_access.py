@@ -26,6 +26,8 @@ class OfflineWorkspaceTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict('os.environ',{'SPARK_WORKSPACE_TOKEN':'a'*64}):
             for action,token,unlocked,expected in [
                 ('analyze_repository','a'*64,True,True),
+                ('preview_repository','a'*64,True,True),
+                ('preview_repository',None,True,False),
                 ('analyze_repository',None,True,False),
                 ('analyze_repository','a'*64,False,False),
                 ('rea_discover','a'*64,True,False)]:

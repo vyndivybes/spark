@@ -2,6 +2,7 @@ import PythonToolForge from './PythonToolForge';
 import CodeSkillForge from './CodeSkillForge';
 import React, {useEffect, useRef, useState} from 'react';
 import IntegrationSyncPanel from './IntegrationSyncPanel';
+import TelegramIntegrationPanel from './TelegramIntegrationPanel';
 
 const IntelligenceConsole = React.lazy(() => import('./IntelligenceConsole'));
 
@@ -66,7 +67,9 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
     const [candidates, setCandidates] = useState([]);
     const [repairs, setRepairs] = useState([]);
     const [analyses, setAnalyses] = useState([]);
+    const [analysesLoaded, setAnalysesLoaded] = useState(false);
     const [analysis, setAnalysis] = useState(null);
+    const [repositoryPreview, setRepositoryPreview] = useState(null);
     const [evidence, setEvidence] = useState(null);
     const [filesReport, setFilesReport] = useState(null);
     const [filesHits, setFilesHits] = useState(null);
@@ -119,6 +122,7 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
 
     useEffect(() => {
         pending.current = null; setBusy(false); setAnalysis(null); setEvidence(null);
+        setAnalyses([]); setAnalysesLoaded(false); setRepositoryPreview(null); setCandidates([]); setRepairs([]);
         setNotice(socket?.connected ? 'Ready. Every operation here stays read-only until you approve it.' : 'Backend offline. Connect and authenticate to SPARK.');
         const listener = data => {
             if (!data || data.request_id !== pending.current) return;
@@ -140,9 +144,18 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
                 case 'profile_import_cost': case 'profile_compare': case 'profile_frontend': setProfile({...r, kind: data.action}); break;
                 case 'security_scan': setScan(r); break;
                 case 'import_repository': setEvidence(r); break;
-                case 'analyze_repository': setAnalysis(r); break;
-                case 'read_repository_analysis': setAnalysis(r); break;
-                case 'list_repository_analyses': setAnalyses(Array.isArray(r) ? r : []); break;
+                case 'preview_repository': setRepositoryPreview(r); setNotice('Source preview ready. No model call was made.'); break;
+                case 'analyze_repository':
+                case 'read_repository_analysis':
+                    setAnalysis(r);
+                    setAnalyses(current => [r, ...current.filter(item => item.id !== r.id)]);
+                    setAnalysesLoaded(true);
+                    if (data.action === 'read_repository_analysis') {
+                        setRepository(r.imported?.url || r.repository || ''); setRepoGoal(r.goal || '');
+                        setReferencePaths((r.sources || []).map(source => source.path).join('\n'));
+                    }
+                    break;
+                case 'list_repository_analyses': setAnalyses(Array.isArray(r) ? r : []); setAnalysesLoaded(true); break;
                 case 'list_repairs': setRepairs(Array.isArray(r) ? r : []); break;
                 case 'list_repair_candidates': setCandidates(Array.isArray(r) ? r : []); break;
                 case 'agent_snapshot': setAgentJobs((r && r.jobs) || []); break;
@@ -385,39 +398,60 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
             {page === 'Repository Intelligence' && <>
                 <div className={card}>
                     <h4 className="font-semibold">Learn from a repository</h4>
-                    <p className="text-sm text-slate-300">Accepts a local checkout path or an https GitHub URL (shallow, code-execution-free clone). Analysis sends a bounded source sample to the configured model.</p>
+                    <p className="text-sm text-slate-300">Enter a local checkout path or a public GitHub repository URL. Preview reads a limited source sample without running repository code. Model analysis sends excerpts to the configured Groq model and requires GROQ_API_KEY.</p>
                     <input aria-label="Repository path or GitHub URL" className={input} value={repository} onChange={e => setRepository(e.target.value)} placeholder="Absolute local path or https://github.com/owner/repo"/>
                     <textarea aria-label="Repository upgrade goal" className={input} value={repoGoal} onChange={e => setRepoGoal(e.target.value)} placeholder="What should Spark learn or improve from this repository?"/>
                     <textarea aria-label="Reference paths" className={input} value={referencePaths} onChange={e => setReferencePaths(e.target.value)} placeholder="Optional reference paths, one per line"/>
                     <div className="flex flex-wrap gap-2">
+                        <button type="button" className={button} disabled={busy || !repository.trim()}
+                            onClick={() => request('preview_repository', {repository: repository.trim(), reference_paths: referencePaths.split(/\r?\n/).map(p => p.trim()).filter(Boolean)}, 600000)}>
+                            Preview source without model</button>
                         <button type="button" className={button} disabled={busy || !repository.trim() || !repoGoal.trim()}
-                            onClick={() => refresh('analyze_repository', {repository: repository.trim(), goal: repoGoal.trim(), reference_paths: referencePaths.split(/\r?\n/).map(p => p.trim()).filter(Boolean)}, 600000)}>
+                            onClick={() => request('analyze_repository', {repository: repository.trim(), goal: repoGoal.trim(), reference_paths: referencePaths.split(/\r?\n/).map(p => p.trim()).filter(Boolean)}, 600000)}>
                             Analyze repository with model</button>
-                        <button type="button" className={button} disabled={busy} onClick={() => refresh('list_repository_analyses')}>Load saved analyses</button>
+                        <button type="button" className={button} disabled={busy} onClick={() => request('list_repository_analyses')}>Load saved analyses</button>
                     </div>
+                    <p className="text-xs text-slate-400">Reference paths are relative to the repository, one per line, up to 16 files. Leave blank to select a sample. Analysis suggests changes; testing and activation require separate approval.</p>
+                    {repositoryPreview && <section aria-label="Repository source preview" className="space-y-2 border-t border-white/10 pt-3">
+                        <p className="break-all text-sm">Preview: {repositoryPreview.repository}</p>
+                        <p className="text-sm">{repositoryPreview.sources.length} sampled file(s) from {repositoryPreview.inventory.length} eligible paths{repositoryPreview.inventory_truncated ? ' (inventory limited)' : ''}. No model call made.</p>
+                        <Details value={repositoryPreview.sources} label="Review sampled source files"/>
+                        <Details value={{skipped: repositoryPreview.skipped, limitations: repositoryPreview.limitations, license: repositoryPreview.license}} label="Review preview limits"/>
+                    </section>}
+                    {analysesLoaded && !analyses.length && <p className="text-sm text-slate-400">No saved analyses in this workspace yet.</p>}
                     {analyses.map(report => <button key={report.id} className={button} disabled={busy}
-                        onClick={() => refresh('read_repository_analysis', {id: report.id})}>{`${report.goal}`.slice(0, 80)}</button>)}
+                        onClick={() => request('read_repository_analysis', {id: report.id})}>{`${report.goal}`.slice(0, 80)}</button>)}
                     {analysis && <>
                         <p className="break-all text-sm">{analysis.repository}</p>
                         <p className="whitespace-pre-wrap text-sm">{analysis.summary}</p>
-                        <Details value={{sources: analysis.sources, skipped: analysis.skipped}} label="Inspect sampled source and coverage"/>
+                        <Details value={{sources: analysis.sources, skipped: analysis.skipped, limitations: analysis.limitations, analysis_sample: analysis.analysis_sample}} label="Inspect sampled source and coverage"/>
                         {analysis.opportunities.map((item, index) => <div key={index} className="space-y-1 rounded-lg border border-white/20 p-3 text-sm">
                             <strong>{item.title}</strong>
                             <p className="text-slate-300">{item.rationale}</p>
                             <p className="text-xs text-slate-400">Evidence: {item.evidence.join(', ')}</p>
+                            <p className="text-xs text-slate-300">SPARK files: {item.spark_paths.join(', ')}</p>
+                            <p className="text-sm">Acceptance check: {item.verification}</p>
                             <button type="button" className={button} disabled={busy}
-                                onClick={() => refresh('stage_repository_upgrade', {analysis_id: analysis.id, opportunity: index}, 600000)}>
+                                onClick={() => request('stage_repository_upgrade', {analysis_id: analysis.id, opportunity: index}, 600000)}>
                                 Generate staged Spark upgrade</button>
                         </div>)}
                         {!analysis.opportunities.length && <p className="text-sm text-slate-400">No supported upgrade in this sample.</p>}
                     </>}
                 </div>
+                <section aria-label="Repository upgrade review" className={card}>
+                    <h4 className="font-semibold">Review staged repository upgrades</h4>
+                    <button type="button" className={button} disabled={busy} onClick={() => request('list_repair_candidates')}>Load staged upgrades</button>
+                    {candidates.filter(candidate => candidate.provenance?.analysis_id).map(candidate => <CandidateCard key={candidate.id} candidate={candidate} repairs={repairs}
+                        busy={busy} onTest={testCandidate} onActivate={activateCandidate}/>)}
+                    {!candidates.some(candidate => candidate.provenance?.analysis_id) && <p className="text-sm text-slate-400">Generate an upgrade from an analysis, or load previously staged upgrades.</p>}
+                    <p className="text-xs text-slate-400">Review replacements before approving tests. Activation requires the active owner session. Backups and rollback are available in Upgrade History.</p>
+                </section>
                 <div className={card}>
                     <h4 className="font-semibold">Import GitHub evidence only (no model call)</h4>
                     <div className="flex flex-wrap gap-2">
                         <input aria-label="GitHub URL" className={`${input} max-w-md`} value={importUrl} onChange={e => setImportUrl(e.target.value)} placeholder="https://github.com/owner/repo"/>
                         <button type="button" className={button} disabled={busy || !importUrl.trim()}
-                            onClick={() => refresh('import_repository', {url: importUrl.trim(), reference_paths: referencePaths.split(/\r?\n/).map(p => p.trim()).filter(Boolean)}, 600000)}>
+                            onClick={() => request('import_repository', {url: importUrl.trim(), reference_paths: referencePaths.split(/\r?\n/).map(p => p.trim()).filter(Boolean)}, 600000)}>
                             Import license and dependency evidence</button>
                     </div>
                     {evidence && <>
@@ -588,6 +622,7 @@ export default function SparkScreens({socket, project, onCockpit, initialPage='J
 
             {page === 'System Connectivity' && <>
                 <IntegrationSyncPanel socket={socket}/>
+                <TelegramIntegrationPanel socket={socket}/>
                 <div className={card}>
                     <h4 className="font-semibold">Existing system connectivity</h4>
                     <p className="text-sm text-slate-300">Every external service is classified from registration, audit history, install markers and credential presence. A probed report runs live discovery of each registered MCP service. No secrets are shown.</p>

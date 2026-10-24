@@ -1,0 +1,427 @@
+[
+ {
+  "path": "README.md",
+  "sha256": "83a20dd52146206ebafaf34f9e90450b510f0b75b15008d2466c6f9eb7128595",
+  "size": 62912
+ },
+ {
+  "path": "backend/server.py",
+  "sha256": "5e81efa234ce2fce2b5aa79f223db28c690e60af1a3fca1afc9723904d82793b",
+  "size": 95707
+ },
+ {
+  "path": "backend/spark.py",
+  "sha256": "d2c004cdda4fb3b6543609f7f64a66176dbf821ec507fe1441be9c40f773195e",
+  "size": 105661
+ },
+ {
+  "path": "backend/spark_assistant_tools.py",
+  "sha256": "0d58f9a111e24115e5eeddf5dff2d01e90f245451e214b6804d099f3c247924b",
+  "size": 24007
+ },
+ {
+  "path": "backend/spark_auto_evolution.py",
+  "sha256": "af8eb2c5f43a5b93288dd8751d4522a6e04b9819a1105d2bbc8e523a804f32c0",
+  "size": 38260
+ },
+ {
+  "path": "backend/spark_evolution.py",
+  "sha256": "f0fc7cc3fc2466faf93bd30e1dc074f1f1e0b6902a4eeda21461a034d9519e57",
+  "size": 32523
+ },
+ {
+  "path": "backend/spark_google_mcp.py",
+  "sha256": "4f569c31499ecc765ed06d21b280caca9d88a62925fbb971c6715ec4a80848e6",
+  "size": 40249
+ },
+ {
+  "path": "backend/spark_graphiti_mcp.py",
+  "sha256": "1ace3485cfa3eae771f4228594d47ead99c98d5fcab3fd7a96acb85284b5e250",
+  "size": 27651
+ },
+ {
+  "path": "backend/spark_messaging_hub.py",
+  "sha256": "17b8df7a0e7aa0fb036384927f52b820c9a01626e193438d63ac26d592fc699a",
+  "size": 32445
+ },
+ {
+  "path": "backend/spark_morning_digest.py",
+  "sha256": "c49357ca4b4eeebb04f47e3de413be719f25bf98fe67fe87fd955e9993ab3adc",
+  "size": 21730
+ },
+ {
+  "path": "backend/spark_obsidian_integration.py",
+  "sha256": "57a702b54f2be61aa1ae6a1407c3ac2c8fb898de1b73ddbc30464a974da16360",
+  "size": 2578
+ },
+ {
+  "path": "backend/spark_pc_access.py",
+  "sha256": "01f22bed09822f0f9b6f9cd6bf546bd7fc0dbe44df8ba8d6c08e86b438afb3ae",
+  "size": 13207
+ },
+ {
+  "path": "backend/spark_sync.py",
+  "sha256": "d739ee4379a4c593a701afe7cc16849fc398cc988d5897c604b1dbfd4ee6c948",
+  "size": 17215
+ },
+ {
+  "path": "backend/spark_whatsapp.py",
+  "sha256": "3e5fab19b3d454702e48e4121953b81584839578a3090e5daa4a737c6b99018e",
+  "size": 5750
+ },
+ {
+  "path": "backend/spark_workbench.py",
+  "sha256": "dc16a5f50fad09f2a1dee45afd5169e38cada07e498784068eac371789dc229d",
+  "size": 54747
+ },
+ {
+  "path": "backend/spark_workbench_voice.py",
+  "sha256": "88337ca1ddfef009ad6e92d17dd2dd1905b6781a8f940c45d0bbaeccd6a10879",
+  "size": 18262
+ },
+ {
+  "path": "electron/main.js",
+  "sha256": "0c6877914d5f32299bba41ac28dd1e6f95139e5ccaa52f2f8bdd21ad6c6a67ee",
+  "size": 18249
+ },
+ {
+  "path": "electron/whatsapp-window.cjs",
+  "sha256": "45ee2a475a08cf5b964c9ae11c26026c50ff14d3253319f14a3b022d8c5db606",
+  "size": 11011
+ },
+ {
+  "path": "scripts/connect-accounts.py",
+  "sha256": "9458a7af46666b628324b138d5ba0fbb36cc428d5f9b582a5d723000bbe7fd1f",
+  "size": 5418
+ },
+ {
+  "path": "src/App.jsx",
+  "sha256": "cb7e9a3bca6360bf7e76354d95151d0d4af3e128b10e2e03b91032fe0a99f6ba",
+  "size": 116580
+ },
+ {
+  "path": "src/audio/BrowserEchoAudio.mjs",
+  "sha256": "8aca9dfb1bbdaf379c5c04e881a1b9d53f68e7c8609e0d78df4e97052cca3768",
+  "size": 10746
+ },
+ {
+  "path": "src/components/CapabilitiesCenter.jsx",
+  "sha256": "2ac98fbc1e34fb62bd0521a33dcca0e5f151eb2772ae659a024ac78120e7a64c",
+  "size": 24702
+ },
+ {
+  "path": "src/components/IntegrationSyncPanel.jsx",
+  "sha256": "424c2f65ced74d476c3960b2bd945acce370aff0c5477389c34a4a63a0755c71",
+  "size": 6725
+ },
+ {
+  "path": "src/components/IntelligenceConsole.jsx",
+  "sha256": "11eb925c816fed2a1f54efb8b35e6bdc3c5b63b0b17a6bfb2655f99f840b2668",
+  "size": 28879
+ },
+ {
+  "path": "src/components/SparkScreens.jsx",
+  "sha256": "af355cd5c8229e3bcddbbfd8b54bf3d18791dad9928b5c04d485241653d4ecee",
+  "size": 55675
+ },
+ {
+  "path": "src/components/WorkbenchPanel.jsx",
+  "sha256": "d061f3417768c006b4d0db8e23a001b92b41dfa04c4927e019c7ca5afc53a2f6",
+  "size": 28937
+ },
+ {
+  "path": "start-spark.ps1",
+  "sha256": "fc1122381135918bff4985e232dbd1cb8386e98ba8b8f52121391b2abc2867e5",
+  "size": 19112
+ },
+ {
+  "path": "tests/browser-aec-runtime.test.cjs",
+  "sha256": "2f8404369b516f1cf1b995bec957b76c0e5fc0ab7c0abc715ad55fb8ac10251d",
+  "size": 7587
+ },
+ {
+  "path": "tests/test_spark_auto_evolution.py",
+  "sha256": "1cefb73f00fa82b3b762f28269315336f21a218f1ade2c96fdb86da49bb961d4",
+  "size": 26077
+ },
+ {
+  "path": "tests/test_spark_google_briefing.py",
+  "sha256": "bfec9c137e2961f4e507a172bf2a0b8db0fc72da813264c433661aa18777772e",
+  "size": 7959
+ },
+ {
+  "path": "tests/test_spark_graphiti_status.py",
+  "sha256": "23434a3d9918f5c00ec25fc7c18c04014119c6803a3f5220cc3d0acecc24ff50",
+  "size": 5099
+ },
+ {
+  "path": "tests/test_spark_messaging_hub.py",
+  "sha256": "7dd9680970caaae1bc05e0cac43f226c78c1b840b51a1b80531557546eb23240",
+  "size": 17577
+ },
+ {
+  "path": "tests/test_spark_morning_digest_workbench.py",
+  "sha256": "df32b7a82c97a81f3f3ab474f9df1f7f14809b575a3fc687ddc3682e43f596bf",
+  "size": 3821
+ },
+ {
+  "path": "tests/test_spark_official_email.py",
+  "sha256": "0b263f1551a8d61d6823a9ce07ef13e683dd160a05abd4057c17f7c2bddb129d",
+  "size": 9937
+ },
+ {
+  "path": "tests/test_spark_repo_upgrade.py",
+  "sha256": "68aaae9ef69e08ab38844a98afcf5d9ed7ece8b96255811a0c10612d4ae1e689",
+  "size": 9592
+ },
+ {
+  "path": "tests/test_spark_voice_capabilities.py",
+  "sha256": "4b8cd4153b4a1313ae8dcb2dbccf14e3883ab74e92110d54cc6440366961294a",
+  "size": 10238
+ },
+ {
+  "path": "tests/test_spark_whatsapp.py",
+  "sha256": "644ca77d7d3d3e16847be18445b9f9d3f453d41040d3712cb4ecedabaa0e4979",
+  "size": 5536
+ },
+ {
+  "path": "tests/test_spark_workbench.py",
+  "sha256": "036340783421bf31d0211da6a2fb81d1f3df4a91c94c25e6b09b9b34da7cd438",
+  "size": 30361
+ },
+ {
+  "path": "tests/test_spark_workspace_access.py",
+  "sha256": "d5f3362ffe172b573275f337690420bc299fe311544c1f486f00ec36f4a6fb52",
+  "size": 2410
+ },
+ {
+  "path": "backend/spark_credential_store.py",
+  "sha256": "4312fc3dd4b6adcf821c0f68084c589ed744ebb430aaf9040f0e1499ce3d9875",
+  "size": 6471
+ },
+ {
+  "path": "backend/spark_digest_google.py",
+  "sha256": "cf6da1cfe4b91c7d45331e6cf3bf8326f15e72b91af2e2d2f6368392377dc654",
+  "size": 2150
+ },
+ {
+  "path": "backend/spark_digest_schedule.py",
+  "sha256": "395ca0e4b6a7d88c5eb0135e93243a0b574e47195d5da78dfd8f7f655678fdd2",
+  "size": 3151
+ },
+ {
+  "path": "backend/spark_digest_voice.py",
+  "sha256": "8953fcceb6900b257cb25fce87b70e339206c3f6976eb522767d34bb7c96e27f",
+  "size": 1636
+ },
+ {
+  "path": "backend/spark_graphiti_inventory.py",
+  "sha256": "060e7f5206136afe2be1d04d3fb41bad957af43fb8c621c98e64baedf15a3aee",
+  "size": 6292
+ },
+ {
+  "path": "backend/spark_isolated_upgrade.py",
+  "sha256": "aa41b9bddd7f169fb078fc509a5b96e2c75ebdcd9cc621ea505215a8700a1201",
+  "size": 22657
+ },
+ {
+  "path": "backend/spark_knowledge_bridge.py",
+  "sha256": "fb7ce68bee524798bdd2d6cbdd8c435f659d1f751231b22d78b1040a83c51e39",
+  "size": 7844
+ },
+ {
+  "path": "backend/spark_model_evaluations.py",
+  "sha256": "805480ff6020954f8dfb1fbacb6a80e58324e6eba95c1a1f44480ecbd791cfff",
+  "size": 2797
+ },
+ {
+  "path": "backend/spark_pc_search.py",
+  "sha256": "7649058b312f5285baabe12573150b2f5a25264e4bf31765b0d75987f9fc9ff2",
+  "size": 6179
+ },
+ {
+  "path": "backend/spark_telegram.py",
+  "sha256": "8d1f8d859d6d595798e8d561d1882dc14e94d5f12d4d329bc2c74076c7a42707",
+  "size": 63697
+ },
+ {
+  "path": "docs/commissioning/autonomous-evolution-phase2-20261024.json",
+  "sha256": "d528131e7e3c6ae8ea9c8a020e81ed73af9844b8e9f95915c0de8a4c82d44625",
+  "size": 5119
+ },
+ {
+  "path": "docs/commissioning/isolated-upgrade-smoke-20261024.py",
+  "sha256": "9513240600cf7f05c9343c561518113e715bdb43e633a2a2b301ac4c1b25650e",
+  "size": 6024
+ },
+ {
+  "path": "docs/commissioning/isolated_upgrade_smoke_fakes.py",
+  "sha256": "de9bac3d2068442ac9231581fb2552bda9ff8aaaddbfa57ad2077d5c5de6bb79",
+  "size": 3161
+ },
+ {
+  "path": "docs/commissioning/morning-digest-acceptance-20261024.json",
+  "sha256": "d4555fc557b51cb89c3dce9976d5898297a1ed3e9d62ae40cfe024bd4b05069b",
+  "size": 2568
+ },
+ {
+  "path": "docs/commissioning/morning-digest-voice-20261024.md",
+  "sha256": "0821f51ec4a87a6ff877a1327f3a5007a1d7601d9b4fb0ef7f5ec581e5cfc4e6",
+  "size": 1060
+ },
+ {
+  "path": "docs/commissioning/remaining-capabilities-20261023.json",
+  "sha256": "58657792dc26e3726d44d7a34d220ff61b7abf453b152fdfe1176d10cc27cff3",
+  "size": 6510
+ },
+ {
+  "path": "docs/commissioning/remaining-integrations-20261023.json",
+  "sha256": "9dc480347166e5e4072ff5d84380da588b5a8294ac6c59edc0b19551653be094",
+  "size": 1311
+ },
+ {
+  "path": "docs/commissioning/remaining-setup-20261023.md",
+  "sha256": "d38d517272aa64a99dd48dc7cbd2ea1dfd58d87b9754f140e27b6458ef0a5861",
+  "size": 8582
+ },
+ {
+  "path": "docs/connected-knowledge.md",
+  "sha256": "05d3be08ba5799f1cea76f60d93e4659dcafd18cdf784ae6ecd5112d95e993e5",
+  "size": 4314
+ },
+ {
+  "path": "docs/evidence/connected-knowledge-2026-10-24.png",
+  "sha256": "16b3f20aa1c15b7a295e4cbd36dbdd5e4c699f69cc63596d4324ea0b1d50527f",
+  "size": 35184
+ },
+ {
+  "path": "electron/digest-notify.cjs",
+  "sha256": "9895b94f8cba35879e742f2624656190c45ad729177b32f44bbf4ed1a42c6945",
+  "size": 4111
+ },
+ {
+  "path": "opencode.json",
+  "sha256": "4d558054df57f1453121ef40c0ad71e87262cb2fb0eed78773cfbca5b75b445a",
+  "size": 276
+ },
+ {
+  "path": "scripts/configure-integrations.py",
+  "sha256": "8409b68cd40839653b3a36667318376f190bbc59b751ef7dd87dead1177c0980",
+  "size": 5770
+ },
+ {
+  "path": "scripts/configure-telegram.py",
+  "sha256": "b82dcbae765e30e5bacf31c0643ae2a93d215010bbf32b96037a00775eeb422c",
+  "size": 5004
+ },
+ {
+  "path": "scripts/connect-knowledge.py",
+  "sha256": "968bd97019ac8e315815751b4fb507c12ffbe2e2aae19a5c7b34ac2c1a264505",
+  "size": 4036
+ },
+ {
+  "path": "scripts/install-morning-digest.ps1",
+  "sha256": "bc6213f94b151858f0d3a0bb4b2769eb39d1ee434c9857e550517e80c437f159",
+  "size": 3043
+ },
+ {
+  "path": "scripts/run-morning-digest.ps1",
+  "sha256": "60062e09a40f34ec8f92656d291e726dc21e6eff9e3db6f5de5a92be667253db",
+  "size": 1336
+ },
+ {
+  "path": "scripts/run-morning-digest.py",
+  "sha256": "51074fc8bdaf19aa4c7a7a11ad9e96d7b77026283f771fad6a36dcbfb834ef6a",
+  "size": 4683
+ },
+ {
+  "path": "scripts/start-opencode-gateway.ps1",
+  "sha256": "8e7b81ea18301b20148a213cae378df6d4d9a69162c2d6b5f4238ec9bf4d911b",
+  "size": 2102
+ },
+ {
+  "path": "src/components/TelegramIntegrationPanel.jsx",
+  "sha256": "7d4b25463b1f6ed97599750705bd0f540f11bf353b8ed4c0057bf3ea4809c405",
+  "size": 4474
+ },
+ {
+  "path": "tests/desktop-reopen.test.cjs",
+  "sha256": "3264c82a94c36df342b60a91b537957627fd91f0051c7dcfb45df578b6b3299f",
+  "size": 1617
+ },
+ {
+  "path": "tests/digest-notifications.test.cjs",
+  "sha256": "c161f5a78466527fa961c345b214c3b8f8f79d75193cb75dd9db23d6c638bb5e",
+  "size": 2292
+ },
+ {
+  "path": "tests/repository-screen-view.html",
+  "sha256": "f6ab73178d4b7c3ef0f87a278f42914ebe1032e59a532717a978838fbc0e2e99",
+  "size": 290
+ },
+ {
+  "path": "tests/repository-screen-view.jsx",
+  "sha256": "06e60758ea36109ec765c209e2edea30bd5217da1b619e29a5c634e9c386867f",
+  "size": 2737
+ },
+ {
+  "path": "tests/test_repository_screen_ui.py",
+  "sha256": "0f7576aa5a98165c09b1a2805d92322f6d1cc5e808241fecfe14255bf3f26fb3",
+  "size": 4662
+ },
+ {
+  "path": "tests/test_spark_digest_tasks.py",
+  "sha256": "9a1cef21a3178f5803afaad07b2b4f5677f700cb2573d6f3912c7fd1df8c6651",
+  "size": 9785
+ },
+ {
+  "path": "tests/test_spark_digest_voice.py",
+  "sha256": "e0339e51ee9d0fa9f0823d5f568c8c77ad8949be9ddb2a551906d578d2ddd0a6",
+  "size": 3869
+ },
+ {
+  "path": "tests/test_spark_graphiti_embeddings.py",
+  "sha256": "4e6f6e3a5be96d20b4e83fdc1a0edd4295444a04690beaab8ccc3683940dd43b",
+  "size": 2821
+ },
+ {
+  "path": "tests/test_spark_integration_configuration.py",
+  "sha256": "81f891ca59a3040856387b1309ac71ef00163ed67ccd84f8b8c01c40094322fa",
+  "size": 3347
+ },
+ {
+  "path": "tests/test_spark_isolated_upgrade.py",
+  "sha256": "33e66417892e150e67956f22584af474e00baf15f7f23470f3e3cd66b08e90b5",
+  "size": 15537
+ },
+ {
+  "path": "tests/test_spark_knowledge_bridge.py",
+  "sha256": "8ca1d72dee105e0eca439601d4375efc0834ce66b004b7f17bcf2489a2500d41",
+  "size": 6667
+ },
+ {
+  "path": "tests/test_spark_local_telemetry.py",
+  "sha256": "0bcb9b84c66ec80262937abb98eb82527151035a901c17afc16289fdff59d358",
+  "size": 2409
+ },
+ {
+  "path": "tests/test_spark_model_evaluations.py",
+  "sha256": "579d0a9b7b4f53517babe0efd2e70c1f4eb6f8e152615307a43aa64a12ebb8c4",
+  "size": 3314
+ },
+ {
+  "path": "tests/test_spark_telegram.py",
+  "sha256": "17ee2cc1d0398bdba3eda85d344062f3e5b91c2b352f69ade7dda103a6e04e3e",
+  "size": 12709
+ },
+ {
+  "path": "tests/whatsapp-search.test.cjs",
+  "sha256": "a6398daafb81adc5e4d5f6b299f9e00023ef0ac4f02318e82b3f9b6181ff5499",
+  "size": 1521
+ },
+ {
+  "path": "tests/whatsapp-visible-chats.test.cjs",
+  "sha256": "055c1eaf94ec7753b9f793bcd472ed9aa900e690339dc6f45998658338fb6d20",
+  "size": 1605
+ }
+]

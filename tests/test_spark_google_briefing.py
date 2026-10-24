@@ -16,6 +16,7 @@ class GoogleReaderTests(unittest.TestCase):
     def reader(self, account="owner@example.com"):
         value = GoogleReader.__new__(GoogleReader)
         value.account = account
+        value.config_dir = None
         return value
 
     def test_ist_midnight_window_is_bounded(self):

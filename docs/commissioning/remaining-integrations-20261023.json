@@ -1,0 +1,62 @@
+{
+  "graphiti": {
+    "discovered_tools": 4,
+    "approved_tools_present": true,
+    "installed": true,
+    "credentials_configured": true,
+    "backend": "graphiti-core + embedded Kuzu",
+    "model": "openai/gpt-oss-20b",
+    "telemetry": "0"
+  },
+  "hermes": {
+    "discovered_tools": 3,
+    "approved_tools_present": true,
+    "available": true
+  },
+  "github": {
+    "discovered_tools": 3,
+    "approved_tools_present": true,
+    "ok": true,
+    "read_only": true
+  },
+  "gmail": {
+    "discovered_tools": 6,
+    "approved_tools_present": true,
+    "ok": true,
+    "read_only": true
+  },
+  "google-drive": {
+    "discovered_tools": 5,
+    "approved_tools_present": true,
+    "ok": true,
+    "read_only": true
+  },
+  "google-calendar": {
+    "discovered_tools": 4,
+    "approved_tools_present": true,
+    "ok": true,
+    "read_only": true
+  },
+  "slack": {
+    "discovered_tools": 2,
+    "approved_tools_present": true,
+    "ok": true,
+    "read_only": true
+  },
+  "graphify": {
+    "discovered_tools": 10,
+    "approved_tools_present": true
+  },
+  "local-gemma": {
+    "available": true,
+    "state": "healthy",
+    "latency_ms": 493
+  },
+  "obsidian": {
+    "vault_exists": true,
+    "notes": 4
+  },
+  "opencode": {
+    "installed": true
+  }
+}

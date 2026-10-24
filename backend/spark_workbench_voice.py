@@ -149,6 +149,8 @@ def parse_workbench_command(value, now=None):
 # (voice cannot configure channels, approve sends, execute proposals,
 # activate policies, revoke skills or opt engines in without the owner).
 _CAPABILITY_TABLE = [
+    (r"(?:play|read|speak|report) (?:me )?(?:the |my )?(?:latest |today's )?morning digest(?: now)?",
+     "digest_speech", {"digest": ""}),
     (r"(?:show|give) (?:me )?(?:the )?morning digest status",
      "digest_status", {}),
     (r"(?:run|prepare|compose) (?:the )?morning digest(?: now)?",
@@ -223,6 +225,8 @@ def capability_voice_summary(action, result):
         if action == "skill_list" and isinstance(result, list):
             return f"{len(result)} imported skills on record."
         return None
+    if action == "digest_speech":
+        return result.get('text') if isinstance(result, dict) else None
     if action == "digest_status":
         state = result.get("latest_run") or {}
         return (f"Morning digest: schedule "

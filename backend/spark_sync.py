@@ -15,7 +15,7 @@ from spark_productivity import WorkbenchError
 READS = {
     'gmail':['google_daily_briefing','google_list_items'],
     'google-drive':['google_daily_briefing','google_list_items'],
-    'google-calendar':['google_daily_briefing','google_list_items'],
+    'google-calendar':['google_daily_briefing','google_list_items','google_tasks_briefing'],
     'slack':['slack_list_channels'],
     'github':['github_repository_status','github_list_pull_requests','github_list_issues'],
     'hermes':['hermes_learned_skills','hermes_memory_cards'],
@@ -46,6 +46,7 @@ class IntegrationSync:
         self.runner=None
         self.task=None
         self.closed=False
+        self.knowledge_bridge = None
         self.wake=asyncio.Event()
         with self.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS settings(id INTEGER PRIMARY KEY,enabled INTEGER,interval INTEGER)')
@@ -83,7 +84,7 @@ class IntegrationSync:
             tools=[tool for tool in READS.get(service,[]) if tool in approved]
             # Prefer a meaningful structured read over the legacy IDs-only list.
             if service in ('gmail','google-calendar','google-drive') and 'google_daily_briefing' in tools:
-                tools=['google_daily_briefing']
+                tools=[tool for tool in tools if tool != 'google_list_items']
             for tool in tools:
                 result.append((service,tool,'status' if service=='graphiti' else 'data'))
             if not tools: result.append((service,'__catalog__','status'))
@@ -105,7 +106,7 @@ class IntegrationSync:
                 'stale':not row.get('last_success') or self.clock()-row['last_success']>2*max(settings['interval_seconds'],900 if service=='vaos-jarvis' else 0)})
         return {**settings,'running':self.lock.locked() or bool(self.task and not self.task.done()),'scope':'read-only local snapshots while Spark is open',
                 'limit':'Existing bounded readers only: recent items or reference data; not full account backups.',
-                'sources':rows}
+                'sources':rows, 'knowledge_bridge':self.knowledge_bridge}
 
     def cached(self,identity):
         allowed={s+'/'+t for s,t,_ in self.plan()}
@@ -132,17 +133,19 @@ class IntegrationSync:
         now = self.clock()
         today = datetime.fromtimestamp(now, timezone(timedelta(hours=5, minutes=30))).date().isoformat()
         sources = {}
-        results = {'gmail': [], 'google-calendar': [], 'google-drive': []}
+        results = {'gmail': [], 'google-calendar': [], 'google-drive': [], 'google-tasks': []}
         fields = {'gmail': 'messages', 'google-calendar': 'events',
-                  'google-drive': 'files'}
+                  'google-drive': 'files', 'google-tasks': 'tasks'}
         for service in fields:
-            rows = [item for item in status['sources'] if item['service'] == service]
+            registered_service = 'google-calendar' if service == 'google-tasks' else service
+            selected_tool = 'google_tasks_briefing' if service == 'google-tasks' else 'google_daily_briefing'
+            rows = [item for item in status['sources'] if item['service'] == registered_service]
             item = next((row for row in rows
-                         if row['tool'] == 'google_daily_briefing'), None)
+                         if row['tool'] == selected_tool), None)
             if not item:
                 sources[service] = {
                     'state': 'not_configured' if not rows else 'upgrade_required',
-                    'message': ('Register the read-only google_daily_briefing MCP tool '
+                    'message': ('Register the read-only ' + selected_tool + ' MCP tool '
                                 'for this Google service. Connection alone is insufficient.')}
                 continue
             source = {
@@ -177,6 +180,7 @@ class IntegrationSync:
                 'sources': sources,
                 'emails': results['gmail'], 'events': results['google-calendar'],
                 'documents': results['google-drive'],
+                'tasks': results['google-tasks'],
                 'attention_count': sum(mail.get('priority') in ('urgent', 'action')
                                        for mail in results['gmail']
                                        if isinstance(mail, dict)),
@@ -202,10 +206,11 @@ class IntegrationSync:
             raise ValueError('Provider read failed.')
         return value
 
-    async def cycle(self,force=False):
+    async def cycle(self,force=False,*,services=None):
         if self.lock.locked(): return self.status()
         async with self.lock:
             for service,tool,mode in self.plan():
+                if services is not None and service not in services: continue
                 if self.closed or not self.authorized() or (not force and not self.settings()['enabled']): break
                 identity=service+'/'+tool; now=self.clock()
                 with self.db() as db: old=db.execute('SELECT * FROM snapshots WHERE id=?',(identity,)).fetchone()
@@ -227,6 +232,10 @@ class IntegrationSync:
                     with self.db() as db:
                         db.execute('INSERT INTO snapshots(id,service,tool,mode,last_attempt,next_due,failures,state,error) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET last_attempt=excluded.last_attempt,next_due=excluded.next_due,failures=excluded.failures,state=excluded.state,error=excluded.error',
                             (identity,service,tool,mode,now,due,failures,'failed','Read unavailable; check source sign-in and permissions. Previous snapshot retained.'))
+            # Keep projection inside the cycle lock so a scheduled wake cannot
+            # arrive after cycle completion but before the runner clears it.
+            if self.authorized() and not self.closed:
+                await self.project_knowledge()
         return self.status()
 
     async def start(self):
@@ -250,14 +259,26 @@ class IntegrationSync:
         for task in tasks: task.cancel()
         if tasks: await asyncio.gather(*tasks,return_exceptions=True)
 
+    async def project_knowledge(self):
+        from spark_knowledge_bridge import configured_projection
+        try:
+            self.knowledge_bridge = await asyncio.to_thread(configured_projection, self.root.parent)
+        except Exception:
+            self.knowledge_bridge = {'error':'Knowledge projection unavailable. Check the configured vault and reference inventory.'}
+        return self.knowledge_bridge
+
     async def execute(self,action,data):
         keys={'sync_status':set(),'sync_configure':{'enabled','interval_seconds'},'sync_now':set(),
-              'sync_cached':{'id'},'sync_search':{'query'},'sync_briefing':set()}
+              'sync_cached':{'id'},'sync_search':{'query'},'sync_briefing':set(),'sync_knowledge':set()}
         if action not in keys or not isinstance(data,dict) or set(data)!=keys[action]: raise WorkbenchError('Invalid synchronization request.')
         if action=='sync_configure': return self.configure(**data)
         if action=='sync_cached': return self.cached(data['id'])
         if action=='sync_briefing': return self.briefing()
         if action=='sync_search': return self.search(data['query'])
+        if action=='sync_knowledge':
+            async with self.lock:
+                await self.project_knowledge()
+            return self.status()
         if action=='sync_now':
             # Refresh successful sources now; failed sources keep their backoff.
             with self.db() as db: db.execute("UPDATE snapshots SET next_due=0 WHERE state='current' AND service!='vaos-jarvis'")

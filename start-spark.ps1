@@ -14,6 +14,7 @@ param(
     [switch]$EnableGroqVision,
     [switch]$EnableGraphiti,
     [switch]$EnableHermes,
+    [switch]$EnableOpenCodeGateway,
     [switch]$EnableObsidian,
     [string]$ObsidianVault,
     [ValidateSet('browser_aec', 'native')]
@@ -154,7 +155,7 @@ if (-not (Test-Path $venvPython)) {
 $preferencesPath = Join-Path $PSScriptRoot 'spark.local.json'
 if (Test-Path -LiteralPath $preferencesPath) {
     $preferences = Get-Content -LiteralPath $preferencesPath -Raw | ConvertFrom-Json -ErrorAction Stop
-    foreach ($name in @('EnableGraphiti', 'EnableHermes', 'EnableObsidian')) {
+    foreach ($name in @('EnableGraphiti', 'EnableHermes', 'EnableObsidian', 'EnableOpenCodeGateway')) {
         $property = $preferences.PSObject.Properties[$name]
         if ($property -and -not $PSBoundParameters.ContainsKey($name)) {
             if ($property.Value -isnot [bool]) { throw "Local $name must be true or false." }
@@ -302,6 +303,10 @@ if ($mcpServers) {
     Write-Warning 'No MCP service could be registered; architecture, temporal graph and Hermes queries will be unavailable.'
 }
 
+if ($EnableOpenCodeGateway) {
+    try { & (Join-Path $PSScriptRoot 'scripts\start-opencode-gateway.ps1') }
+    catch { Write-Warning 'OpenCode gateway could not start. Other SPARK integrations remain available; check its local setup.' }
+}
 Write-Host 'Starting SPARK cockpit with original SPARK, HOLO and Brain Map experiences.' -ForegroundColor Green
 if ($Desktop) {
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'dist\index.html'))) {

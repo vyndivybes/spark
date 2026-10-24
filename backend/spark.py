@@ -486,7 +486,8 @@ class AudioLoop:
         if self._graphify_dispatched:
             return
         if (self.on_graphify_query is None and self.on_graphiti_query is None
-                and self.on_obsidian_search is None and self.on_executive_briefing is None):
+                and self.on_obsidian_search is None and self.on_executive_briefing is None
+                and self.on_workspace_action is None):
             return
         if self._graphify_tool_used:
             self._graphify_dispatched = True
@@ -496,6 +497,19 @@ class AudioLoop:
             return
         command = parse_workbench_command(utterance)
         if not command:
+            return
+        if command.get('action') == 'digest_speech' and self.on_workspace_action:
+            self._graphify_dispatched = True
+            from spark_digest_voice import narration_prompt
+            try:
+                payload = await asyncio.wait_for(self.on_workspace_action(
+                    'morning_digest', {}, utterance), timeout=15)
+                text = narration_prompt(payload)
+            except Exception:
+                text = ('Tell the user the saved Morning Digest could not be read. '
+                        'Ask them to prepare it in Morning Digest, then retry. Do not search the web.')
+            await session.send_client_content(
+                turns={'role': 'user', 'parts': [{'text': text}]}, turn_complete=True)
             return
         if command.get("action") == "executive_briefing" and self.on_executive_briefing:
             self._graphify_dispatched = True

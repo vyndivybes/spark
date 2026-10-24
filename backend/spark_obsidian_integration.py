@@ -9,11 +9,12 @@ class ObsidianIntegration:
     def status(self):
         return {"enabled": self.vault.exists(), "vault": str(self.vault)}
 
-    def snapshot(self):
+    def snapshot(self, *, exclude_folders=()):
         root=self.vault.resolve()
         if not root.is_dir(): raise ValueError('Configured vault unavailable.')
         notes=[];scanned=0
         for path in root.rglob('*.md'):
+            if path.relative_to(root).parts[0] in exclude_folders: continue
             scanned+=1
             if scanned>1000 or len(notes)>=100: break
             if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(root): continue

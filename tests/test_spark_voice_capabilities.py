@@ -22,7 +22,7 @@ import spark_workbench_voice as voice
 class GovernanceTests(unittest.TestCase):
     def test_allowed_intents_cover_the_sixteen_capability_status_actions(self):
         expected = {
-            "digest_status", "digest_run", "digest_history", "hub_status",
+            "digest_status", "digest_run", "digest_history", "digest_speech", "hub_status",
             "proactive_summary", "proactive_inbox", "opencode_status",
             "research_run", "trace_status", "learning_status",
             "spec_search_status",
@@ -145,6 +145,10 @@ class VoiceLoopAcceptanceTests(unittest.IsolatedAsyncioTestCase):
                 voice.parse_workbench_command(utterance)
                 for utterance in self._utterances(action)]
                 if p is not None and p["action"] == action))
+            if action == 'digest_speech':
+                with self.assertRaises(WorkbenchError):
+                    await self.workbench.execute(action, 'general', payload)
+                continue  # No completed digest exists; narration must refuse.
             result = await self.workbench.execute(action, "general", payload)
             spoken = voice.capability_voice_summary(action, result)
             self.assertTrue(isinstance(spoken, str) and spoken.strip(),
@@ -159,6 +163,7 @@ class VoiceLoopAcceptanceTests(unittest.IsolatedAsyncioTestCase):
     def _utterances(action):
         table = {
             "digest_status": ["show the morning digest status"],
+            "digest_speech": ["play morning digest"],
             "digest_run": ["run the morning digest now"],
             "digest_history": ["show me the digest history"],
             "hub_status": ["check the messaging hub status"],

@@ -38,6 +38,9 @@ export default function WorkbenchPanel({socket, project}) {
     const [tools,setTools] = useState([]);
     const [tool,setTool] = useState('');
     const [args,setArgs] = useState('{}');
+    const [knowledgeQuery,setKnowledgeQuery] = useState('VAOS');
+    const [notePath,setNotePath] = useState('VAOS.md');
+    const [knowledgeResult,setKnowledgeResult] = useState(null);
     const [image,setImage] = useState(null);
     const [question,setQuestion] = useState('Describe the selected screenshot.');
     const pending = useRef(null);
@@ -57,11 +60,13 @@ export default function WorkbenchPanel({socket, project}) {
     useEffect(()=>{
         pending.current=null;setBusy(false);setImage(null);
         setSnapshot({preference:[],agenda:[],routine:[]});setArtifacts([]);setPdfIds([]);
+        setKnowledgeResult(null);
         const receive=response=>{
             if(response?.request_id!==pending.current)return;
             clearTimeout(deadline.current);pending.current=null;setBusy(false);
             if(!response.ok){setNotice(String(response.message||'Workbench operation failed.'));return;}
             const {action,result}=response;
+            if(['knowledge_notes','knowledge_note','mcp_call'].includes(action))setKnowledgeResult({action,result});
             if(action==='workbench_snapshot')setSnapshot(result);
             if(action==='list_artifacts'){setArtifacts(result);setNotice(`${result.length} local files.`);return;}
             if(action==='list_integrations'){setServices(result);setService(result[0]?.name||'');setTools([]);setTool('');setNotice(result.length?`${result.length} configured services.`:'No MCP services configured. Add a trusted server on the host to connect one.');return;}
@@ -129,9 +134,34 @@ export default function WorkbenchPanel({socket, project}) {
     const selectedTool=tools.find(value=>value.name===tool);
     return <div className="mt-3 space-y-4">
         <nav aria-label="Workbench tools" className="flex flex-wrap gap-2">
-            {[['agenda','Agenda & memory'],['routines','Routines'],['office','Office & PDFs'],['lab','Robot & routes'],['services','Services & context']].map(([id,label])=><button type="button" key={id} className={button} aria-pressed={tab===id} onClick={()=>{setTab(id);setPlaying(false);}}>{label}</button>)}
+            {[['agenda','Agenda & memory'],['routines','Routines'],['office','Office & PDFs'],['lab','Robot & routes'],['knowledge','Connected knowledge'],['services','Services & context']].map(([id,label])=><button type="button" key={id} className={button} aria-pressed={tab===id} onClick={()=>{setTab(id);setPlaying(false);}}>{label}</button>)}
         </nav>
         <pre role="status" aria-live="polite" className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-cyan-950/30 p-3 text-sm">{notice}</pre>
+        {tab==='knowledge'&&<section className={card}>
+            <h3 className="font-semibold">Graphify, Graphiti and Obsidian</h3>
+            <p className="text-sm text-slate-300">Project: {project}. Graphify searches code architecture. Graphiti searches recorded history. Obsidian searches local notes. Source results appear above.</p>
+            <input aria-label="Knowledge question" className={input} value={knowledgeQuery} maxLength={200} onChange={e=>setKnowledgeQuery(e.target.value)} placeholder="Ask about VAOS, Vyndi OS, or a code symbol"/>
+            <div className="flex flex-wrap gap-2">
+                <button className={button} disabled={busy||!knowledgeQuery.trim()} onClick={()=>request('mcp_call',{server:'graphify',name:'query_graph',arguments:{question:knowledgeQuery,mode:'bfs',depth:2,token_budget:1800}})}>Search Graphify code</button>
+                <button className={button} disabled={busy||knowledgeQuery.trim().length<3} onClick={()=>request('mcp_call',{server:'graphiti',name:'search_temporal_facts',arguments:{question:knowledgeQuery,limit:6}})}>Search Graphiti history</button>
+                <button className={button} disabled={busy||!knowledgeQuery.trim()} onClick={()=>request('mcp_call',{server:'graphiti',name:'get_entity_timeline',arguments:{entity:knowledgeQuery.slice(0,120)}})}>Entity timeline</button>
+                <button className={button} disabled={busy||!knowledgeQuery.trim()} onClick={()=>request('knowledge_notes',{query:knowledgeQuery})}>Search Obsidian notes</button>
+                <button className={button} disabled={busy} onClick={()=>request('mcp_call',{server:'graphiti',name:'graph_status',arguments:{}})}>Graphiti status</button>
+            </div>
+            <p className="text-xs text-slate-400">Extract next batch sends up to 12 pending project records to configured Groq and Gemini providers. Repeat while remaining is above zero. Extracted associations need source verification.</p>
+            <button className={button} disabled={busy} onClick={()=>request('mcp_call',{server:'graphiti',name:'refresh_project_graph',arguments:{}})}>Extract next Graphiti batch</button>
+            <input aria-label="Obsidian note path" className={input} value={notePath} onChange={e=>setNotePath(e.target.value)} placeholder="VAOS.md"/>
+            <button className={button} disabled={busy||!notePath.trim()} onClick={()=>request('knowledge_note',{path:notePath})}>Read Obsidian note</button>
+            {knowledgeResult&&<div className="mt-4 space-y-3" aria-label="Knowledge results">
+                {knowledgeResult.action==='knowledge_notes'&&Array.isArray(knowledgeResult.result)?<>
+                    {knowledgeResult.result.length===0&&<p>No matching notes in the configured vault.</p>}
+                    {knowledgeResult.result.map(note=><article key={note.path} className="rounded-lg border border-white/10 p-3">
+                        <button className={button} disabled={busy} onClick={()=>{setNotePath(note.path);request('knowledge_note',{path:note.path});}}>{note.name}</button>
+                        <p className="break-all text-xs text-slate-400">{note.path}</p><p className="whitespace-pre-wrap text-sm">{note.snippet}</p>
+                    </article>)}
+                </>:<pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-950 p-3 text-sm">{knowledgeResult.result?.text||knowledgeResult.result?.content?.filter(part=>part.type==='text').map(part=>part.text).join('\n')||JSON.stringify(knowledgeResult.result,null,2)}</pre>}
+            </div>}
+        </section>}
         {tab==='agenda'&&<div className="grid gap-4 lg:grid-cols-2">
             <section className={card}><h3 className="font-semibold">Project preferences</h3><p className="text-sm text-slate-300">Explicit local memory. In Groq voice, say “Remember my units as metric” or “Show my preferences”.</p>
                 <input aria-label="Preference name" className={input} value={prefKey} onChange={e=>setPrefKey(e.target.value)} placeholder="Preference, e.g. units"/>

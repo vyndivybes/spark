@@ -46,15 +46,20 @@ async def connect(options):
                 'command':python,
                 'args':[str(ROOT / 'backend/spark_google_mcp.py'), '--cli', str(binary),
                         '--account', options.account, '--service', service],
-                'read_tools':['google_account_status', 'google_list_items'],
+                'read_tools':['google_account_status', 'google_list_items', 'google_daily_briefing'],
             }
             if service == 'gmail':
                 additions[service]['read_tools'].append('google_pending_email')
+                additions[service]['read_tools'].append('google_search_email')
                 previous = configuration.get(service, {}).get('args', [])
                 for flag in ('--official-account', '--official-config-dir'):
                     if flag in previous:
                         index = previous.index(flag)
                         additions[service]['args'] += [flag, previous[index + 1]]
+            if service == 'google-drive':
+                additions[service]['read_tools'].append('google_search_drive')
+            if service == 'google-calendar':
+                additions[service]['read_tools'].append('google_tasks_briefing')
             if getattr(options, 'enable_writes', False):
                 additions[service]['args'].append('--allow-writes')
                 additions[service]['write_tools'] = GOOGLE_WRITE_TOOLS[service]

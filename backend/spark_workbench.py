@@ -17,6 +17,7 @@ from spark_vayu_data import VayuExports
 from spark_sync import IntegrationSync
 from spark_morning_digest import DigestEngine, DigestError, NewsSource
 from spark_messaging_hub import MessagingHub, HubError
+from spark_credential_store import CredentialStore
 from spark_opencode_agent import OpenCodeAgent, OpenCodeError
 from spark_deep_research import ResearchEngine, ResearchError, ResearchSource
 from spark_proactive_agent import ProactiveAgent, ProactiveError, Proposal
@@ -30,6 +31,7 @@ from spark_agent_runtimes import (AgentRuntimes, AgentRuntimeError, Tool,
                                   MAX_STEPS, MAX_DEPTH)
 from spark_connector_catalog import ConnectorCatalog, ConnectorError
 from spark_evaluations import EvaluationError, Evaluations
+from spark_model_evaluations import attach_local_evaluator
 from spark_inference_telemetry import Telemetry, TelemetryError
 from spark_inference_backends import (InferenceBackends, BackendError,
                                       IMPLEMENTED_ENGINES)
@@ -38,6 +40,8 @@ from spark_obsidian_integration import obsidian
 ACTION_KEYS = {
     **INTELLIGENCE_ACTIONS,
     "workbench_snapshot": set(),
+    "knowledge_notes": {"query"},
+    "knowledge_note": {"path"},
     "save_preference": {"key", "value"},
     "add_agenda": {"title", "due", "kind"},
     "complete_agenda": {"id", "done"},
@@ -154,7 +158,8 @@ class Workbench:
         self.intelligence = Intelligence(workspace,integrations=self.integrations)
         self.vayu = VayuExports(workspace,self.productivity,None)
         self.digest = DigestEngine(workspace.skills.root.parent, self.sync)
-        self.messaging = MessagingHub(workspace.skills.root.parent)
+        self.messaging = MessagingHub(workspace.skills.root.parent,
+                                      secret_store=CredentialStore())
         # The scoped OpenCode root is SPARK's own repository: sessions may
         # only work inside it, and every other path is refused.
         self.opencode = OpenCodeAgent(REPOSITORY_ROOT)
@@ -213,6 +218,10 @@ class Workbench:
         self.connectors = ConnectorCatalog(workspace.skills.root.parent)
         self._attach_local_connectors()
         self.evaluations = Evaluations(workspace.skills.root.parent)
+        evaluation_model = os.environ.get('SPARK_EVALUATION_MODEL', '').strip()
+        if evaluation_model:
+            attach_local_evaluator(self.evaluations, self.intelligence.models,
+                                   evaluation_model)
         sampler = self._vitals_sampler()
         self.telemetry = Telemetry(workspace.skills.root.parent, sampler=sampler)
         ram_gb = None
@@ -315,6 +324,10 @@ class Workbench:
         if not isinstance(project, str) or len(project) > 60:
             raise WorkbenchError("Invalid project identifier.")
         self.productivity.skills._file(project)
+        if action == 'knowledge_notes':
+            return await asyncio.to_thread(obsidian.search, text(payload['query'], 200), 20)
+        if action == 'knowledge_note':
+            return {'text': (await asyncio.to_thread(obsidian.read, text(payload['path'], 300)))[:20000]}
         if action in ('publish_vayu_snapshot','unpublish_vayu_snapshot'):
             try:
                 if action=='unpublish_vayu_snapshot':return await asyncio.to_thread(self.vayu.revoke,project)
@@ -335,6 +348,12 @@ class Workbench:
         if action=='mcp_audit':return self.integrations.history()
         if action in ("mcp_discover", "mcp_call"):
             arguments = {} if action == "mcp_discover" else {"name": payload["name"], "arguments": payload["arguments"]}
+            if action == 'mcp_call' and payload['server'] == 'graphiti' and payload['name'] in ('search_temporal_facts', 'get_entity_timeline', 'refresh_project_graph'):
+                if not isinstance(payload['arguments'], dict):
+                    raise WorkbenchError('Graphiti arguments must be an object.')
+                if payload['arguments'].get('project', project) != project:
+                    raise WorkbenchError('Graphiti uses the selected workspace project.')
+                arguments = {'name': payload['name'], 'arguments': {**payload['arguments'], 'project': project}}
             return await self.integrations.execute(payload["server"], action, arguments)
         if action == "generate_office":
             extension = payload["format"]
@@ -390,12 +409,12 @@ class Workbench:
             except (ProactiveError, MonitorError, ValueError, OSError) as error:
                 raise WorkbenchError(str(error)) from None
         if action in ("digest_run", "digest_speak"):
-            # One digest per day; speech is a local-only, explicitly
-            # requested Windows System.Speech call.
+            # Voice playback belongs to the authenticated live session in
+            # server.py. Never launch a second speaker outside its audio gate.
             try:
                 if action == "digest_run":
                     return await asyncio.to_thread(self.digest.run)
-                return await asyncio.to_thread(self.digest.speak, payload["digest"] or None)
+                return await asyncio.to_thread(self._digest_speech, payload["digest"])
             except DigestError as error:
                 raise WorkbenchError(str(error)) from None
         if action == "analyze_snapshot":
@@ -428,12 +447,28 @@ class Workbench:
 
     def _digest_speech(self, digest):
         try:
-            return self.digest.speech_payload(digest or None)
+            return self.digest.narration_payload(digest or None)
         except DigestError as error:
             raise WorkbenchError(str(error)) from None
 
     def _digest_configure(self, data):
         try:
+            self.digest.validate_configuration(schedule_ist=data['schedule_ist'],
+                                               news_enabled=data['news_enabled'], news_url=data['news_url'] or None)
+            # Only the host-installed daily task is updated. Temporary workspaces
+            # and platforms without that registration keep pure local settings.
+            if os.name == 'nt' and self.digest._stored('windows_task') == 'SPARK Morning Digest':
+                import subprocess
+                schedule = str(data['schedule_ist'])
+                environment = dict(os.environ, SPARK_WORKSPACE_DATA_ROOT=str(self.digest.root.parent))
+                try:
+                    result = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                                             '-File', str(REPOSITORY_ROOT / 'scripts/install-morning-digest.ps1'),
+                                             '-TimeIST', schedule], env=environment, capture_output=True, timeout=45)
+                except (OSError, subprocess.TimeoutExpired):
+                    raise DigestError('Windows daily digest task update was unavailable or timed out.') from None
+                if result.returncode:
+                    raise DigestError('Windows could not update the daily digest task; check its local registration.')
             return self.digest.configure(
                 schedule_ist=data["schedule_ist"], news_enabled=data["news_enabled"],
                 news_url=data["news_url"] or None)
@@ -828,18 +863,23 @@ class Workbench:
     def _telemetry_capture(self, data):
         """Measure one real configured-model inference and record telemetry."""
         import asyncio as _asyncio
+        models = self.intelligence.models
+        configured = next((model for model in models.catalog()
+                           if model['id'] == data['model']), None)
+        if not (configured and configured['local']) and data['allow_cloud'] is not True:
+            raise TelemetryError("Cloud telemetry capture needs explicit "
+                                 "owner consent in allow_cloud.")
+        async def generate():
+            if not configured or not configured.get('available'):
+                await models.probe(data['model'], allow_cloud=bool(data['allow_cloud']))
+            return await models.generate(data['model'], data['prompt'],
+                                         allow_cloud=bool(data['allow_cloud']))
         def runner():
-            result = _asyncio.run(
-                self.intelligence.models.generate(
-                    data["model"], data["prompt"],
-                    allow_cloud=bool(data["allow_cloud"])))
+            result = _asyncio.run(generate())
             usage = (result or {}).get("usage") or {}
             result["returned_usage"] = {"input": usage.get("input_tokens"),
                                         "output": usage.get("output_tokens")}
             return result
-        if data["allow_cloud"] is not True:
-            raise TelemetryError("Cloud telemetry capture needs explicit "
-                                 "owner consent in allow_cloud.")
         return self.telemetry.capture(data["model"], runner,
                                       measure_again=lambda r: r["returned_usage"])
 

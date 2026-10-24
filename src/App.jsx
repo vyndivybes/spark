@@ -438,6 +438,14 @@ function App() {
                 if (audioTransportRef.current === 'browser_aec' && !audioBridgeRef.current) {
                     const bridge = new BrowserEchoAudio({
                         socket,
+                        onCaptureState: ({available}) => {
+                            const muted = userMutedRef.current || !available;
+                            bridge.setMuted(muted);
+                            socket.emit(muted ? 'pause_audio' : 'resume_audio');
+                            setIsMuted(muted);
+                            setStatus(available ? 'Hands-Free AEC Active' : 'Microphone unavailable');
+                            if (!available) addMessage('System', 'Microphone signal is unavailable. Unmute the microphone in Windows or with your keyboard mic key, and check the input device.');
+                        },
                         onError: message => {
                             // Only an actual audio device / Chromium exception
                             // invalidates AEC. Playback buffering must NOT mute
@@ -457,10 +465,13 @@ function App() {
                     const outputId = localStorage.getItem('selectedSpeakerId') || '';
                     bridge.start({deviceId, outputId}).then(() => {
                         if (audioBridgeRef.current !== bridge) return;
-                        bridge.setMuted(userMutedRef.current);
-                        socket.emit('browser_audio_ready', {muted: userMutedRef.current});
-                        setIsMuted(userMutedRef.current);
-                        setStatus('Hands-Free AEC Active');
+                        const available = bridge.isCaptureAvailable();
+                        const muted = userMutedRef.current || !available;
+                        bridge.setMuted(muted);
+                        socket.emit('browser_audio_ready', {muted});
+                        setIsMuted(muted);
+                        setStatus(available ? 'Hands-Free AEC Active' : 'Microphone unavailable');
+                        if (!available) addMessage('System', 'Microphone signal is unavailable. Unmute the microphone in Windows or with your keyboard mic key, and check the input device.');
                     }).catch(err => {
                         if (audioBridgeRef.current !== bridge) return;
                         bridge.stop();
@@ -1389,6 +1400,11 @@ function App() {
             const bridge = audioBridgeRef.current;
             if (!bridge?.ready) {
                 addMessage('System', 'Chromium echo cancellation is not ready.');
+                return;
+            }
+            if (!bridge.isCaptureAvailable()) {
+                setIsMuted(true);
+                addMessage('System', 'Microphone signal is unavailable. Unmute the microphone in Windows or with your keyboard mic key, and check the input device.');
                 return;
             }
             const newMuted = !isMuted;

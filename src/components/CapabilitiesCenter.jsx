@@ -23,9 +23,9 @@ export const CAPABILITY_PAGES = [
      actions:[
         {action:'digest_run', label:'Run digest now', fields:[]},
         {action:'digest_history', label:'Load recent history', fields:[{key:'limit',type:'number',def:10}]},
-        {action:'digest_configure', label:'Configure schedule', fields:[{key:'schedule_ist',type:'text',def:'05:30'},{key:'news_enabled',type:'bool',def:false},{key:'news_url',type:'text',def:''}]},
+        {action:'digest_configure', label:'Configure schedule', fields:[{key:'schedule_ist',type:'text',def:'07:00'},{key:'news_enabled',type:'bool',def:false},{key:'news_url',type:'text',def:''}]},
         {action:'digest_speech', label:'Compose speech text', fields:[{key:'digest',type:'json',def:''}]},
-        {action:'digest_speak', label:'Speak latest digest', fields:[{key:'digest',type:'json',def:''}]},
+        {action:'digest_speak', label:'Play through SPARK voice', fields:[{key:'digest',type:'json',def:''}]},
         {action:'digest_ack', label:'Acknowledge digest', fields:[{key:'digest',type:'json',def:''}]},
      ]},
     {id:'whatsapp', num:'02', title:'WhatsApp Gateway',

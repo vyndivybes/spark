@@ -1,4 +1,5 @@
 """Stage-6 SPARK tool use: explicit opt-in, narrow schemas, no silent desktop actions."""
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -17,8 +18,16 @@ class Stage6ToolsTests(unittest.TestCase):
         self.assertNotIn("tools", conf)
 
     def test_opt_in_retains_original_voice_and_only_three_function_declarations(self):
-        c = select_live_config("cinematic_tools", {"tools": ["unsafe"]})
-        base = select_live_config("cinematic", {"tools": ["unsafe"]})
+        # Module import order can leak host SPARK_ENABLE_* switches from
+        # backend/.env (load_dotenv runs at import time in backend/spark.py).
+        # Integration opt-in is a launcher property of the real process, not a
+        # property of this profile, so pin it off for this session-exact check.
+        # patch.dict restores every popped variable on exit.
+        with patch.dict("os.environ", {}, clear=False):
+            for service in ("google_briefing", "graphiti", "hermes", "obsidian"):
+                os.environ.pop("SPARK_ENABLE_" + service.upper(), None)
+            c = select_live_config("cinematic_tools", {"tools": ["unsafe"]})
+            base = select_live_config("cinematic", {"tools": ["unsafe"]})
         for k in ("response_modalities", "speech_config"):
             self.assertEqual(c[k], base[k])
         self.assertEqual(len(c["tools"]), 1)
