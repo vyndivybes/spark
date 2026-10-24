@@ -244,6 +244,9 @@ class GeminiMemoryTests(unittest.IsolatedAsyncioTestCase):
         method = next(node for node in audio.body if isinstance(node, ast.AsyncFunctionDef) and node.name == "receive_audio")
         scope = {"asyncio": asyncio, "RECALL_TOOL": RECALL_TOOL, "REMEMBER_TOOL": REMEMBER_TOOL,
                  "types": SimpleNamespace(FunctionResponse=SimpleNamespace), "live_profile": lambda: "cinematic"}
+        import spark_tool_trace
+        import traceback
+        scope.update(tool_trace=spark_tool_trace, traceback=traceback)
         from spark_web import WEB_NAMES
         scope["WEB_NAMES"] = WEB_NAMES
         exec(compile(ast.Module(body=[method], type_ignores=[]), str(source), "exec"), scope)

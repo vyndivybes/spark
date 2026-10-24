@@ -14,11 +14,28 @@ from spark_workbench import ACTION_KEYS, Workbench
 from spark_productivity import WorkbenchError
 
 
+class MemoryCredentials:
+    """Credential boundary fixture; production still requires its DPAPI store."""
+    def __init__(self):
+        self.token = None
+
+    def save_telegram_token(self, token):
+        self.token = token
+
+    def load_telegram_token(self):
+        return self.token
+
+    def delete_telegram_token(self):
+        self.token = None
+        return True
+
+
 class HubWorkbenchWiringTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.workspace = SparkWorkspace(self.directory.name)
         self.workbench = Workbench(self.workspace)
+        self.workbench.messaging.secret_store = MemoryCredentials()
         self.project = "general"
         self.addAsyncCleanup(self._close)
 

@@ -10,6 +10,11 @@ Every dispatch test asserts the tool returned a real result AND that results
 distinguish unavailable access from not-found source.
 """
 import asyncio
+import ast
+import time
+from functools import lru_cache
+from types import SimpleNamespace
+from typing import TYPE_CHECKING
 import os
 import sys
 import unittest
@@ -26,16 +31,59 @@ from spark_insight_tools import (  # noqa: E402
     backend_health, git_state, release_summary, search_spark_source)
 from spark_live_profile import select_live_config  # noqa: E402
 
+if TYPE_CHECKING:
+    # Declare the source dependency for SPARK's static isolation closure while
+    # avoiding camera/audio SDK imports in the hardware-free dispatch fixture.
+    import spark
+
+
+@lru_cache(maxsize=1)
+def _dispatch_surface():
+    """Compile the production registry/dispatch methods without hardware startup.
+
+    Callback bodies and budgeting are unchanged source. This deliberately tests
+    their boundary, not AudioLoop's camera/audio constructor or SDK imports.
+    """
+    source = Path(__file__).resolve().parents[1] / 'backend/spark.py'
+    tree = ast.parse(source.read_text(encoding='utf-8-sig'))
+    scope = dict(asyncio=asyncio, json=json, time=time, Path=Path)
+    constants = {'MCP_VOICE_TOOLS', 'MCP_VOICE_BUDGET', 'MCP_VOICE_WINDOW'}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id in constants:
+                    scope[target.id] = ast.literal_eval(node.value)
+    imports = [n for n in tree.body if isinstance(n, ast.ImportFrom)
+               and n.module in {'spark_insight_tools', 'spark_autonomous_engine'}]
+    exec(compile(ast.Module(body=imports, type_ignores=[]), str(source), 'exec'), scope)
+    names = {'answer_mcp_tool'} | {
+        scope['MCP_VOICE_TOOLS'][declaration['name']]['callback']
+        for declaration in INSIGHT_DECLARATIONS}
+    audio = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'AudioLoop')
+    methods = [n for n in audio.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+               and n.name in names]
+    extracted = ast.ClassDef(name='AudioLoop', bases=[], keywords=[], body=methods, decorator_list=[])
+    module = ast.fix_missing_locations(ast.Module(body=[extracted], type_ignores=[]))
+    exec(compile(module, str(source), 'exec'), scope)
+    return SimpleNamespace(AudioLoop=scope['AudioLoop'], MCP_VOICE_TOOLS=scope['MCP_VOICE_TOOLS'])
+
+
+def _new_dispatch_loop():
+    loop = _dispatch_surface().AudioLoop()
+    loop._mcp_calls = {}
+    loop._mcp_cache = {}
+    return loop
+
 
 class RegistrationTests(unittest.TestCase):
     """Every declaration must be registered, gated and actually executable."""
 
     def _dispatchable(self):
-        import spark
-        return spark.AudioLoop()
+        spark = _dispatch_surface()
+        return _new_dispatch_loop()
 
     def test_declared_names_are_registered_for_dispatch(self):
-        import spark
+        spark = _dispatch_surface()
         for declaration in INSIGHT_DECLARATIONS:
             name = declaration["name"]
             self.assertIn(name, spark.MCP_VOICE_TOOLS,
@@ -44,10 +92,10 @@ class RegistrationTests(unittest.TestCase):
             self.assertTrue(hasattr(spark.AudioLoop, spec["callback"]),
                             f"{name} dispatch callback {spec['callback']} is not wired")
 
-    def test_registered_callbacks_resolve_on_a_real_loop(self):
+    def test_registered_callbacks_resolve_on_production_dispatch(self):
         loop = self._dispatchable()
         from spark_cinematic_tools import INSIGHT_TOOL_NAMES
-        import spark
+        spark = _dispatch_surface()
         for name in INSIGHT_TOOL_NAMES:
             callback = getattr(loop, spark.MCP_VOICE_TOOLS[name]["callback"], None)
             self.assertIsNotNone(callback, f"{name} would answer 'not configured'")
@@ -78,9 +126,9 @@ class _AudioLoopCase(unittest.TestCase):
     """Shared real-dispatch helper: one AudioLoop per test method."""
 
     def _run(self, coro):
-        import spark
+        spark = _dispatch_surface()
         if not hasattr(self, "_loop"):
-            self._loop = spark.AudioLoop()
+            self._loop = _new_dispatch_loop()
         return asyncio.run(coro(self._loop))
 
 
@@ -259,10 +307,10 @@ class HonestyTests(_AudioLoopCase):
 
 class BudgetTests(unittest.TestCase):
     def test_rate_budget_still_enforced(self):
-        import spark
+        spark = _dispatch_surface()
 
         async def call():
-            loop = spark.AudioLoop()
+            loop = _new_dispatch_loop()
             for index in range(6):
                 answer = await loop.answer_mcp_tool(
                     "read_source_file", {"file_path": f"f_missing_{index}.py"})
