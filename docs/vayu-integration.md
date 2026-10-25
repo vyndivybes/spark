@@ -7,6 +7,13 @@ Command Desk, and Analytics & Ledgers. Closing the window stops its server.
 Python is the same interpreter configured for Spark through `SPARK_PYTHON`.
 Port 4891 must be available. An occupied port produces a launch error.
 
+The visual library groups the 12 views into five numbered chapters: Structure,
+Relationships, Evidence, Presentation, and Workspaces. A dedicated page owns
+one navigation rail and one engine frame. Command Desk and Analytics use compact
+workspace section tabs inside that frame; links to the library, source studio,
+and Spark project data navigate the whole window, preventing nested page shells.
+Preview diagrams illustrate each view's layout, not business records.
+
 Personal and Business action registers are separate files at
 `<Electron userData>/vayu-workspace/workspace-data/{personal,business}.json`.
 On Windows, Electron normally places userData under `%APPDATA%/spark`.

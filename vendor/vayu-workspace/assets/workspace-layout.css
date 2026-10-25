@@ -1,0 +1,39 @@
+/* Shared workspace layout: one page scroll, one navigation rail. */
+#workspace{background:#101915;color:#e6ebdf;font-family:"Segoe UI",Arial,sans-serif}
+#workspace .whead{background:#141f18;border-color:#344139;padding:18px 30px}
+#workspace .whead b{font-size:14px;letter-spacing:.14em}
+#workspace .whead small{color:#a8b4a3;font-size:12px}
+#workspace .wview-pages{color:#d4ef80!important;border-color:#52633f!important}
+#workspace .wlayout{grid-template-columns:205px minmax(0,1fr)}
+#workspace .wlayout nav{border-color:#344139;background:#141f18;padding:24px 14px}
+#workspace .wlayout main{width:100%;max-width:1400px;padding:32px clamp(22px,3vw,52px)}
+#workspace .wlayout nav button{background:transparent;color:#b7c3b0;font-size:13px;border-radius:6px;padding:10px 12px}
+#workspace button{background:#25362a;border-color:#485a3c;color:#ecf3df;transition:background .18s}
+#workspace button:hover{background:#364b30}
+#workspace .wlayout nav button[aria-current=page],#workspace button[aria-pressed=true]{background:#d4ef80;color:#19251b;border-color:#d4ef80}
+#workspace #addItem{background:#d4ef80;color:#19251b;border:0;border-radius:24px;font-size:13px;padding:13px 20px}
+#workspace h1{font-size:clamp(28px,3.5vw,46px);font-weight:550;letter-spacing:-.045em;color:#f1f1e8;margin:9px 0}
+#workspace h2{font-size:21px;letter-spacing:-.02em;font-weight:550;color:#e9eddf}
+#workspace small,#workspace .wstatus,#workspace .wfoot,#workspace .wmuted{color:#9eae96}
+#workspace .wmetrics{gap:0;border-block:1px solid #3a4833;padding:22px 0;margin:25px 0 28px}
+#workspace .wmetrics>div{border:0;border-right:1px solid #3a4833;border-radius:0;background:none;padding:0 24px;color:#b3c0aa}
+#workspace .wmetrics>div:first-child{padding-left:0}#workspace .wmetrics>div:last-child{border-right:0}
+#workspace .wmetrics b{font-size:36px;font-weight:500;letter-spacing:-.05em;font-variant-numeric:tabular-nums;color:#d4ef80}
+#workspace .wintro{background:#24372a;border:1px solid #4a5c3b;border-radius:16px;padding:24px 28px}
+#workspace .wintro>h2{margin-top:0}#workspace .wintro>p{max-width:64ch;color:#b7c6b0;font-size:13px}
+#workspace .wrow,#workspace .wcard{background:#1b2a20;border-color:#3b4d33;border-radius:10px}
+#workspace .wempty{border-color:#4e6043;color:#b1bfa5;padding:25px;border-radius:10px;font-size:13px}
+#workspace .wtools{flex-wrap:wrap;gap:12px}#workspace .wtools input{min-width:0;max-width:100%;background:#18271d;border-color:#47583d;color:#e6eddf}
+#workspace .wbackup{color:#9eae96}#workspace .wbackup summary{font-size:11px}
+.embedded-workspace #workspace .whead{padding:12px 28px;justify-content:flex-end}
+.embedded-workspace #workspace .whead>div:first-child,.embedded-workspace #workspace .wview-pages{display:none}
+.embedded-workspace #workspace .wlayout{display:block;min-height:0}
+.embedded-workspace #workspace .wlayout>nav{display:block;padding:10px 28px;border-right:0;border-bottom:1px solid #344139}
+.embedded-workspace #workspace .wnavprimary{flex-direction:row;overflow-x:auto;max-width:100%;gap:6px;padding-bottom:3px}
+.embedded-workspace #workspace .wnavprimary button{white-space:nowrap;flex:none;font-size:12px;padding:8px 11px}
+.embedded-workspace #workspace .wbackup{margin:5px 0 0}.embedded-workspace #workspace .wbackup[open]{max-width:450px}
+.embedded-workspace #workspace .wlayout main{margin:0 auto}
+@media(max-width:850px){#workspace .wlayout{grid-template-columns:minmax(0,1fr)}#workspace .whead{padding:16px 20px;gap:14px}#workspace .wlayout nav{padding:10px 20px}#workspace .wlayout main{padding:24px 20px}#workspace .wmetrics{row-gap:22px}#workspace .wmetrics>div{padding-left:16px}#workspace .wmetrics>div:nth-child(3){padding-left:0}#workspace .wmetrics>div:nth-child(2){border-right:0}#workspace .wintro{padding:20px}#workspace .wtitle{gap:16px}.embedded-workspace #workspace .whead{padding:10px 16px;flex-direction:row}.embedded-workspace #workspace .wlayout>nav{padding:10px 16px}#workspace .wrow{overflow-wrap:anywhere}#workspace .wactions{max-width:100%}}
+@media(prefers-reduced-motion:reduce){#workspace button{transition:none}}
+@media print{#workspace .wmetrics b{color:#111}#workspace .wintro{background:white;color:#111}}
+.spark-project-link{display:inline-flex;align-items:center;background:#263a2c;color:#d4ef80;padding:9px 14px;border:1px solid #526440;border-radius:8px;font:12px "Segoe UI",sans-serif}.spark-project-link:focus-visible{outline:2px solid #d4ef80;outline-offset:3px}

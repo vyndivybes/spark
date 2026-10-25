@@ -45,8 +45,8 @@ class Handler(upstream.Handler):
             self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8' if route=='/spark' else 'text/javascript' if route.endswith('.js') else 'text/css')
             self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content);return
         if route=='/'+upstream.PAGE:
-            content=(STATIC_ROOT/upstream.PAGE).read_text(encoding='utf-8').replace('</body>',
-                '<a href="/spark" style="position:fixed;right:16px;bottom:16px;z-index:20000;background:#092e42;color:#b6f2ff;padding:12px 18px;border:1px solid #38bdf8;border-radius:12px;font:14px system-ui">Spark project data →</a></body>')
+            content=(STATIC_ROOT/upstream.PAGE).read_text(encoding='utf-8').replace(
+                '<html lang="en">', '<html lang="en" data-spark-projects="true">')
             raw=content.encode('utf-8');self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
         if route != '/api/workspace':
             target = Path(self.translate_path(self.path)).resolve()
