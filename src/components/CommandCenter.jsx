@@ -61,7 +61,7 @@ export default function CommandCenter({brainGraph, brainError, socket, connected
 
             <nav><button type="button" aria-current={page==='Overview'?'page':undefined} onClick={()=>navigate('Overview')}><LayoutDashboard size={17}/>Overview</button>{[
                 ['Workspace',['Missions','Knowledge','Memory']],
-                ['Build',['Capabilities Center','Missions','Knowledge','Memory','Skill forge','Repositories','Workbench','Agent skills']],
+                ['Build',['Capabilities Center','Skill forge','Repositories','Workbench','Agent skills']],
                 ['Evolution',['Upgrade studio','Recovery & REA','Models','Learning','Benchmarks','Model upgrades']],
                 ['Systems',['PC manager','System health','Connections','Integrations']],
                 ['Governance',['Approvals','History','Schedules']],
