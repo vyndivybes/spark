@@ -82,7 +82,7 @@ test('VAYU uses a bounded local launch and user-data storage',()=>{
   const userData=path.join(os.tmpdir(),'spark-vayu-test-data');
   const plan=getExperiencePlan('vayu',{root,userData,python:'configured-python'});
   assert.equal(plan.url,'http://127.0.0.1:4891');
-  assert.equal(plan.page,'/VAYU-Knowledge-Sphere-Live.html');
+  assert.equal(plan.page,'/VYNDI_VAOS_Neural_Schema_Gesture_Hologram_v4.html');
   assert.equal(plan.steps[0].command,'configured-python');
   assert.equal(plan.steps[0].shell,false);
   assert.equal(plan.steps[0].env.SPARK_VAYU_EXPORTS_DIR,path.join(userData,'vayu-exports'));
@@ -110,7 +110,7 @@ test('VAYU manager starts the real server, reuses its window and stops on close'
     assert.equal((await manager.open('vayu')).reused,false);
     assert.equal(window.options.webPreferences.nodeIntegration,false);
     assert.equal(window.options.webPreferences.sandbox,true);
-    assert.match(window.url,/VAYU-Knowledge-Sphere-Live\.html$/);
+    assert.match(window.url,/VYNDI_VAOS_Neural_Schema_Gesture_Hologram_v4\.html$/);
     assert.equal((await manager.open('vayu')).reused,true);
     assert.equal(window.focused,true);
     window.close();

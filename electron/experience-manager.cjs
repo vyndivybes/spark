@@ -18,7 +18,7 @@ function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExpo
     const wrapper=path.join(root,'scripts','vayu_launcher.py');
     if(!fs.existsSync(path.join(folder,'start.py'))||!fs.existsSync(wrapper))throw new Error('The bundled VAYU workspace or launcher is missing. Restore the SPARK checkout.');
     return {name,port:KNOWN.vayu,url:'http://127.0.0.1:'+KNOWN.vayu,
-      page:'/VAYU-Knowledge-Sphere-Live.html',steps:[
+      page:'/VYNDI_VAOS_Neural_Schema_Gesture_Hologram_v4.html',steps:[
         {command:python,args:[wrapper,'--port',String(KNOWN.vayu),'--data-dir',path.join(userData,'vayu-workspace')],cwd:folder,shell:false,once:false,
           env:{SPARK_VAYU_EXPORTS_DIR:vayuExportsDir||path.join(userData,'vayu-exports')}}
       ]};

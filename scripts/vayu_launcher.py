@@ -20,6 +20,13 @@ class Handler(upstream.Handler):
     def __init__(self, *args, **kwargs):
         SimpleHTTPRequestHandler.__init__(self, *args, directory=str(STATIC_ROOT), **kwargs)
 
+    def end_headers(self):
+        # Local updates must not leave old navigation scripts in Electron's cache.
+        route = urlsplit(self.path).path
+        if not route.startswith('/api/') and route.endswith(('.html', '.js', '.css')):
+            self.send_header('Cache-Control', 'no-store')
+        super().end_headers()
+
     def do_GET(self):
         route = unquote(urlsplit(self.path).path)
         if not self.valid_host():return self.reply(403,{'error':'Use the loopback URL.'})
@@ -44,8 +51,14 @@ class Handler(upstream.Handler):
             content=(SPARK_ASSETS/extra[route]).read_bytes()
             self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8' if route=='/spark' else 'text/javascript' if route.endswith('.js') else 'text/css')
             self.send_header('Content-Length',str(len(content)));self.end_headers();self.wfile.write(content);return
-        if route=='/'+upstream.PAGE:
-            content=(STATIC_ROOT/upstream.PAGE).read_text(encoding='utf-8').replace(
+        if route in ('/'+upstream.PAGE, '/VYNDI_VAOS_Neural_Schema_Gesture_Hologram_v4.html'):
+            page = route.lstrip('/')
+            params = parse_qs(urlsplit(self.path).query)
+            if page == upstream.PAGE and not params.get('workspace') and not params.get('embedded'):
+                # Older running desktop managers still request this entry point.
+                # Serve the studio with 200 so their startup health check also succeeds.
+                page = 'VYNDI_VAOS_Neural_Schema_Gesture_Hologram_v4.html'
+            content=(STATIC_ROOT/page).read_text(encoding='utf-8').replace(
                 '<html lang="en">', '<html lang="en" data-spark-projects="true">')
             raw=content.encode('utf-8');self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
         if route != '/api/workspace':

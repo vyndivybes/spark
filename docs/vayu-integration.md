@@ -1,18 +1,23 @@
 # VAYU workspace in Spark
 
 Open **Experience Deck → VAYU Workspace → Open workspace**. Spark starts a loopback-only Python
-server and opens the Founder Desk in a sandboxed Electron window. The existing
-Visualizations link opens all 12 separate pages, including 10 neural views,
-Command Desk, and Analytics & Ledgers. Closing the window stops its server.
+server and opens the visualization studio in a sandboxed Electron window. Closing the window stops its server.
 Python is the same interpreter configured for Spark through `SPARK_PYTHON`.
 Port 4891 must be available. An occupied port produces a launch error.
 
-The visual library groups the 12 views into five numbered chapters: Structure,
-Relationships, Evidence, Presentation, and Workspaces. A dedicated page owns
-one navigation rail and one engine frame. Command Desk and Analytics use compact
-workspace section tabs inside that frame; links to the library, source studio,
-and Spark project data navigate the whole window, preventing nested page shells.
-Preview diagrams illustrate each view's layout, not business records.
+VAYU now opens directly into one visualization studio. Graph, 3D Orbit, Rings,
+and Matrix have quick switches; the All views selector also includes Circle,
+Areas, Links, Timeline, Holo Stage, and 4-Way Pyramid. Switching modes retains
+the selected source focus and uses the same document and renderer, without
+page frames or a visualization catalogue. Details and Data & import open only
+when requested. The source graph uses occupied columns and labels small node
+sets; zoom buttons operate on the active renderer.
+
+Tools retains the action register, Analytics & Ledgers, business knowledge,
+project snapshots, and opt-in hand controls. Existing action stores are unchanged.
+Old `/views/*.html` bookmarks redirect to the studio's selected mode or the
+corresponding tool. Local HTML, JavaScript, and CSS responses disable caching so
+checkout updates do not leave mixed generations of navigation in Electron.
 
 Personal and Business action registers are separate files at
 `<Electron userData>/vayu-workspace/workspace-data/{personal,business}.json`.
@@ -23,7 +28,7 @@ remains available. Manual CSV/JSON analytics uploads remain session-only.
 The bundled source comes from the user-supplied
 `VAYU_Productivity_Workspace_Separate_Views.zip`, dated 19 October 2026.
 Its original source and documentation are retained under `vendor/vayu-workspace`.
-`scripts/vayu_launcher.py` adapts its HTTP handler without editing the bundle.
+`scripts/vayu_launcher.py` adapts its HTTP handler; the bundled UI uses the unified studio entry point.
 It serves only UI assets and keeps private files outside the static root.
 The included MediaPipe package metadata states Apache-2.0; its assets and
 metadata are preserved. This import does not assert an open-source license
@@ -32,7 +37,7 @@ for the user-provided VAYU application itself.
 The original knowledge schema remains a bundled snapshot. The connected
 **Spark project data** view now reads explicitly published Spark notes and task
 states. In **Home / Knowledge**, choose **Publish / refresh VAYU snapshot**,
-then open VAYU and select **Spark project data** at the bottom right. The view
+then open VAYU and select **Tools → Spark project snapshots**. The view
 provides a project membership graph, source inspector, and filtered task table.
 Refresh the publication after changes; it is not a background live feed.
 Private documents are excluded, and projects never aggregate automatically.

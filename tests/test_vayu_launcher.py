@@ -55,9 +55,10 @@ class VayuIntegration(unittest.TestCase):
                         headers={'Content-Type': 'application/json', 'Origin': origin_header}))
 
                 try:
-                    for page in ['VAYU-Knowledge-Sphere-Live.html', 'views/index.html', 'views/analytics.html', 'views/graph.html', 'assets/data-intelligence.js']:
+                    for page in ['VAYU-Knowledge-Sphere-Live.html', 'VYNDI_VAOS_Neural_Schema_Gesture_Hologram_v4.html', 'views/index.html', 'views/analytics.html', 'views/graph.html', 'assets/data-intelligence.js', 'assets/visual-workspace.js', 'assets/visual-workspace.css']:
                         with get('/' + page) as response:
                             self.assertEqual(response.status, 200)
+                            self.assertEqual(response.headers.get('Cache-Control'), 'no-store')
                     with get('/api/workspace?space=business') as response:
                         stored = json.load(response)
                     self.assertEqual(stored['revision'], restart)

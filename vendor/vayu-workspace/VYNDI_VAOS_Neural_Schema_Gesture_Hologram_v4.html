@@ -702,14 +702,14 @@ function updateStatus(){
 }
 function resize(){const rect=stage.getBoundingClientRect();W=Math.max(250,rect.width);H=Math.max(350,rect.height);dpr=Math.min(window.devicePixelRatio||1,2);alt.width=Math.round(W*dpr);alt.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);dirty=true}
 new ResizeObserver(resize).observe(stage);
-function activate(next){if(!modes[next]||(separateProjection&&next!==separateProjection))return;mode=next;Object.entries(modes).forEach(([id,b])=>b.setAttribute('aria-pressed',String(id===mode)));quick.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quick===mode)));
+function activate(next){if(!modes[next])return;mode=next;Object.entries(modes).forEach(([id,b])=>b.setAttribute('aria-pressed',String(id===mode)));quick.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quick===mode)));
  document.body.classList.toggle('holo-pyramid',next==='pyramid');stage.classList.toggle('alt-mode',!['orbit','holo'].includes(next));stage.classList.toggle('holo-projecting',next==='holo');hint.textContent=next==='timeline'?'Dated evidence only · no synthetic events':next==='pyramid'?'Optical four-face mirror layout · projector/reflector required':'Source-mapped graph · imported metrics are labeled';modeHint.textContent=next.toUpperCase()+' · '+viewLabel[next];note.textContent=viewLabel[next];
  // If an analytics studio view is active, return to the neural stage without discarding focus.
  if(document.body.classList.contains('studio-focus')){const home=[...document.querySelectorAll('#studio-nav button')].find(b=>b.textContent.includes('Neural map'));home?.click()}
- updateStatus();resize();requestRender();}
+ updateStatus();resize();requestRender();window.dispatchEvent(new Event('vayu:view-change'));}
 function requestRender(){dirty=true}
-const C=()=>{ctx.clearRect(0,0,W,H);ctx.fillStyle='#04101c';ctx.fillRect(0,0,W,H);const g=ctx.createRadialGradient(W*.52,H*.45,20,W*.52,H*.5,Math.max(W,H)*.67);g.addColorStop(0,'#10304a');g.addColorStop(.45,'#081a2e');g.addColorStop(1,'#030810');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
- ctx.strokeStyle='rgba(93,154,199,.06)';ctx.lineWidth=1;for(let x=20;x<W;x+=42){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=20;y<H;y+=42){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}}
+const C=()=>{ctx.clearRect(0,0,W,H);ctx.fillStyle='#101915';ctx.fillRect(0,0,W,H);const g=ctx.createRadialGradient(W*.52,H*.45,20,W*.52,H*.5,Math.max(W,H)*.67);g.addColorStop(0,'#24352b');g.addColorStop(.45,'#17251d');g.addColorStop(1,'#0b130e');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ ctx.strokeStyle='rgba(164,190,140,.045)';ctx.lineWidth=1;for(let x=20;x<W;x+=42){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=20;y<H;y+=42){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}}
 const color=n=>n?.kind===0?palette[0]:n?.kind===1?palette[1]:n?.kind===2?palette[2]:palette[3];
 function text(str,x,y,size=11,color='#c7d8e7',align='center',max){ctx.font=`${size}px Inter, Segoe UI, Arial, sans-serif`;ctx.textAlign=align;ctx.fillStyle=color;ctx.globalAlpha=1;ctx.fillText(String(str),x,y,max||W-22)}
 function ring(x,y,r,col,a=.3){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.lineWidth=1;ctx.globalAlpha=a;ctx.strokeStyle=col;ctx.stroke();ctx.globalAlpha=1}
@@ -718,12 +718,12 @@ function nodePaint(p,focused=false){if(p.x<5||p.x>W-5||p.y<5||p.y>H-5)return;con
  let rad=focused?7.5:Math.max(3,Math.min(6.5,p.size||3.7));ctx.globalAlpha=shade;const glow=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,rad*4);glow.addColorStop(0,p.color+'88');glow.addColorStop(1,p.color+'00');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(p.x,p.y,rad*4,0,Math.PI*2);ctx.fill();ctx.strokeStyle=focused?'#f9e8c2':p.color;ctx.lineWidth=focused?1.8:1;ctx.beginPath();ctx.arc(p.x,p.y,rad+(focused?2:0),0,2*Math.PI);ctx.stroke();ctx.fillStyle=focused?'#ffdfa2':p.color;ctx.beginPath();ctx.arc(p.x,p.y,Math.max(1.5,rad*.55),0,2*Math.PI);ctx.fill();ctx.globalAlpha=1}
 function labelPaint(p,force=false){if(force||p.index===0||p.kind===0||p.kind===3||p.index===hover||filter&&p.label.toLowerCase().includes(filter)){
   const label=p.label.length>27?p.label.slice(0,26)+'…':p.label;
-  text(label,p.x,p.y+17,p.index===0?12:10,p.index===0?'#f0d49e':'#a4cde2','center',156);
+  text(label,Math.max(78,Math.min(W-78,p.x)),p.y+17,p.index===0?12:11,p.index===0?'#f0d49e':'#a4cde2','center',156);
 }}
 function dots(plist,labelThreshold=22){for(const p of plist)nodePaint(p,p.index===0||p.index===hover);
- const candidates=plist.filter(p=>p.index===0||p.index===hover||p.kind===3||(plist.length<labelThreshold&&p.kind===0));
+ const candidates=plist.filter(p=>p.index===0||p.index===hover||p.kind===3||plist.length<labelThreshold);
  candidates.sort((a,b)=>(b.index===hover?10:0)+(b.index===0?8:0)-(a.index===hover?10:0)-(a.index===0?8:0));
- const placed=[];for(const p of candidates){if(placed.length>=7)break;
+ const placed=[];for(const p of candidates){if(placed.length>=Math.min(labelThreshold,24))break;
   const y=p.y+13,lx=p.x,wd=Math.min(118,p.label.length*4.9+8);
   if(placed.some(q=>Math.abs(q.y-y)<17&&Math.abs(q.x-lx)<(q.w+wd)/2+8))continue;
   labelPaint(p,true);placed.push({x:lx,y,w:wd});
@@ -745,8 +745,7 @@ function drawGraph(type){const center={x:W*.53,y:H*.49};const buckets=[[],[],[],
   const hub=[{x:.26,y:.28},{x:.74,y:.28},{x:.29,y:.71},{x:.73,y:.72}];const groups=new Map();points=pointsFrom((p,n,i)=>{if(i===0)return{x:center.x,y:center.y,size:8};let group=n.kind||0,j=groups.get(group)||0;groups.set(group,j+1);const total=nodes.filter(n=>n.kind===group).length||1;const a=2.39996323*j;const r=Math.sqrt((j+.4)/total)*Math.min(W*.23,H*.24);return{x:W*hub[group].x+Math.cos(a)*r,y:H*hub[group].y+Math.sin(a)*r}});
   ['SYSTEMS','AGENTS','SOURCE RECORDS','BI & RESULTS'].forEach((label,k)=>{text(label,W*hub[k].x,H*hub[k].y-Math.min(W*.20,H*.22)-15,10,palette[k])});
  }else{
-  const ranks={enterprise:0,system:1,workspace:1,department:2,workforce:2,agent:3,operation:3,ledger:3,record:3,field:4,analytics:4,'bi-domain':4,output:4};const gr=[[],[],[],[],[]];nodes.forEach((n,i)=>gr[Math.min(4,ranks[n.mapType]??(n.kind+1))].push(i));const slot=new Map();gr.forEach((group,col)=>group.forEach((idx,j)=>{slot.set(idx,{x:W*.12+col*W*.19,y:H*.15+(j+.5)/(group.length+1)*H*.71})}));points=pointsFrom((p,n,i)=>slot.get(i)||{x:center.x,y:center.y});
-  ['CORE','PLATFORMS','DOMAINS','LEDGERS / AGENTS','RESULTS'].forEach((label,i)=>text(label,W*.12+i*W*.19,40,10,'#6cacc4'));
+  const ranks={enterprise:0,system:1,workspace:1,department:2,workforce:2,agent:3,operation:3,ledger:3,record:3,field:4,analytics:4,'bi-domain':4,output:4};const gr=[[],[],[],[],[]];nodes.forEach((n,i)=>gr[Math.min(4,ranks[n.mapType]??(n.kind+1))].push(i));const slot=new Map(),occupied=gr.map((group,rank)=>({group,rank})).filter(x=>x.group.length);const headings=['CORE','PLATFORMS','DOMAINS','LEDGERS / ROLES','RESULTS'];occupied.forEach(({group,rank},col)=>{const x=occupied.length===1?W/2:W*.15+col/(occupied.length-1)*W*.7;group.forEach((idx,j)=>slot.set(idx,{x,y:H*.13+(j+.5)/group.length*H*.72}));text(headings[rank],x,35,W<500?8:10,'#a6bda3')});points=pointsFrom((p,n,i)=>slot.get(i)||{x:center.x,y:center.y});
  }
  edges.forEach(([a,b],i)=>{if(points[a]&&points[b])bezLink(points[a],points[b],color(nodes[b]),.22,type==='areas'?.05:.01)});dots(points,17);
  text(type==='areas'?'CATEGORIZED NEURAL DOMAINS':'SOURCE-TO-RESULT DIGITAL THREAD',W/2,H-32,11,'#81aeca')}
@@ -788,7 +787,10 @@ query.addEventListener('keydown',e=>{if(e.key==='Enter'){const target=nodes.find
 const origSet=setStage;setStage=function(id){const out=origSet(id);updateStatus();requestRender();return out};
 const origLoad=loadSnapshot;loadSnapshot=function(raw){const out=origLoad(raw);updateStatus();requestRender();return out};
 const originalScope=['map-up','map-home','map-prev','map-next'];originalScope.forEach(id=>get(id)?.addEventListener('click',()=>{updateStatus();requestRender()}));
-const init=()=>{updateStatus();resize();activate(separateProjection||'orbit')};init();
+const requestedMode=pageParams.get('projection');
+const initialMode=MODE.some(([id])=>id===requestedMode)?requestedMode:'graph';
+const init=()=>{updateStatus();resize();activate(separateProjection||initialMode)};init();
+window.VAYU_PROJECTION=Object.freeze({modes:MODE.map(([id,label])=>({id,label})),activate,getState:()=>({mode,focus:registry.get(focusId)?.label||'Enterprise',focusId,nodes:nodes.length,links:edges.length}),focus:id=>{if(registry.has(id))setStage(id)}});
 
 /* V4 gesture adapter to the pre-existing alternative projection and registry. */
 window.VYNDI_ALT_CONTROL=Object.freeze({
@@ -1277,7 +1279,7 @@ advanced.querySelector('summary').textContent='Source explorer & data import';
 const previousStage=paintStage;
 paintStage=function(){previousStage();const n=nodes.length;const cols=n<=12?3:Math.min(6,Math.ceil(Math.sqrt(Math.max(1,n-1)*1.45)));const rows=Math.ceil(Math.max(1,n-1)/cols);nodes.forEach((p,i)=>{if(i===0){Object.assign(p,{x:0,y:-4.15,z:0});return;}const j=i-1,col=j%cols,row=Math.floor(j/cols);Object.assign(p,{x:(col-(cols-1)/2)*(cols>4?1.8:3.1),y:rows===1?.4:-2.2+row*(5.4/Math.max(1,rows-1)),z:Math.sin(j*1.7)*.8});});hint.textContent=registry.get(focusId)?.label||'Overview';side.querySelectorAll('[data-destination]').forEach(b=>b.setAttribute('aria-current',String(b.dataset.destination===focusId)));};
 const originalDetails=paintInspector;
-paintInspector=function(n){if(n.type!=='enterprise'){originalDetails(n);return;}mapCrumbs(n);const d=document.getElementById('detail');d.replaceChildren();make('h2','Your operating network',d);make('p','Choose a workspace from the left or select a labelled node. Expand a system to its departments, ledgers, fields and available records.',d,'qw-overview-note');make('h3','Start here',d);for(const [id,label] of destinations.slice(1)){const b=make('button',label+' →',d,'choice');b.type='button';b.onclick=()=>setStage(id);}const b=make('button','Open business knowledge →',d,'choice');b.type='button';b.onclick=()=>window.VYNDI_BUSINESS_WIKI.open();make('p','Source-defined map · live transaction values are not connected.',d,'qw-overview-count');};
+paintInspector=function(n){if(n.type!=='enterprise'){originalDetails(n);return;}mapCrumbs(n);const d=document.getElementById('detail');d.replaceChildren();make('h2','Your operating network',d);make('p','Choose a system above or select a labelled node. Expand a system to its departments, ledgers, fields and available records.',d,'qw-overview-note');make('h3','Start here',d);for(const [id,label] of destinations.slice(1)){const b=make('button',label+' →',d,'choice');b.type='button';b.onclick=()=>setStage(id);}const b=make('button','Open business knowledge →',d,'choice');b.type='button';b.onclick=()=>window.VYNDI_BUSINESS_WIKI.open();make('p','Source-defined map · live transaction values are not connected.',d,'qw-overview-count');};
 paused=true;document.getElementById('pause').textContent='Resume rotation';
 // Remove the implicit wiki modal on startup; keep it one click away in permanent navigation.
 document.getElementById('business-wiki').hidden=true;document.body.classList.remove('bw-open');
@@ -1314,4 +1316,6 @@ body.quiet-workspace.separate-projection .qw-stage-head{left:18px;right:18px;}
  body.quiet-workspace.separate-projection .holo-layout>.inspector{grid-column:1!important;grid-row:2!important;min-height:270px!important;max-height:none!important;}
 }
 </style>
+<link rel="stylesheet" href="./assets/visual-workspace.css">
+<script src="./assets/visual-workspace.js"></script>
 </body></html>
