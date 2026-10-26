@@ -69,7 +69,7 @@ class OpenClawBridge:
                     "agent": "rex", "operator_verified": False,
                     "approved_free_models": approved}
         try:
-            code, _, _ = self._call(["gateway", "status", "--json"], 12)
+            code, _, _ = self._call(["gateway", "status", "--json", "--require-rpc"], 12)
         except OpenClawError:
             code = 1
         gateway = "responding" if code == 0 else "unavailable"
