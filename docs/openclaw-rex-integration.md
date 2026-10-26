@@ -8,7 +8,7 @@ On the PC running SPARK, verify these read-only commands:
 
 ~~~powershell
 openclaw --version
-openclaw gateway status --json
+openclaw gateway status --json --require-rpc
 openclaw models status --agent rex --json --check
 ~~~
 
