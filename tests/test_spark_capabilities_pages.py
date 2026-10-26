@@ -65,7 +65,7 @@ class PageParityTests(unittest.TestCase):
         text = CENTER.read_text(encoding="utf-8")
         blocks = re.findall(
             r"\{action:'([a-z_]+)', label:'[^']*', fields:\[([^\]]*)\]", text)
-        self.assertEqual(len(blocks), 71)
+        self.assertEqual(len(blocks), 73)
         field_block = r"\{key:'([a-z_]+)',type:'(?:text|number|bool|json)'"
         for action, fields in blocks:
             declared = set(re.findall(field_block, fields))
@@ -93,6 +93,7 @@ class CenterDispatchTests(unittest.IsolatedAsyncioTestCase):
             "hub_status": {"schema", "providers"},
             "proactive_summary": {"proposed", "approved"},
             "opencode_status": {"discovery", "policy"},
+            "openclaw_status": {"state", "gateway", "operator_verified"},
             "trace_status": {"summary"},
             "learning_status": {"active_policy", "candidates"},
             "spec_search_status": {"planner", "runs_recorded"},
