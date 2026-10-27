@@ -11,7 +11,7 @@ from spark_rea_targets import select_analysis
 from spark_rea_free import FreeBlueprintGenerator, FreeInferenceError
 from spark_rea_blueprint import BlueprintError
 import os
-from spark_repo_upgrade import RepositoryUpgrades, snapshot
+from spark_repo_upgrade import RepositoryUpgrades, snapshot, PATCH_SCHEMA, analysis_response_schema
 from spark_code_skills import CodeSkills, CodeSkillError
 from spark_python_tools import PythonTools
 from spark_trace_learning import TraceLearning
@@ -123,21 +123,22 @@ ACTION_KEYS = {
 }
 
 
-async def generate_json(instruction, context):
+async def generate_json(instruction, context, *, response_schema=None):
     # Explicit workspace action only. Uses the configured provider without retry.
     from spark_groq import GroqClient, GroqUnavailable, CHAT_URL, groq_model
     messages=[{"role":"system","content":instruction},
               {"role":"user","content":json.dumps(context,ensure_ascii=False)}]
-    # Reserve output space too. Byte accounting is a conservative bound, not
+    response_format = ({'type': 'json_schema', 'json_schema': {
+        'name': 'spark_repository_response', 'strict': True, 'schema': response_schema}}
+        if response_schema is not None else {'type': 'json_object'})
+    body = {"model": groq_model(), "temperature": 0, "max_completion_tokens": 2048,
+            "reasoning_effort": "low", "response_format": response_format, "messages": messages}
+    # Include schema overhead too. Byte accounting is a conservative bound, not
     # an exact model tokenizer or a promise about account-specific limits.
-    if len(json.dumps(messages,ensure_ascii=False).encode('utf-8'))>10_000:
+    if len(json.dumps(body,ensure_ascii=False).encode('utf-8'))>10_000:
         raise MaintenanceError('Source context exceeds the configured Groq request budget. Select fewer/smaller source files; no request was sent.')
     try:
-        response = await GroqClient()._http(CHAT_URL, body={
-            "model": groq_model(), "temperature": 0, "max_completion_tokens": 2048,
-            "reasoning_effort":"low",
-            "response_format": {"type": "json_object"},
-            "messages":messages})
+        response = await GroqClient()._http(CHAT_URL, body=body)
         if response["choices"][0].get('finish_reason')=='length':
             raise MaintenanceError('Model output reached its budget. Use a narrower goal or smaller source selection; nothing was saved.')
         return json.loads(response["choices"][0]["message"]["content"])
@@ -149,6 +150,14 @@ async def generate_json(instruction, context):
         raise MaintenanceError("Model returned invalid JSON; no changes applied.") from None
 
 
+async def generate_repository_patch(instruction, context):
+    return await generate_json(instruction, context, response_schema=PATCH_SCHEMA)
+
+
+async def generate_repository_analysis(instruction, context):
+    return await generate_json(instruction, context, response_schema=analysis_response_schema(context))
+
+
 class Evolution:
     def __init__(self, workspace, repository=None, generator=None, rea=None):
         self.workspace = workspace
@@ -157,7 +166,8 @@ class Evolution:
         self.trace_learning = TraceLearning(workspace.skills.root.parent)
         self.code_skills = CodeSkills(workspace.skills.root.parent)
         self.generator = generator or generate_json
-        self.repositories = RepositoryUpgrades(self.maintenance, self.generator)
+        self.repositories = RepositoryUpgrades(self.maintenance, generator or generate_repository_analysis,
+                                               patch_generator=generator or generate_repository_patch)
         self.rea = rea or ReaClient()
         self.rea_workflows = ReaWorkflow(workspace.skills.root.parent)
         self.rea_blueprint_generator = FreeBlueprintGenerator()
@@ -482,9 +492,11 @@ class Evolution:
                 if isinstance(repository, str) and ('://' in repository or repository.startswith('git@')):
                     parse_github_url(repository)
                     evidence = await asyncio.to_thread(import_evidence, repository,
-                                                       selected=payload['reference_paths'])
+                                                       selected=payload['reference_paths'],
+                                                       goal=payload.get('goal',''))
                 else:
-                    evidence = await asyncio.to_thread(snapshot, repository, payload['reference_paths'])
+                    evidence = await asyncio.to_thread(snapshot, repository, payload['reference_paths'],
+                                                       goal=payload.get('goal',''))
             except RepoImportError as error:
                 raise MaintenanceError(str(error)) from None
             except OSError:

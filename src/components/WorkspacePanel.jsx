@@ -147,12 +147,6 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
             </>}
             {(!embedded || ['knowledge','skills'].includes(tab)) && <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>}
             {tab==='knowledge'&&<IntegrationSyncPanel socket={socket}/>}
-            {(!embedded || tab==='knowledge') && <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('publish_vayu_snapshot')}>Publish / refresh VAYU snapshot</button>
-                <button type="button" className={buttonStyle} disabled={working} onClick={()=>request('unpublish_vayu_snapshot')}>Remove VAYU snapshot</button>
-                <span className="text-xs text-slate-400">Shares published notes and task states for this project only.</span>
-            </div>
-            }
             {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose} initialPage={initialScreen} compactNavigation={embedded}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
                 <ExecutiveBriefingPanel socket={socket}/>
                 <div><h3 className="text-2xl font-semibold">Your project starts here</h3><p className="mt-1 text-slate-300">Bring in knowledge, run reviewed agents, and inspect Spark's health.</p></div>

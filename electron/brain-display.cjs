@@ -1,24 +1,30 @@
-const fs = require('node:fs/promises');
 const path = require('node:path');
+const {execFile} = require('node:child_process');
+const {promisify} = require('node:util');
+const run = promisify(execFile);
 
-// The same canonical inventory used by spark_neural_atlas.py. Never execute
-// graph-data.js or copy note bodies into the renderer to obtain a display graph.
-async function readBrainDisplay(root) {
-    const filename = path.join(root,'vendor','vayu-workspace','VAYU-Knowledge-Sphere-Live.html');
-    const stat = await fs.stat(filename);
-    if (stat.size > 16_000_000) throw Error('Neural Atlas inventory is too large.');
-    const html = await fs.readFile(filename,'utf8');
-    const match = html.match(/<script id="initial-data" type="application\/json">\s*(\{[\s\S]*?\})\s*<\/script>/);
-    if (!match) throw Error('Neural Atlas inventory is unavailable.');
-    const data = JSON.parse(match[1]);
-    if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) throw Error('Invalid Neural Atlas graph.');
-    const nodes = data.nodes.slice(0,1200).filter(n=>typeof n?.id==='string').map(n=>({
-        id:n.id.slice(0,200), label:String(n.title||n.id).slice(0,100), type:String(n.type||'record').slice(0,40)
-    }));
-    const known = new Set(nodes.map(n=>n.id));
-    const edges = data.edges.filter(e=>known.has(e?.source)&&known.has(e?.target)&&e.source!==e.target)
-        .slice(0,4000).map(e=>({source:e.source,target:e.target}));
-    return {nodes,edges,source:'Neural Atlas snapshot',modifiedAt:stat.mtime.toISOString(),
-        totalNodes:data.nodes.length,totalEdges:data.edges.length};
+async function readLocalRecords(root, {dataRoot, python=process.env.SPARK_PYTHON||'python', vayuDataRoot}={}) {
+    if(!dataRoot) throw Error('Local workspace storage is unavailable.');
+    const args=[path.join(root,'backend','spark_local_records.py'),'--data-root',dataRoot];
+    if(vayuDataRoot) args.push('--vayu-data-root',vayuDataRoot);
+    const {stdout}=await run(python,args,{windowsHide:true,timeout:15000,maxBuffer:2_000_000,env:{...process.env,PYTHONIOENCODING:'utf-8'}});
+    const data=JSON.parse(stdout);
+    if(!Array.isArray(data.records)||!Array.isArray(data.spaces))throw Error('Invalid local records.');
+    return data;
 }
-module.exports={readBrainDisplay};
+function recordsGraph(data) {
+    const nodes=[],edges=[];
+    for(const space of data.spaces) {
+        const records=data.records.filter(r=>r.space===space.id);
+        if(!records.length)continue;
+        const parent='space:'+space.id;
+        nodes.push({id:parent,label:space.label,type:'project'});
+        for(const record of records.slice(0,200)) {
+            nodes.push({id:record.id,label:record.title,type:record.kind});
+            edges.push({source:parent,target:record.id});
+        }
+    }
+    return {nodes,edges,source:data.source,modifiedAt:data.readAt,totalNodes:nodes.length,totalEdges:edges.length};
+}
+async function readBrainDisplay(root,options) {return recordsGraph(await readLocalRecords(root,options));}
+module.exports={readBrainDisplay,readLocalRecords,recordsGraph};

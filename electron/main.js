@@ -16,7 +16,7 @@ const {createWhatsAppWindow}=require('./whatsapp-window.cjs');
 const {createJarvisBridge}=require('./jarvis-bridge.cjs');
 const {createBusinessPortals}=require('./business-portals.cjs');
 const {collectLocalReaSummaries,formatReaInventory}=require('./rea-evidence.cjs');
-const {readBrainDisplay}=require('./brain-display.cjs');
+const {readBrainDisplay,readLocalRecords}=require('./brain-display.cjs');
 const {createReaPreview}=require('./rea-preview.cjs');
 
 // A desktop click reuses the current application instead of starting another
@@ -208,7 +208,12 @@ app.whenReady().then(async () => {
     ipcMain.handle('spark:brain-display', async event => {
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
             throw Error('Brain display requires the SPARK cockpit.');
-        return readBrainDisplay(app.isPackaged ? process.resourcesPath : path.resolve(__dirname,'..'));
+        return readBrainDisplay(app.isPackaged ? process.resourcesPath : path.resolve(__dirname,'..'),{dataRoot,python:process.env.SPARK_PYTHON||'python',vayuDataRoot:path.join(app.getPath('userData'),'vayu-workspace')});
+    });
+    ipcMain.handle('spark:local-records', async event => {
+        if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
+            throw Error('Local records require the SPARK cockpit.');
+        return readLocalRecords(app.isPackaged ? process.resourcesPath : path.resolve(__dirname,'..'),{dataRoot,python:process.env.SPARK_PYTHON||'python',vayuDataRoot:path.join(app.getPath('userData'),'vayu-workspace')});
     });
     experienceManager=createExperienceManager({
         root:path.resolve(__dirname,'..'),

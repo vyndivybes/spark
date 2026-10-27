@@ -208,14 +208,24 @@ class PcAccess:
             child = subprocess.Popen(invocation, cwd=cwd, shell=False, stdin=subprocess.DEVNULL,
                                      stdout=stdout, stderr=stderr, **flags)
             timed_out = False
+            cleanup_warning = None
             try:
                 child.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
                 timed_out = True
                 if os.name == 'nt':
-                    subprocess.run(['taskkill', '/PID', str(child.pid), '/T', '/F'],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                   timeout=5, creationflags=subprocess.CREATE_NO_WINDOW)
+                    try:
+                        cleanup = subprocess.run(['taskkill', '/PID', str(child.pid), '/T', '/F'],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                       timeout=5, creationflags=subprocess.CREATE_NO_WINDOW)
+                        if cleanup.returncode:
+                            cleanup_warning = 'Process-tree cleanup could not be confirmed.'
+                    except (OSError, subprocess.SubprocessError):
+                        cleanup_warning = 'Process-tree cleanup could not be confirmed.'
+                    # A slow/failed tree helper must not leave our own child
+                    # running or erase the command's timeout result.
+                    if child.poll() is None:
+                        child.kill()
                 else:
                     import signal
                     os.killpg(child.pid, signal.SIGKILL)
@@ -226,4 +236,5 @@ class PcAccess:
         return {'ok': not timed_out and child.returncode == 0, 'exit_code': child.returncode,
                 'timed_out': timed_out, 'stdout': out[:24000].decode('utf-8', errors='replace'),
                 'stderr': err[:24000].decode('utf-8', errors='replace'),
-                'truncated': len(out) > 24000 or len(err) > 24000}
+                'truncated': len(out) > 24000 or len(err) > 24000,
+                **({'cleanup_warning': cleanup_warning} if cleanup_warning else {})}

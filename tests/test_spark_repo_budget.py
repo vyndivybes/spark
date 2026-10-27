@@ -6,12 +6,55 @@ from unittest.mock import AsyncMock,patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from spark_repo_upgrade import analysis_context
-from spark_evolution import generate_json
+from spark_evolution import generate_json, generate_repository_patch, generate_repository_analysis
 from spark_maintenance import MaintenanceError
 from spark_groq import classify_groq_http_error
 
 
 class BudgetTests(unittest.IsolatedAsyncioTestCase):
+    async def test_analysis_constrains_citations_to_the_code_actually_supplied(self):
+        context = {'sources': [{'path': 'src/jobs.py'}], 'spark_sources': [{'path': 'backend/jobs.py'}], 'spark_targets': ['backend/jobs.py']}
+        reply = {'choices': [{'finish_reason': 'stop', 'message': {'content': '{"summary":"No matching gap","opportunities":[]}'}}]}
+        with patch('spark_groq.GroqClient._http', new_callable=AsyncMock, return_value=reply) as http, patch.dict('os.environ', {'GROQ_API_KEY': 'test-only'}):
+            result = await generate_repository_analysis('Compare implementations', context)
+            self.assertEqual(result['opportunities'], [])
+            schema = http.await_args.kwargs['body']['response_format']['json_schema']
+            self.assertTrue(schema['strict'])
+            props = schema['schema']['properties']['opportunities']['items']['properties']
+            self.assertEqual(props['evidence']['items']['enum'], ['src/jobs.py','backend/jobs.py'])
+            self.assertEqual(props['spark_paths']['items']['enum'], ['backend/jobs.py'])
+
+    def test_readmes_and_license_cannot_displace_executable_source(self):
+        sources = [{'path': 'LICENSE', 'sha256': 'a'*64, 'content': 'Legal notice.\n'*1000}]
+        sources += [{'path': f'docs/{i}/README.md', 'sha256': 'b'*64,
+                     'content': 'Overview only.\n'*400} for i in range(8)]
+        sources += [{'path': 'Jarvis/jarvis.py', 'sha256': 'c'*64,
+                     'content': 'def run_pending():\n    return "missed jobs"\n'}]
+        evidence = {'inventory': [s['path'] for s in sources], 'sources': sources, 'limitations': []}
+        context = analysis_context(evidence, 'Review missed scheduling jobs', ['backend/spark_digest_schedule.py'])
+        self.assertIn('Jarvis/jarvis.py', [s['path'] for s in context['sources']])
+        self.assertLessEqual(len(json.dumps(context, ensure_ascii=False).encode()), 7000)
+
+    async def test_patch_request_uses_strict_output_for_multiline_code_without_retry(self):
+        replacement = 'print("quoted")\nreturn "C:\\temp"\n'
+        patch_value = {'patches': [{'path': 'backend/example.py', 'sha256': 'a'*64,
+                                   'edits': [{'old': 'return 1', 'new': replacement}]}]}
+        reply = {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(patch_value)}}]}
+        with patch('spark_groq.GroqClient._http', new_callable=AsyncMock, return_value=reply) as http, patch.dict('os.environ', {'GROQ_API_KEY': 'test-only'}):
+            value = await generate_repository_patch('Return a patch', {})
+            self.assertEqual(value, patch_value)
+            body = http.await_args.kwargs['body']
+            self.assertEqual(body['response_format']['type'], 'json_schema')
+            schema = body['response_format']['json_schema']
+            self.assertTrue(schema['strict'])
+            self.assertFalse(schema['schema']['additionalProperties'])
+            http.assert_awaited_once()
+            http.reset_mock()
+            http.side_effect = classify_groq_http_error('chat', 400)
+            with self.assertRaisesRegex(MaintenanceError, 'HTTP 400'):
+                await generate_repository_patch('Return a patch', {})
+            http.assert_awaited_once()
+
     def test_large_inventory_and_unicode_sources_fit_without_mutating_evidence(self):
         evidence={'inventory':[f'src/module_{i}.py' for i in range(5000)],
             'sources':[{'path':f'src/module_{i}.py','sha256':'a'*64,'content':'工程 "quoted"\\line\n'*4000} for i in range(16)],

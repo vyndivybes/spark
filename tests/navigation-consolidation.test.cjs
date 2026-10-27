@@ -21,7 +21,8 @@ test('embedded workspace has no competing navigation or unrelated publishing act
     const knowledge = renderComponent('WorkspacePanel.jsx', props);
     assert.doesNotMatch(knowledge, /role="tablist"|SPARK HOME/);
     assert.match(knowledge, /Search project knowledge/);
-    assert.match(knowledge, /Publish \/ refresh VAYU snapshot/);
+    assert.match(knowledge, /Search synchronized sources/);
+    assert.doesNotMatch(knowledge, /Publish \/ refresh VAYU snapshot/);
     const skills = renderComponent('WorkspacePanel.jsx', {...props, initialTab:'skills'});
     assert.doesNotMatch(skills, /VAYU snapshot|role="tablist"/);
 });

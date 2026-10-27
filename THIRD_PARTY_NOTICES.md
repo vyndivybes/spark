@@ -27,6 +27,10 @@ asserted for the VAYU application itself. See `docs/vayu-integration.md`.
 
 The use of names here is for source attribution, not an endorsement or trademark licence. All upstream projects remain the property of their respective authors.
 
+SPARK's dashboard motion adapts flow parallax, entry reveals and pointer tilt
+from Nate Herk's scroll-craft (user-supplied archive, October 2026), under the
+MIT License. See `vendor/scroll-craft/LICENSE` and `vendor/scroll-craft/UPSTREAM.md`.
+
 The October 2026 Workbench adds original SPARK implementations of generic
 office authoring, local agenda/preferences, reviewed routines, MCP service
 connections, text utilities, geometry and idealized robot simulation. It does

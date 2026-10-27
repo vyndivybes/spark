@@ -1,0 +1,111 @@
+/* Spark's holographic command deck. Readings come from the existing local core. */
+.command-mode.spark-cockpit{--sd-bg:#080f16;--sd-surface:#101c26;--sd-line:#213640;--sd-ink:#e5f2f6;--sd-muted:#92acb7;--sd-accent:#7ee0ef;background:var(--sd-bg)}
+.command-mode .spark-toolbar{background:#070d13!important;border-color:#20313b!important}
+.command-mode .spark-brand h1,.command-mode .spark-window-actions>div,.command-mode .spark-window-actions>button{color:#93b3be}
+.holo-dashboard{background:var(--sd-bg)!important}
+.holo-dashboard .sd-nav{min-height:70px;background:#0a121b;border-bottom-color:#263b47}
+.holo-dashboard .sd-brand{font-size:27px!important;letter-spacing:-1px}
+.holo-dashboard .sd-brand-symbol{color:var(--sd-accent)}
+.holo-dashboard .sd-primary-nav button{border-radius:4px;font-size:11px;letter-spacing:.04em}
+.holo-dashboard .sd-primary-nav button[aria-current=page]{color:#a2eff8;background:#16303b;box-shadow:inset 0 -2px #7ee0ef}
+.holo-dashboard .sd-command-trigger,.holo-dashboard .sd-text-button{color:#b6ced7!important}
+.holo-dashboard kbd{color:#a3bdc8;border-color:#39515d}
+.holo-dashboard .sd-profile{background:#183641;color:#b7f2fa;border:1px solid #3d6673}
+.holo-dashboard .sd-page{max-width:1740px;padding-inline:clamp(20px,4vw,68px)}
+.holo-dashboard .sd-scroll{background-image:linear-gradient(#63bfd303 1px,transparent 1px),linear-gradient(90deg,#63bfd303 1px,transparent 1px);background-size:44px 44px;scrollbar-color:#304e5b transparent}
+.holo-dashboard .sd-context{padding-top:19px;padding-bottom:16px;font-family:Consolas,monospace;font-size:10px}
+.holo-dashboard .sd-context b,.holo-dashboard .sd-session{color:#a2bec9}
+.holo-dashboard .sd-context>span>i{background:#7ee0ef}
+.holo-dashboard .sd-session.is-ready{color:#a1f0d2}
+.holo-dashboard .sd-hero{grid-template-columns:1fr 1.05fr;min-height:455px;padding:24px 0 48px;gap:24px}
+.holo-dashboard .sd-hero-copy{pointer-events:auto}
+.holo-dashboard .sd-hero h1{font-size:clamp(42px,4.4vw,77px);letter-spacing:-.055em;font-weight:500;line-height:1.08;margin:24px 0 18px}
+.holo-dashboard .sd-hero h1 span{font:inherit;letter-spacing:inherit;color:#83dbea}
+.holo-dashboard .sd-hero-copy>p{color:#99b3c1;font-size:13px;line-height:1.8}
+.holo-dashboard .sd-hero-atmosphere{inset:0 0 0 30%;background:radial-gradient(ellipse at 70% 35%,#1aa8cb0d,transparent 65%)}
+.holo-dashboard .sd-primary{background:#8de4f1;color:#092530;border:1px solid #a2edf5;border-radius:4px;box-shadow:0 0 24px #50b9d019}
+.holo-dashboard .sd-primary:hover{background:#b6f3fa;box-shadow:0 0 28px #50b9d033}
+.holo-dashboard .sd-privacy{color:#91a9b5;font-size:10px;margin-top:20px}
+.holo-dashboard .sd-privacy>span{background:#678e9f}
+.holo-dashboard .sd-scroll-cue,.holo-dashboard .sd-scroll-cue svg{color:#a5c5d0!important}
+.holo-dashboard .sd-hero-index{color:#7795a6}
+.holo-knowledge-count{display:flex;align-items:center;gap:9px;margin-top:27px;color:#87cedc}
+.holo-knowledge-count strong{font:15px Consolas,monospace;color:#c4e3eb}
+.holo-knowledge-count small{font:11px 'Segoe UI',sans-serif;color:#9eb5bf}
+.holo-knowledge-count>span{font:8px Consolas,monospace;letter-spacing:.1em;color:#8ba6b3;margin-left:9px;max-width:160px}
+.holo-dashboard .sd-metrics{padding-block:22px}
+.holo-dashboard .sd-metrics article>span{color:#9bbac8;font:10px Consolas,monospace}
+.holo-dashboard .sd-metrics strong{font-size:26px;color:#e1eff5}
+.holo-dashboard .sd-metrics small{color:#93aab9;font-size:10px}
+.holo-dashboard .sd-section-heading h2 span{color:#89becd}
+.holo-dashboard .sd-section-heading>p{color:#99aebb}
+.holo-dashboard .sd-launch-section{padding-top:46px}
+.holo-dashboard .sd-launch-card,.holo-dashboard .sd-launch-card:nth-child(2),.holo-dashboard .sd-launch-card:nth-child(3){background:#101e29;border:1px solid #2a4655;border-radius:5px;box-shadow:none}
+.holo-dashboard .sd-launch-card:nth-child(2){background:#0d1a25}.holo-dashboard .sd-launch-card:nth-child(3){background:#0b1822}
+.holo-dashboard .sd-launch-card:hover{border-color:#71bfcf!important}
+.holo-dashboard .sd-card-top,.holo-dashboard .sd-card-copy{color:#9bb8c5}
+.holo-dashboard .sd-card-link{color:#a2e0ec}
+.holo-dashboard .sd-activity{background:#0d1923;border-radius:5px}
+.holo-dashboard .sd-activity-count{color:#a5d5e2;border-color:#2c4d5c}
+.holo-dashboard .sd-empty-orbits i{border-color:#305461}
+.holo-dashboard .sd-empty-orbits>span{color:#84d2e2}
+.holo-dashboard .sd-empty>p,.holo-dashboard .sd-local-note,.holo-dashboard .sd-local-note small,.holo-dashboard .sd-footer,.holo-dashboard .sd-activity-list p{color:#9bb2bf}
+.holo-dashboard .sd-local-note>svg,.holo-dashboard .sd-footer-mark,.holo-dashboard .sd-activity-role{color:#b7e3ec}
+.holo-dashboard .sd-footer>span:last-child,.holo-dashboard .sd-activity-role time{color:#849ead}
+.holo-dashboard .sd-activity-list li{border-color:#243b49}
+.holo-dashboard .sd-tool-page .cc-embedded-workspace{background:#0d1922;border-color:#253d4b}
+.holo-dashboard .cc-embedded-workspace :is(.bg-black\/40,.bg-slate-950\/70,.bg-slate-900){background:#12232e}
+.holo-dashboard .cc-embedded-workspace :is(.text-cyan-100,.text-cyan-200,.text-cyan-300){color:#afe5f0}
+.holo-dashboard .cc-embedded-workspace :is(.text-slate-300,.text-slate-400){color:#b1c6d0}
+.holo-dashboard .cc-embedded-workspace :is(.border-cyan-500\/20,.border-cyan-500\/30,.border-cyan-500\/40){border-color:#345361}
+.holo-dashboard .sd-command-dialog{background:#0d1b26;color:#e4f2f7;border-color:#355766}
+.holo-dashboard .sd-command-dialog::backdrop{background:#040b12d9}
+.holo-dashboard .sd-command-input,.holo-dashboard .sd-command-utilities{border-color:#294653}
+.holo-dashboard .sd-command-input{color:#a4d8e5}.holo-dashboard .sd-command-input input{color:#e4f2f7}
+.holo-dashboard .sd-command-input input::placeholder,.holo-dashboard .sd-command-results h3,.holo-dashboard .sd-command-results button>svg:last-child,.holo-dashboard .sd-no-results{color:#9cb8c7}
+.holo-dashboard .sd-command-input:focus-within,.holo-dashboard .sd-command-results section>button:hover,.holo-dashboard .sd-command-utilities>button{background:#183440;color:#c3edf5}
+.holo-briefing{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:23px 28px;border:1px solid #294652;border-left:2px solid #76dceb;border-radius:5px;background:linear-gradient(110deg,#11222de8,#0d1923e8);position:relative}
+.holo-briefing::after{content:'';position:absolute;top:-1px;right:-1px;width:27px;height:5px;background:#72c6d7;clip-path:polygon(0 0,100% 0,100% 100%,15% 100%)}
+.holo-status-dot{width:5px;height:5px;border-radius:50%;border:1px solid #8baab8;flex-shrink:0}
+.holo-status-dot.online{background:#83e8cf;border-color:#83e8cf;box-shadow:0 0 10px #83e8cf55}
+.holo-briefing h2{font-size:30px;font-weight:450;letter-spacing:-.04em;line-height:1.2;margin:10px 0 8px}
+.holo-briefing h2 span{color:#8ee7f3}.holo-briefing-copy>p{font-size:12px;color:#a5bfcc;margin:0}
+.holo-dashboard .holo-speak{display:flex;align-items:center;gap:7px;font-size:10px;color:#8dcbd9;margin-top:13px;padding:0;min-height:22px}
+.holo-briefing-copy>.holo-voice-status{font-size:10px;line-height:1.5;margin-top:7px;max-width:420px;color:#95b4c2}
+.holo-weather{border-left:1px solid #2b4551;padding-left:28px;min-width:0}
+.holo-weather-head{display:flex;align-items:center;gap:12px;font-size:10px;color:#b0cdd8}
+.holo-weather-head>span{display:flex;align-items:center;gap:6px;margin-right:auto;font-weight:500;overflow-wrap:anywhere}
+.holo-weather-head button{color:#9ab9c6;font-size:10px;padding:4px}
+.holo-weather-reading{display:flex;align-items:center;gap:16px;margin:13px 0 12px;min-height:48px}
+.holo-weather-reading>svg{color:#90d8e7;flex-shrink:0}.holo-weather-reading>strong{font-size:38px;line-height:1;font-weight:400;letter-spacing:-.06em;white-space:nowrap}
+.holo-weather-reading>strong>small{font-size:14px;color:#96b7c5;vertical-align:top;line-height:1.4;letter-spacing:0;margin-left:3px}
+.holo-weather-reading>div{display:flex;flex-direction:column;gap:6px;min-width:0}.holo-weather-reading b{font-size:12px;font-weight:500}.holo-weather-reading span{font-size:10px;color:#9ab4c3;line-height:1.5}
+.holo-weather-meta,.holo-weather-source{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font:9px Consolas,monospace;color:#9bb6c4}
+.holo-weather-meta>span{display:flex;align-items:center;gap:6px}
+.holo-weather-source{margin-top:11px;font:8px 'Segoe UI',sans-serif;color:#8aa5b4}.holo-weather-source a{color:#94bac8;text-underline-offset:3px}
+.holo-city-form{margin-top:10px}.holo-city-form label{display:block;font-size:10px;color:#bad4df;margin-bottom:6px}.holo-city-form>div{display:flex;gap:8px}
+.holo-city-form input{background:#09151f;border:1px solid #3e6474;border-radius:3px;color:#e5f3f9;padding:8px;min-width:0;flex:1}
+.holo-city-form button{background:#244754;color:#d3f0f6;padding:6px 12px;border-radius:3px;font-size:11px}
+.holo-core{width:100%;max-width:610px;position:relative;align-self:center;color:#70d6e9}
+.holo-core-top{display:flex;align-items:center;justify-content:space-between;margin:0 24px;font:8px Consolas,monospace;letter-spacing:.12em;color:#90b5c4}
+.holo-core-top>span{display:flex;align-items:center;gap:8px}.holo-core-top i{height:4px;width:4px;background:#8fe5ef;display:block}
+.holo-core-top button{padding:8px;border:1px solid #2d4b59;border-radius:3px}
+.holo-projection{perspective:1100px;position:relative}.holo-core-svg{display:block;width:100%;max-height:335px;overflow:visible}
+.holo-ring-one,.holo-ring-two{transform-origin:280px 218px;animation:holo-rotate 65s linear infinite}.holo-ring-two{animation-direction:reverse;animation-duration:100s}
+.holo-scan-line{animation:holo-scan 8s ease-in-out infinite alternate}.holo-mask{filter:drop-shadow(0 0 13px #53b8d018)}
+.holo-readout{text-align:center;margin:-7px 8px 14px;position:relative}
+.holo-readout>span{display:block;font:8px Consolas,monospace;letter-spacing:.18em;color:#91aebb;margin-bottom:6px}
+.holo-readout>strong{display:block;font:19px Consolas,monospace;letter-spacing:.16em;font-weight:400;color:#b5f2fb}
+.holo-readout>small{display:block;font:9px Consolas,monospace;color:#9fbac7;margin-top:6px;line-height:1.5;min-height:14px}
+.holo-core-tabs{display:flex;justify-content:center;gap:8px}
+.holo-core-tabs button{display:flex;align-items:center;gap:7px;font-size:10px;border:1px solid #294754;padding:8px 12px;border-radius:3px;color:#97b5c3}
+.holo-core-tabs button[aria-pressed=true]{color:#c3f4fc;background:#123542;border-color:#4d8c9e}
+.holo-core.is-paused *{animation-play-state:paused!important}
+.holo-refreshing{animation:holo-rotate 2s linear infinite}
+@keyframes holo-rotate{to{transform:rotate(360deg)}}
+@keyframes holo-scan{from{transform:translateY(-110px)}to{transform:translateY(105px)}}
+@media(min-width:1650px){.holo-dashboard .sd-hero{min-height:470px}.holo-core-svg{max-height:355px}}
+@media(max-width:1100px){.holo-dashboard .sd-hero h1{font-size:53px}.holo-dashboard .sd-hero{gap:12px}.holo-briefing{padding:22px}.holo-weather{padding-left:22px}.holo-weather-reading{gap:12px}.holo-core-top{margin-inline:12px}}
+@media(max-width:800px){.holo-dashboard .sd-nav{min-height:66px}.holo-dashboard .sd-hero{grid-template-columns:1fr 1fr;min-height:420px}.holo-dashboard .sd-hero h1{font-size:43px}.holo-dashboard .sd-hero-actions{gap:15px}.holo-dashboard .sd-privacy{flex-wrap:wrap;font-size:9px}.holo-briefing{gap:20px;padding:20px}.holo-briefing h2{font-size:27px}.holo-weather{padding-left:20px}.holo-weather-reading{gap:9px}.holo-weather-reading>svg{width:25px}.holo-weather-reading>strong{font-size:32px}.holo-weather-reading span{font-size:9px}.holo-core-tabs{gap:5px}.holo-core-tabs button{padding:8px;font-size:9px}.holo-readout>strong{font-size:15px}.holo-core-top{font-size:6px}.holo-knowledge-count{flex-wrap:wrap;row-gap:7px}.holo-knowledge-count>span{margin-left:0}}
+@media(max-width:600px){.holo-briefing{grid-template-columns:1fr;gap:19px}.holo-weather{border-left:0;border-top:1px solid #2b4551;padding:17px 0 0}.holo-weather-reading{margin-block:12px}.holo-weather-reading>svg{width:32px}.holo-weather-reading>strong{font-size:38px}.holo-weather-reading span{font-size:10px}.holo-dashboard .sd-hero{display:flex;flex-direction:column;gap:20px;padding-top:34px}.holo-dashboard .sd-hero h1{font-size:clamp(38px,9vw,53px);margin-top:19px}.holo-dashboard .sd-hero-actions{flex-direction:row;align-items:center;flex-wrap:wrap}.holo-dashboard .sd-orbit-stage{height:auto;min-height:340px;width:100%;margin:0}.holo-core-svg{max-height:300px}.holo-readout{margin-top:-8px}.holo-dashboard .sd-hero-index{font-size:6px}.holo-dashboard .sd-primary{font-size:11px;padding:12px}.holo-core-top{font-size:8px}.holo-dashboard .sd-context{font-size:9px}.holo-dashboard .sd-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 0}.holo-dashboard .sd-metrics article:nth-child(2){border:0}.holo-dashboard .sd-metrics article:nth-child(3){padding-left:0}.holo-dashboard .sd-metrics article{padding-inline:16px}.holo-dashboard .sd-metrics article:first-child{padding-left:0}.holo-dashboard .sd-session{font-size:8px}.holo-knowledge-count>span{margin-left:5px}}
+@media(prefers-reduced-motion:reduce){.holo-core *,.holo-refreshing{animation:none!important}.holo-projection{transform:none!important}}

@@ -50,6 +50,51 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result['ok'])
         self.assertNotIn('sources', result)
 
+    async def test_javascript_shell_keeps_metadata_and_uses_bounded_renderer(self):
+        page = '<html><head><title>Igloo Inc.</title><meta name="description" content="Our mission is to create the largest onchain community."><script src="/app.js"></script></head><body></body></html>'
+        rendered = {'ok': True, 'text': 'Igloo Inc.\nAbout us\nOur ecosystem', 'canvas_count': 1}
+        with patch('spark_web.fetch_text', AsyncMock(return_value=('https://www.igloo.inc/', page))), \
+                patch('spark_web_render.render_public_page', AsyncMock(return_value=rendered)) as render:
+            result = await execute_web_tool('read_web_page', {'url': 'igloo.inc'})
+        self.assertEqual(result['method'], 'rendered_browser')
+        self.assertIn('onchain community', result['description'])
+        self.assertIn('Our ecosystem', result['text'])
+        self.assertEqual(result['rendering']['canvas_count'], 1)
+        render.assert_awaited_once_with('https://www.igloo.inc/')
+
+    async def test_title_only_page_is_not_a_successful_content_read(self):
+        with patch('spark_web.fetch_text', AsyncMock(return_value=('https://example.com/', '<title>Title only</title>'))):
+            result = await execute_web_tool('read_web_page', {'url': 'https://example.com/'})
+        self.assertFalse(result['ok'])
+        self.assertNotIn('sources', result)
+
+    async def test_unavailable_renderer_reports_metadata_limits(self):
+        page = '<title>Igloo</title><meta name="description" content="Public mission statement"><script src="app.js"></script>'
+        with patch('spark_web.fetch_text', AsyncMock(return_value=('https://www.igloo.inc/', page))), \
+                patch('spark_web_render.render_public_page', AsyncMock(return_value={'ok': False})):
+            result = await execute_web_tool('read_web_page', {'url': 'https://www.igloo.inc/'})
+        self.assertEqual(result['method'], 'metadata_only')
+        self.assertIn('visual design were not verified', result['limitations'])
+        self.assertIn('Public mission statement', result['text'])
+
+    async def test_unrelated_search_feed_is_rejected_and_fallback_used(self):
+        rss = '<rss><channel><item><title>Azure</title><link>https://azure.microsoft.com/</link><description>Free account</description></item></channel></rss>'
+        fallback = '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.igloo.inc%2F">Igloo Inc.</a><a class="result__snippet">Onchain community</a>'
+        with patch('spark_web.fetch_text', AsyncMock(side_effect=[('https://www.bing.com/', rss), ('https://html.duckduckgo.com/', fallback)])):
+            result = await execute_web_tool('web_search', {'query': 'igloo.inc'})
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['provider'], 'DuckDuckGo HTML')
+        self.assertEqual(result['sources'][0]['url'], 'https://www.igloo.inc/')
+        self.assertNotIn('Azure', str(result))
+
+    async def test_unrelated_results_from_both_sources_are_never_cited(self):
+        rss = '<rss><channel><item><title>Azure</title><link>https://azure.microsoft.com/</link></item></channel></rss>'
+        with patch('spark_web.fetch_text', AsyncMock(side_effect=[('https://www.bing.com/', rss), ('https://html.duckduckgo.com/', '<p>No results</p>')])):
+            result = await execute_web_tool('web_search', {'query': 'igloo.inc'})
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['results'], [])
+        self.assertNotIn('sources', result)
+
     def test_gemini_profiles_get_web_tools_without_altering_original(self):
         config = {'system_instruction': 'No tools are provided in cinematic voice mode.'}
         for profile in ('cinematic', 'cinematic_tools', 'cinematic_search', 'full'):

@@ -68,7 +68,10 @@ class Maintenance:
             env={**{key:value for key,value in os.environ.items() if key.upper() in {'PATH','SYSTEMROOT','WINDIR','TEMP','TMP','COMSPEC','PATHEXT','LOCALAPPDATA','APPDATA','USERPROFILE'}},
                  "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8":"1"})
         if result.returncode:
-            raise MaintenanceError("Regression suite failed; candidate was not retained.")
+            checks = [line.split(' (', 1)[0][:180] for line in result.stderr.splitlines()
+                      if line.startswith(('FAIL: ', 'ERROR: '))][:6]
+            detail = ' Failed checks: ' + '; '.join(checks) if checks else ''
+            raise MaintenanceError("Regression suite failed; candidate was not retained." + detail)
 
     def _security_check(self, root):
         # Heuristic secret scan over every backend source. A candidate that would
@@ -228,6 +231,14 @@ class Maintenance:
                 stage = Path(directory)
                 shutil.copytree(self.root / "backend", stage / "backend", ignore=shutil.ignore_patterns(".env", "*.bak", "__pycache__", "settings.json"))
                 shutil.copytree(self.root / "tests", stage / "tests", ignore=shutil.ignore_patterns("__pycache__"))
+                # The regression suite also checks application wiring by reading
+                # frontend and Electron source. Keep those inputs in the staged
+                # tree so a valid backend repair is not rejected for missing UI.
+                for folder in ('src', 'electron'):
+                    source = self.root / folder
+                    if source.is_dir() and not source.is_symlink():
+                        shutil.copytree(source, stage / folder,
+                            ignore=shutil.ignore_patterns('node_modules', '__pycache__', '.env*', '*.bak', 'settings.json'))
                 if (self.root/'package.json').is_file():shutil.copy2(self.root/'package.json',stage/'package.json')
                 for source in (self.root / "scripts").glob("*.py"):
                     destination = stage / "scripts" / source.name

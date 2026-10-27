@@ -29,6 +29,7 @@ import secrets
 import sqlite3
 import time
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib import request as urlrequest
 
 MAX_TEXT = 4000
@@ -38,6 +39,7 @@ POLL_LIMIT = 50
 APPROVAL_TTL = 600
 # Persisted marker for a Telegram token that lives only in the DPAPI store.
 TELEGRAM_TOKEN_SENTINEL = "__dpapi_telegram_bot_token__"
+DISCORD_WEBHOOK_SENTINEL = "__dpapi_discord_webhook_url__"
 
 
 class HubError(ValueError):
@@ -50,7 +52,14 @@ def default_transport(method, url, *, headers=None, body=None, timeout=15):
     request = urlrequest.Request(url, method=method, data=data)
     for key, value in (headers or {}).items():
         request.add_header(key, value)
-    with urlrequest.urlopen(request, timeout=timeout) as response:
+    try:
+        response = urlrequest.urlopen(request, timeout=timeout)
+    except HTTPError as error:
+        # HTTP failures still carry provider responses (auth, conflicts,
+        # retry_after). Let each adapter classify them; connection failures
+        # continue to propagate without exposing credential-bearing URLs.
+        response = error
+    with response:
         return response.status, response.read(200_000).decode("utf-8", "replace")
 
 
@@ -351,6 +360,17 @@ class MessagingHub:
     # -- configuration ---------------------------------------------------
     def _protect_config(self, channel, config):
         """Keep Telegram outbound credentials in DPAPI, never in SQLite."""
+        if channel == "discord" and self.secret_store is not None:
+            webhook = config.get("webhook_url")
+            if webhook == DISCORD_WEBHOOK_SENTINEL:
+                return config
+            if not isinstance(webhook, str) or not webhook.strip():
+                raise HubError("A Discord webhook URL is required.")
+            try:
+                self.secret_store.save("discord_webhook_url", webhook.strip())
+            except Exception:
+                raise HubError("Discord webhook could not be protected.") from None
+            return {**config, "webhook_url": DISCORD_WEBHOOK_SENTINEL}
         if channel != "telegram" or "bot_token" not in config:
             return config
         token = config.get("bot_token")
@@ -383,6 +403,14 @@ class MessagingHub:
 
     def _resolve_config(self, channel, config):
         """Resolve the DPAPI marker for a transport call, migrating legacy rows."""
+        if channel == "discord" and config.get("webhook_url") == DISCORD_WEBHOOK_SENTINEL:
+            try:
+                webhook = self.secret_store.load("discord_webhook_url")
+            except Exception:
+                raise HubError("Discord webhook could not be read.") from None
+            if not webhook:
+                raise HubError("Discord webhook credential is missing. Run local setup again.")
+            return {**config, "webhook_url": webhook}
         if channel != "telegram" or self.secret_store is None:
             return config
         token = config.get("bot_token")
@@ -446,8 +474,10 @@ class MessagingHub:
                        (channel, json.dumps(config), self.clock()))
         return {"channel": channel, "configured": True,
                 "inbound_polling": PROVIDERS[channel].inbound_polling,
-                "credential_store": ("dpapi" if channel == "telegram"
-                                     and config.get("bot_token") == TELEGRAM_TOKEN_SENTINEL
+                "credential_store": ("dpapi" if (channel == "telegram"
+                                     and config.get("bot_token") == TELEGRAM_TOKEN_SENTINEL)
+                                     or (channel == "discord"
+                                     and config.get("webhook_url") == DISCORD_WEBHOOK_SENTINEL)
                                      else "provider")}
 
     def disconnect(self, channel):

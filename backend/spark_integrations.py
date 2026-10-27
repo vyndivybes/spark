@@ -16,6 +16,23 @@ from spark_google_mcp import GOOGLE_WRITE_TOOLS
 ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack')
 
 
+def mcp_result_payload(result):
+    """Read a provider's structured status without treating text answers as JSON."""
+    if not isinstance(result, dict):
+        return None
+    if isinstance(result.get('structuredContent'), dict):
+        return result['structuredContent']
+    for block in result.get('content', []):
+        if block.get('type') == 'text':
+            try:
+                value = json.loads(block['text'])
+            except (ValueError, KeyError, TypeError):
+                continue
+            if isinstance(value, dict):
+                return value
+    return None
+
+
 class Integrations:
     def __init__(self, config=None, *, audit_dir=None):
         self.clients = {}
@@ -131,6 +148,10 @@ class Integrations:
         try:
             started=time.monotonic()
             result=await self.clients[server].request("rea_discover" if action == "mcp_discover" else "rea_call", args)
+            if action == 'mcp_call':
+                value = mcp_result_payload(result)
+                if value is not None and value.get('ok') is False:
+                    result = {**result, 'isError': True}
             breaker.success()
             self._record({'server':server,'action':action,'tool':args.get('name'),'ok':not (isinstance(result,dict) and result.get('isError')),'elapsed_ms':round((time.monotonic()-started)*1000)})
             return result

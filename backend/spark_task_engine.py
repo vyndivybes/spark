@@ -84,7 +84,17 @@ class Task:
             step.attempts += 1
             try:
                 outcome = executor(step.action, dict(step.args))
-                # Verification is mandatory and fail-closed.
+            except TransientExecutionError:
+                if attempt < MAX_RETRIES:
+                    continue
+                step.result = "Transient action failed after bounded retries"
+                break
+            except Exception:
+                step.result = "Action or verification failed; no automatic retry"
+                break
+            try:
+                # Verification is mandatory and fail-closed. Once execution
+                # succeeded, verification or formatting must never repeat it.
                 if not bool(verifier(step.action, dict(step.args), outcome)):
                     raise RuntimeError("Verification failed")
                 step.result = str(outcome)[:MAX_TEXT]
@@ -93,11 +103,6 @@ class Task:
                 self.status = State.COMPLETED if self.cursor == len(self.steps) else State.PENDING
                 self.audit.append("Verified step " + str(self.cursor))
                 return self.status
-            except TransientExecutionError:
-                if attempt < MAX_RETRIES:
-                    continue
-                step.result = "Transient action failed after bounded retries"
-                break
             except Exception:
                 step.result = "Action or verification failed; no automatic retry"
                 break

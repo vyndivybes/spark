@@ -42,10 +42,28 @@ export class BrowserEchoAudio {
     };
   }
 
-  async start({deviceId = '', outputId = ''} = {}) {
+  async start({deviceId = '', outputId = '', playbackOnly = false} = {}) {
     if (this.ready) return;
     this.closed = false;
     try {
+      if (playbackOnly) {
+        // Startup narration is output-only: never request or open a microphone.
+        const Context = window.AudioContext || window.webkitAudioContext;
+        this.audioContext = new Context({latencyHint: 'interactive'});
+        if (outputId && outputId !== 'default') {
+          if (typeof this.audioContext.setSinkId !== 'function') throw new Error('Selected speaker is unavailable.');
+          await this.audioContext.setSinkId(outputId);
+        }
+        this.socket.on('browser_audio', this.onSpeaker);
+        await this.audioContext.resume();
+        if (this.closed || this.audioContext.state !== 'running') throw new Error('Spark speaker could not start.');
+        this.ready = true;
+        this.setMuted(true);
+        this.pumpTimer = setInterval(() => {
+          try { this.pumpAudio(); } catch (err) { this.failSpeaker(err); }
+        }, 80);
+        return;
+      }
       if (!navigator?.mediaDevices?.getUserMedia || !window.AudioWorkletNode) {
         throw new Error('Chromium microphone echo cancellation is unavailable.');
       }

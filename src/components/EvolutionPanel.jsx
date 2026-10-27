@@ -78,13 +78,14 @@ export default function EvolutionPanel({socket, project}) {
         if (!socket.connected) {setResult('Connect SPARK first.'); return;}
         pending.current = `evolution-${Date.now()}-${++serial.current}`;
         setBusy(true);
-        setResult('Working…');
+        const verifying = ['test_repair_candidate','activate_repair_candidate'].includes(action);
+        setResult(verifying ? 'Running local regression checks. This can take several minutes.' : 'Working…');
         clearTimeout(deadline.current);
         deadline.current = setTimeout(() => {
             pending.current = null;
             setBusy(false);
             setResult('Request timed out. It may still be finishing on the backend. Check backups before retrying a repair.');
-        }, 240000);
+        }, verifying ? 25 * 60 * 1000 : 240000);
         socket.emit('workspace_action', {workspace_token:socket.workspaceToken,request_id: pending.current, action, project, payload});
     }
 
@@ -129,21 +130,22 @@ export default function EvolutionPanel({socket, project}) {
         </section>
         <div className="space-y-3 rounded-xl border border-cyan-500/20 p-3 lg:col-span-2">
             <h3 className="font-semibold">Learn from a repository</h3>
-            <p className="text-sm text-slate-300">Choose a local source checkout and describe an improvement to Spark. Analysis sends a bounded source sample to your configured Groq model. It returns source references and upgrade suggestions. Clone remote repositories locally first. Repository code is read, never executed during analysis.</p>
-            <input aria-label="Repository directory" className={input} value={repository} onChange={e => setRepository(e.target.value)} placeholder="Absolute local repository path" />
+            <p className="text-sm text-slate-300">Enter a public GitHub repository URL or local source directory and describe the behavior to improve. Spark compares a bounded sample of implementation code with relevant Spark code using your configured Groq model. Repository code is read, never executed during analysis.</p>
+            <input aria-label="Repository directory" className={input} value={repository} onChange={e => setRepository(e.target.value)} placeholder="https://github.com/owner/repository or absolute local directory" />
             <textarea aria-label="Repository upgrade goal" className={input} value={repoGoal} onChange={e => setRepoGoal(e.target.value)} placeholder="What should Spark learn or improve from this repository?" />
-            <textarea aria-label="Repository reference paths" className={input} value={referencePaths} onChange={e => setReferencePaths(e.target.value)} placeholder="Optional reference paths, one per line. Blank selects a sample of README, manifests and source files." />
+            <textarea aria-label="Repository reference paths" className={input} value={referencePaths} onChange={e => setReferencePaths(e.target.value)} placeholder="Optional reference paths, one per line. Blank prioritizes implementation files and relevant documentation." />
             <p className="text-xs text-slate-400">Up to 16 UTF-8 files, 64 KiB each and 192 KiB total. Hidden files and sensitive filenames are excluded. Review which source files you share with the model. Findings describe sampled source; runtime behavior remains unverified.</p>
             <div className="flex flex-wrap gap-2">
                 <button className={button} disabled={busy || !repository.trim() || !repoGoal.trim()} onClick={() => request('analyze_repository', {repository: repository.trim(), goal: repoGoal.trim(), reference_paths: referencePaths.split(/\r?\n/).map(p => p.trim()).filter(Boolean)})}>Analyze repository with model</button>
                 <button className={button} disabled={busy} onClick={() => request('list_repository_analyses')}>Load saved analyses</button>
             </div>
-            {analyses.map(report => <button key={report.id} className={`${button} mr-2`} disabled={busy} onClick={() => request('read_repository_analysis', {id: report.id})}>{report.goal}</button>)}
+            {analyses.map(report => <button key={report.id} className={`${button} mr-2`} disabled={busy} onClick={() => request('read_repository_analysis', {id: report.id})}>{report.repository} · {report.goal}</button>)}
             {analysis && <div className="space-y-3 text-sm">
                 <p className="break-all">{analysis.repository}</p>
                 <p className="whitespace-pre-wrap">{analysis.summary}</p>
-                <details><summary>Inspect sampled source and coverage</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify({sources: analysis.sources, skipped: analysis.skipped, inventory_truncated: analysis.inventory_truncated, limitations: analysis.limitations}, null, 2)}</pre></details>
-                {!analysis.opportunities.length && <p>No supported upgrade was identified in this sample. Try a more specific goal or select different reference files.</p>}
+                <p className="text-xs text-slate-400">Model reference files: {analysis.analysis_sample?.sources?.map(source => source.path).join(', ') || 'Coverage unavailable'}. Spark files compared: {analysis.analysis_sample?.spark_sources?.map(source => source.path).join(', ') || 'This older report needs a new analysis to compare Spark code'}.</p>
+                <details><summary>Inspect sampled source and coverage</summary><pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify({model_sample: analysis.analysis_sample, sources: analysis.sources, skipped: analysis.skipped, inventory_truncated: analysis.inventory_truncated, limitations: analysis.limitations}, null, 2)}</pre></details>
+                {!analysis.opportunities.length && <p>No matching improvement was found for this goal in the sampled code. For example, a voice-assistant repository may not provide scheduling improvements. Choose a behavior the repository implements, or select its relevant source files.</p>}
                 {analysis.opportunities.map((item, index) => <div key={index} className="space-y-2 rounded-lg border border-white/20 p-3">
                     <h4 className="font-semibold">{item.title}</h4>
                     <p>{item.rationale}</p>

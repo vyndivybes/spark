@@ -24,6 +24,14 @@ test('command dashboard distinguishes offline, backend connected, and AI ready s
         assert.match(offline, /A fresh starting point/);
         assert.doesNotMatch(offline, /AI session ready/);
         for (const name of ['Missions', 'Knowledge', 'Memory', 'Upgrade studio', 'Repositories', 'PC manager', 'Connections', 'Approvals', 'History', 'Workbench']) assert.ok(offline.includes(name), name);
+        const navigation = offline.match(/<nav[^>]*aria-label="Main workspace"[\s\S]*?<\/nav>/)?.[0];
+        assert.equal((navigation.match(/<button/g) || []).length, 4);
+        assert.match(offline, /<dialog[^>]*aria-labelledby="sd-command-title"/);
+        assert.match(offline, /aria-label="Find workspace tools"/);
+        const stale = render({connected:false, diagnostics:{host:{cpu_percent:99,ram_percent:88}}});
+        assert.doesNotMatch(stale, /99%|88%/);
+        const records = render({connected:true, brainGraph:{totalNodes:121,nodes:[]}});
+        assert.match(records, /121<small> records in view/);
         const connected = render({connected:true, liveState:{state:'idle'}, diagnostics:{host:{cpu_percent:17.4, ram_percent:58.9}}});
         assert.match(connected, /17%/);
         assert.match(connected, /59%/);

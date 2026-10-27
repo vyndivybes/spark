@@ -10,7 +10,7 @@ import shutil
 import time
 from pathlib import Path
 
-from spark_integrations import Integrations
+from spark_integrations import Integrations, mcp_result_payload
 
 STATES = ("verified operational", "partially operational",
           "installed but disconnected", "not installed", "failed verification",
@@ -258,6 +258,20 @@ class Connectivity:
         try:
             result = await self.integrations.execute(server, "mcp_discover", {})
             tools = len(result) if isinstance(result, list) else 0
+            if server in ('gmail', 'google-drive', 'google-calendar'):
+                approved = self.integrations.catalog().get(server, {}).get('read_tools', [])
+                if ('google_account_status' not in approved or not isinstance(result, list)
+                        or not any(tool.get('name') == 'google_account_status' for tool in result)):
+                    entry['state'] = 'partially operational'
+                    entry['probe'] = {'ok': True, 'tools': tools, 'account_verified': False}
+                    entry['evidence'] += ' Live discovery succeeded; Google account access is unverified.'
+                    return
+                read = await self.integrations.execute(server, 'mcp_call',
+                    {'name': 'google_account_status', 'arguments': {}})
+                value = mcp_result_payload(read)
+                if read.get('isError') or value is None or value.get('ok') is not True:
+                    raise ConnectivityError('Google account read failed. Reconnect the configured account and check API permissions.')
+                entry['evidence'] += ' Live Google account identity and API read succeeded.'
             if server in ('vyndi-os','vedm') and server not in self.integrations.catalog() and getattr(self.integrations,'business',None) is not None and self.integrations.business.configured():
                 from spark_business import BUSINESS_TOOLS
                 read=await self.integrations.execute(server,'mcp_call',{'name':BUSINESS_TOOLS[server]['name'],'arguments':{}})
@@ -270,7 +284,7 @@ class Connectivity:
         except Exception as error:
             entry["state"] = "failed verification"
             entry["probe"] = {"ok": False, "error": str(error)[:200]}
-            entry["evidence"] = entry["evidence"] + " Live discovery failed."
+            entry["evidence"] = entry["evidence"] + " Live verification failed."
 
     async def report(self, *, deep=False):
         entries = await asyncio.to_thread(self._static_entries)

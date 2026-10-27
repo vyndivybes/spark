@@ -1,10 +1,10 @@
 import sys
 import asyncio
 
-# Fix for asyncio subprocess support on Windows
+# Preserve Windows MCP subprocess support and recover aborted socket accepts.
 # MUST BE SET BEFORE OTHER IMPORTS
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+from spark_windows_asyncio import install_windows_policy
+install_windows_policy()
 
 import socketio
 import uvicorn
@@ -51,6 +51,9 @@ import signal
 import time
 from spark_diagnostics import safe_diagnostics
 from spark_host_vitals import collect_host_vitals
+from spark_weather import DashboardWeather
+from spark_startup_briefing import StartupNarrator, today_digest
+dashboard_weather = DashboardWeather()
 from spark_pc_optimizer import PcOptimizer
 pc_optimizer = PcOptimizer()
 from spark_google_briefing_voice import spoken_briefing
@@ -152,6 +155,7 @@ async def start_saee_autonomy_scheduler():
 
 @app.on_event("shutdown")
 async def close_rea_connection():
+    await startup_narrator.cancel()
     await spark_workbench.sync.close()
     await spark_workbench.sync.integrations.close()
     await spark_evolution.rea.close()
@@ -672,6 +676,43 @@ async def telegram_status():
 
 
 @sio.event
+async def get_dashboard_weather(sid, data):
+    # Public weather only; fixed upstream hosts, no device location or model calls.
+    return await dashboard_weather.current(data.get('city') if isinstance(data, dict) else None)
+
+
+async def _startup_digest():
+    try:
+        # Compose today's read-only digest from the existing source snapshots.
+        # This does not acknowledge it or send it to any messaging service.
+        return await asyncio.wait_for(asyncio.to_thread(today_digest, spark_workbench.digest), timeout=25)
+    except Exception:
+        return {'status': 'failed'}
+
+
+startup_narrator = StartupNarrator(client=lambda: spark.client, model=lambda: spark.MODEL,
+    speech_config=lambda: (spark.config.get('speech_config') if isinstance(spark.config, dict)
+                          else getattr(spark.config, 'speech_config', None)), weather=dashboard_weather.current,
+    digest=_startup_digest, emit=sio.emit)
+
+
+@sio.event
+async def startup_briefing(sid, data):
+    if (not isinstance(data, dict) or not workspace_client_allowed(sio.get_environ(sid),
+            data.get('workspace_token'), os.environ.get('SPARK_WORKSPACE_TOKEN'))
+            or (SETTINGS.get('face_auth_enabled', False) and not (authenticator and authenticator.authenticated))):
+        return {'ok': False, 'message': 'Unlock Spark before playing your startup briefing.'}
+    if audio_loop is not None:
+        return {'ok': False, 'message': 'Close the current voice session before replaying the startup briefing.'}
+    return startup_narrator.start(sid, data.get('id'), data.get('city', 'Coimbatore'))
+
+
+@sio.event
+async def stop_startup_briefing(sid, data=None):
+    await startup_narrator.cancel(sid)
+
+
+@sio.event
 async def get_diagnostics(sid):
     # Existing status values are filtered before reaching the cockpit.
     # No API keys, prompts, saved settings, paths or full exception bodies.
@@ -742,6 +783,8 @@ async def workspace_action(sid, data):
         'import_document','propose_skill','test_skill','activate_skill','run_skill',
         'revise_skill','rollback_skill','remove_document','publish_holo_note','unpublish_holo_note',
         'analyze_repository','preview_repository','import_repository','list_repository_analyses','read_repository_analysis',
+        'stage_repository_upgrade',
+        'list_repair_candidates','list_repairs','test_repair_candidate','activate_repair_candidate','rollback_repair',
         'connectivity_report','saee_registry','workforce_roles','memory_search','memory_remember',
         'saee_autonomy_status','saee_autonomy_configure','saee_autonomy_stop','saee_autonomy_goal','saee_autonomy_cancel_goal','saee_autonomy_cycle',
         'generate_python_tool','repair_python_tool','propose_python_tool','list_python_tools','python_tools_policy','configure_python_tools',
@@ -886,6 +929,7 @@ async def get_audio_transport(sid):
 
 @sio.event
 async def disconnect(sid, reason=None):
+    await startup_narrator.cancel(sid)
     global camera_share_sid
     await browser_sessions.stop(sid)
     workspace_project_by_sid.pop(sid, None)
@@ -1088,6 +1132,10 @@ async def start_audio(sid, data=None):
             await sio.emit('error', {'msg': 'Authentication Required'})
             return
 
+    await startup_narrator.cancel(sid)
+    if startup_narrator.job and not startup_narrator.job.done():
+        await sio.emit('error', {'msg': 'Another Spark window is delivering a startup briefing.'}, room=sid)
+        return
     if cloud_provider() == "groq":
         await start_groq_audio(sid, data)
         return
@@ -2235,6 +2283,6 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=int(os.environ.get("SPARK_BACKEND_PORT") or "8000"),
         reload=False, # Reload enabled causes spawn of worker which might miss the event loop policy patch
-        loop="asyncio",
+        loop="spark_windows_asyncio:create_loop",
         reload_excludes=["temp_cad_gen.py", "output.stl", "*.stl"]
     )

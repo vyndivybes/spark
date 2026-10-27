@@ -5,6 +5,34 @@ const {pathToFileURL} = require('node:url');
 
 const bridgePath=pathToFileURL(path.resolve(__dirname,'../src/audio/BrowserEchoAudio.mjs')).href;
 
+test('startup playback opens the speaker without requesting or sending microphone audio',async()=>{
+  const originalNavigator=globalThis.navigator, originalWindow=globalThis.window;
+  const mock=mockAudio();
+  let requests=0, bridge;
+  try {
+    Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{
+      getUserMedia:async()=>{requests++;throw Error('Microphone must stay closed');}
+    }}});
+    globalThis.window={AudioContext:mock.AudioContext};
+    const {BrowserEchoAudio}=await import(bridgePath);
+    bridge=new BrowserEchoAudio({socket:mock.socket});
+    await bridge.start({playbackOnly:true});
+    assert.equal(bridge.ready,true);
+    assert.equal(bridge.muted,true);
+    assert.equal(bridge.isCaptureAvailable(),false);
+    mock.events.get('browser_audio')(new Uint8Array([0,0,0,0]));
+    assert.equal(mock.playback.length,1);
+    assert.equal(requests,0);
+    assert.equal(mock.emitted.length,0);
+    bridge.stop();
+    assert.equal(mock.events.has('browser_audio'),false);
+  } finally {
+    bridge?.stop();
+    Object.defineProperty(globalThis,'navigator',{configurable:true,value:originalNavigator});
+    globalThis.window=originalWindow;
+  }
+});
+
 function mockAudio(echoCancellation=true) {
   const events = new Map();
   const emitted = [];

@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -11,6 +12,7 @@ from spark_repo_upgrade import snapshot
 from spark_workspace import SparkWorkspace
 from spark_repo_import import RepoImportError
 from unittest.mock import patch
+from unittest.mock import AsyncMock
 
 
 class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
@@ -36,17 +38,19 @@ class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
         self.contexts = []
         self.bad_evidence = False
         self.bad_patch = False
+        self.cite_spark = False
 
         async def generate(instruction, context):
             self.contexts.append(context)
-            if 'spark_sources' in context:
+            if 'reference_sources' in context:
                 original = context['spark_sources'][0]
                 return {'patches': [{'path': 'backend/server.py' if self.bad_patch else original['path'],
                                     'sha256': original['sha256'],
                                     'edits': [{'old': 'return x', 'new': 'return x * 2'}]}]}
             return {'summary': 'The sample suggests doubling calculations.', 'opportunities': [{
                 'title': 'Double the result', 'rationale': 'The sampled function doubles the input.',
-                'evidence': ['missing.py' if self.bad_evidence else 'cache.py'],
+                'evidence': (['missing.py' if self.bad_evidence else 'cache.py']
+                             + (['backend/calculator.py'] if self.cite_spark else [])),
                 'spark_paths': ['backend/calculator.py'],
                 'verification': 'calculate(3) must equal 6.'}]}
 
@@ -56,6 +60,70 @@ class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
         return await self.engine.execute('analyze_repository', 'general', {
             'repository': str(self.reference), 'goal': 'Improve calculation behavior',
             'reference_paths': ['README.md', 'cache.py']})
+
+    async def test_analysis_compares_real_spark_source_instead_of_only_target_names(self):
+        (self.spark / 'backend' / 'aaa_unrelated.py').write_text('unrelated = True\n')
+        report = await self.analyze()
+        supplied = {s['path']: s for s in self.contexts[-1]['spark_sources']}
+        self.assertIn('backend/calculator.py', supplied)
+        self.assertIn('return x', supplied['backend/calculator.py']['content'])
+        self.assertIn('backend/calculator.py', report['analysis_sample']['spark_targets'])
+
+    async def test_analysis_accepts_citations_to_both_compared_implementations(self):
+        self.cite_spark = True
+        report = await self.analyze()
+        self.assertEqual(report['opportunities'][0]['evidence'], ['cache.py', 'backend/calculator.py'])
+
+    async def test_explicit_spark_target_wins_over_high_scoring_unrelated_modules(self):
+        for name in ('spark_retry_queue.py', 'spark_retry_recovery.py'):
+            (self.spark / 'backend' / name).write_text(
+                '# task retry queue planning recovery error validation\nvalue = True\n')
+        for requested in ('backend/calculator.py', 'BACKEND\\CALCULATOR.PY', 'calculator.py'):
+            with self.subTest(requested=requested):
+                report = await self.engine.execute('analyze_repository', 'general', {
+                    'repository': str(self.reference),
+                    'goal': f'Compare {requested}; improve task retry queue planning recovery error validation.',
+                    'reference_paths': ['cache.py']})
+                supplied = report['analysis_sample']['spark_sources']
+                self.assertEqual([s['path'] for s in supplied], ['backend/calculator.py'])
+                self.assertIn('return x', supplied[0]['content'])
+
+    async def test_explicit_protected_or_missing_target_does_not_fall_back(self):
+        (self.spark / 'backend' / 'server.py').write_text('# authorization boundary\n')
+        for requested in ('backend/server.py', 'backend/missing.py'):
+            with self.subTest(requested=requested), self.assertRaisesRegex(MaintenanceError, 'Requested Spark file'):
+                await self.engine.execute('analyze_repository', 'general', {
+                    'repository': str(self.reference), 'goal': f'Compare {requested}',
+                    'reference_paths': ['cache.py']})
+        self.assertEqual(self.contexts, [])
+
+    async def test_explicit_oversized_target_is_not_silently_replaced(self):
+        self.target.write_text('#' + 'x' * 65536 + '\n')
+        with self.assertRaisesRegex(MaintenanceError, 'Requested Spark'):
+            await self.engine.execute('analyze_repository', 'general', {
+                'repository': str(self.reference), 'goal': 'Compare backend/calculator.py',
+                'reference_paths': ['cache.py']})
+        self.assertEqual(self.contexts, [])
+
+    async def test_more_explicit_targets_than_fit_are_rejected_before_model_request(self):
+        for name in ('first.py', 'second.py'):
+            (self.spark / 'backend' / name).write_text('value = True\n')
+        with self.assertRaisesRegex(MaintenanceError, 'at most two Spark'):
+            await self.engine.execute('analyze_repository', 'general', {
+                'repository': str(self.reference),
+                'goal': 'Compare backend/calculator.py, backend/first.py and backend/second.py',
+                'reference_paths': ['cache.py']})
+        self.assertEqual(self.contexts, [])
+
+    def test_default_snapshot_prefers_code_over_nested_readmes_and_includes_rst(self):
+        for i in range(18):
+            folder = self.reference / f'notes{i:02}'
+            folder.mkdir()
+            (folder / 'README.md').write_text('Overview only.\n')
+        (self.reference / 'README.rst').write_text('Scheduling documentation.\n')
+        sources = snapshot(str(self.reference), [])['sources']
+        self.assertIn('cache.py', [s['path'] for s in sources])
+        self.assertIn('README.rst', [s['path'] for s in sources])
 
     async def test_preview_reads_sources_without_model_or_saved_analysis(self):
         (self.reference / 'cache.py').write_text('raise RuntimeError("must not execute")')
@@ -93,6 +161,7 @@ class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('return x * 2', self.contexts[-1]['reference_sources'][1]['content']
                       if len(self.contexts[-1]['reference_sources']) > 1 else self.contexts[-1]['reference_sources'][0]['content'])
         self.assertEqual(self.target.read_text(), 'def calculate(x):\n    return x\n')
+
         with self.assertRaises(MaintenanceError):
             await self.engine.execute('activate_repair_candidate', 'general', {'id': candidate['id'], 'approved': True})
         tested = await self.engine.execute('test_repair_candidate', 'general', {'id': candidate['id'], 'approved': True})
@@ -101,6 +170,22 @@ class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('return x * 2', self.target.read_text())
         await self.engine.execute('rollback_repair', 'general', {'id': applied['id']})
         self.assertEqual(self.target.read_text(), 'def calculate(x):\n    return x\n')
+
+    async def test_staged_regression_checks_can_read_application_source_dependencies(self):
+        for folder, filename in (('src', 'panel.jsx'), ('electron', 'bridge.cjs')):
+            (self.spark / folder).mkdir()
+            (self.spark / folder / filename).write_text('/* application source */\n')
+        (self.spark / 'tests' / 'test_spark_app_sources.py').write_text(
+            'import unittest\nfrom pathlib import Path\n'
+            'class Sources(unittest.TestCase):\n'
+            ' def test_files(self):\n'
+            '  root = Path(__file__).resolve().parents[1]\n'
+            '  self.assertIn("application source", (root/"src"/"panel.jsx").read_text())\n'
+            '  self.assertIn("application source", (root/"electron"/"bridge.cjs").read_text())\n')
+        report = await self.analyze()
+        candidate = await self.engine.execute('stage_repository_upgrade', 'general', {'analysis_id': report['id'], 'opportunity': 0})
+        tested = await self.engine.execute('test_repair_candidate', 'general', {'id': candidate['id'], 'approved': True})
+        self.assertEqual(tested['status'], 'tested')
 
     async def test_invalid_model_evidence_and_patch_scope_are_rejected(self):
         self.bad_evidence = True
@@ -113,6 +198,38 @@ class RepositoryUpgradeTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(MaintenanceError, 'exceeded'):
             await self.engine.execute('stage_repository_upgrade', 'general', {'analysis_id': report['id'], 'opportunity': 0})
         self.assertEqual(self.engine.maintenance.candidates(), [])
+
+    async def test_default_provider_stage_uses_strict_json_and_keeps_patch_scope_checks(self):
+        report = await self.analyze()
+        engine = Evolution(self.workspace, repository=self.spark)
+        value = {'patches': [{'path': 'backend/calculator.py',
+                             'sha256': hashlib.sha256(self.target.read_bytes()).hexdigest(),
+                             'edits': [{'old': 'return x', 'new': 'return x * 2'}]}]}
+        reply = {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(value)}}]}
+        with patch('spark_groq.GroqClient._http', new_callable=AsyncMock, return_value=reply) as http, patch.dict('os.environ', {'GROQ_API_KEY': 'test-only'}):
+            candidate = await engine.execute('stage_repository_upgrade', 'general', {'analysis_id': report['id'], 'opportunity': 0})
+            self.assertEqual(candidate['status'], 'staged')
+            self.assertEqual(self.target.read_text(), 'def calculate(x):\n    return x\n')
+            self.assertTrue(http.await_args.kwargs['body']['response_format']['json_schema']['strict'])
+            value['patches'][0]['path'] = 'backend/server.py'
+            reply['choices'][0]['message']['content'] = json.dumps(value)
+            with self.assertRaisesRegex(MaintenanceError, 'exceeded'):
+                await engine.execute('stage_repository_upgrade', 'general', {'analysis_id': report['id'], 'opportunity': 0})
+
+    async def test_model_can_decline_unsupported_goal_without_staging_a_candidate(self):
+        report = await self.analyze()
+        self.engine.repositories.patch_generator = AsyncMock(return_value={'patches': []})
+        with self.assertRaisesRegex(MaintenanceError, 'No supported source change'):
+            await self.engine.execute('stage_repository_upgrade', 'general', {'analysis_id': report['id'], 'opportunity': 0})
+        self.assertEqual(self.engine.maintenance.candidates(), [])
+
+    async def test_local_test_and_activation_still_require_explicit_approval(self):
+        report = await self.analyze()
+        candidate = await self.engine.execute('stage_repository_upgrade', 'general', {'analysis_id': report['id'], 'opportunity': 0})
+        for action in ('test_repair_candidate','activate_repair_candidate'):
+            with self.subTest(action=action), self.assertRaisesRegex(MaintenanceError, 'pprov'):
+                await self.engine.execute(action, 'general', {'id': candidate['id'], 'approved': False})
+        self.assertEqual(self.target.read_text(), 'def calculate(x):\n    return x\n')
 
     async def test_project_isolation_invalid_selection_and_stale_source(self):
         report = await self.analyze()

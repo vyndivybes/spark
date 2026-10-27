@@ -10,6 +10,7 @@ import BrowserWindow from './components/BrowserWindow';
 import ChatModule from './components/ChatModule';
 import ToolsModule from './components/ToolsModule';
 import {BrowserEchoAudio} from './audio/BrowserEchoAudio.mjs';
+import {useStartupBriefing} from './audio/useStartupBriefing.mjs';
 import {WindowsSpeech} from './audio/WindowsSpeech.mjs';
 import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock, Activity, Search, Timer } from 'lucide-react';
 // MemoryPrompt removed - memory is now actively saved to project
@@ -22,10 +23,12 @@ const SystemCenter = deferredPanel(() => import('./components/SystemCenter'));
 const HealthConnectPanel = deferredPanel(() => import('./components/HealthConnectPanel'));
 const ReaAuditPanel = deferredPanel(() => import('./components/ReaAuditPanel'));
 import FocusPanel from './components/FocusPanel';
-const JarvisPanel = deferredPanel(() => import('./components/JarvisPanel'));
+const SparkRecordsPanel = deferredPanel(() => import('./components/SparkRecordsPanel'));
 const CommandCenter = deferredPanel(() => import('./components/CommandCenter'));
 import EvolutionActivity from './components/EvolutionActivity';
 import './command-center.css';
+import './dashboard.css';
+import './holographic.css';
 import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
@@ -36,11 +39,11 @@ function deferredPanel(load) {
 }
 
 const { ipcRenderer } = window.require('electron');
-const invokeJarvis=request=>ipcRenderer.invoke('spark:jarvis',request);
+const loadLocalRecords=()=>ipcRenderer.invoke('spark:local-records');
 ipcRenderer.invoke('spark:workspace-token').then(token=>{socket.workspaceToken=token;}).catch(()=>{});
 
 function App() {
-    const [showJarvis,setShowJarvis]=useState(false);
+    const [showSparkData,setShowSparkData]=useState(false);
     const [status, setStatus] = useState('Disconnected');
     const [liveState, setLiveState] = useState({state:'disconnected',message:'Waiting for SPARK Core...'});
     const [socketConnected, setSocketConnected] = useState(socket.connected); // Track socket connection reactively
@@ -110,7 +113,10 @@ function App() {
     const [showPhoneWatch, setShowPhoneWatch] = useState(false);
     const [showReaAudit, setShowReaAudit] = useState(false);
     const [showFocus, setShowFocus] = useState(false);
-    const [showWorkspace, setShowWorkspace] = useState(false);
+    const [showWorkspace, setShowWorkspace] = useState(true);
+    const [voiceRequested, setVoiceRequested] = useState(false);
+    const startupVoice = useStartupBriefing({socket, connected:socketConnected,
+        authenticated:isAuthenticated && !isLockScreenVisible, voiceRequested});
     const [workspaceNavigation, setWorkspaceNavigation] = useState(null);
     const [brainGraph,setBrainGraph] = useState(null);
     const [brainError,setBrainError] = useState('Loading Neural Atlas…');
@@ -349,7 +355,7 @@ function App() {
     // Auto-Connect Model on Start (Only after Auth and devices loaded)
     useEffect(() => {
         // Only auto-connect once: when socket connected, authenticated, and devices loaded
-        if (isConnected && isAuthenticated && socketConnected && audioTransport !== 'pending' && !hasAutoConnectedRef.current) {
+        if (voiceRequested && isConnected && isAuthenticated && socketConnected && audioTransport !== 'pending' && !hasAutoConnectedRef.current) {
             hasAutoConnectedRef.current = true;
 
             // Trigger Kasa and Printer Discovery
@@ -373,7 +379,7 @@ function App() {
                 });
             }, 500);
         }
-    }, [isConnected, isAuthenticated, socketConnected, micDevices, selectedMicId, audioTransport]);
+    }, [voiceRequested, isConnected, isAuthenticated, socketConnected, micDevices, selectedMicId, audioTransport]);
 
     useEffect(() => {
         // Socket IO Setup
@@ -676,7 +682,7 @@ function App() {
             if (!sources.length) return;
             setMessages(prev => [...prev, {
                 sender: 'Search Sources',
-                text: 'Google Search sources for this response:',
+                text: 'Web sources returned for this response:',
                 sources,
                 time: new Date().toLocaleTimeString()
             }]);
@@ -1714,6 +1720,8 @@ function App() {
             return;
         }
         activationPendingRef.current = liveState.state !== 'connected';
+        hasAutoConnectedRef.current = true;
+        setShowWorkspace(false);
         setIsConnected(true);
         // Do not claim the microphone is live until the provider handshake succeeds.
         // ai_status.connected resumes microphone only after an explicit activation request.
@@ -1737,7 +1745,7 @@ function App() {
     const openExperience = async (experience) => {
         if(experienceBusy)return;
         setExperienceBusy(experience);
-        const experienceLabel = {vayu:'VAYU Workspace',holo:'HOLO Deck',brain:'Neural Atlas',obsidian:'Obsidian',whatsapp:'WhatsApp'}[experience] || 'workspace';
+        const experienceLabel = {holo:'HOLO Deck',brain:'Neural Atlas',obsidian:'Obsidian',whatsapp:'WhatsApp'}[experience] || 'workspace';
         setExperienceMessage('Opening '+experienceLabel+'…');
         try {
             const result=await ipcRenderer.invoke('spark:open-experience',experience);
@@ -1844,7 +1852,7 @@ function App() {
                         aria-expanded={showExperiences}
                         aria-controls="spark-experience-panel"
                         className="spark-launch-button"
-                        title="Open VAYU, linked notes, hand interaction and VAOS Jarvis"
+                        title="Open SPARK local records and connected tools"
                     >
                         <Hand size={15} /> EXPERIENCE DECK
                     </button>
@@ -1938,11 +1946,12 @@ function App() {
             </div>
 
             {showWorkspace && <CommandCenter socket={socket} connected={socketConnected}
-                brainGraph={brainGraph} brainError={brainError}
+                brainGraph={brainGraph} brainError={brainError} startupVoice={startupVoice}
                 liveState={liveState} diagnostics={diagnostics} project={currentProject}
                 requestedNavigation={workspaceNavigation}
-                messages={messages} muted={isMuted} onCockpit={() => setShowWorkspace(false)}
+                messages={messages} muted={isMuted} onCockpit={() => {setShowWorkspace(false);setVoiceRequested(true);}}
                 onSettings={() => {setShowWorkspace(false); setShowSettings(true);}} onExperiences={() => setShowExperiences(true)}
+                onUtility={name => {setShowWorkspace(false); if(name === 'Focus timer') setShowFocus(true); if(name === 'Phone / watch') setShowPhoneWatch(true); if(name === 'REA audit') setShowReaAudit(true);}}
                 onRefresh={() => socket.emit('get_diagnostics')}/>}
             <ReaWorkflowBridge socket={socket}/>
             <ReminderToast socket={socket} project={currentProject}
@@ -1977,7 +1986,7 @@ function App() {
                 </div>
             )}
 
-            {showJarvis&&<JarvisPanel onClose={()=>setShowJarvis(false)} invoke={invokeJarvis} socket={socket} project={currentProject}/>}
+            {showSparkData&&<SparkRecordsPanel onClose={()=>setShowSparkData(false)} loadRecords={loadLocalRecords}/>}
             {showExperiences && createPortal(
                 <section id="spark-experience-panel" className="spark-experience-panel" role="region" aria-label="SPARK experiences" style={{WebkitAppRegion:'no-drag'}}>
                     <div className="spark-panel-heading">
@@ -1986,37 +1995,10 @@ function App() {
                         <button type="button" aria-label="Close experience deck" className="spark-close" onClick={()=>setShowExperiences(false)}><X size={18}/></button>
                     </div>
                     <div className="spark-experience-cards">
-                        <div className="spark-experience-card spark-brain spark-workspace-group" role="group" aria-label="VAYU Workspace modes">
-                            <span className="spark-exp-symbol">◇</span><span className="spark-exp-subtitle">WORK, KNOWLEDGE &amp; HAND INTERACTION</span>
-                            <strong>VAYU WORKSPACE</strong>
-                            <div className="spark-workspace-modes">
-                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('vayu')}>
-                                    <b>{experienceBusy==='vayu'?'Opening…':'Open workspace →'}</b>
-                                    <span>Personal and business actions, analytics, and 10 business-schema views.</span>
-                                </button>
-                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('brain')}>
-                                    <b>{experienceBusy==='brain'?'Opening…':'Neural Atlas → notes graph'}</b>
-                                    <span>Explore wiki links between your published Spark notes.</span>
-                                </button>
-                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('obsidian')}>
-                                    <b>{experienceBusy==='obsidian'?'Opening…':'Obsidian → vault browser'}</b>
-                                    <span>Browse and search your local Obsidian vault.</span>
-                                </button>
-                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('whatsapp')}>
-                                    <b>{experienceBusy==='whatsapp'?'Opening…':'WhatsApp → linked device'}</b>
-                                    <span>Link your phone in WhatsApp Web. Messages are sent only through its own controls.</span>
-                                </button>
-                                <button type="button" disabled={!!experienceBusy} onClick={()=>openExperience('holo')}>
-                                    <b>{experienceBusy==='holo'?'Opening…':'HOLO Deck → hand interaction'}</b>
-                                    <span>Grab and arrange notes and 3D objects with hand gestures.</span>
-                                </button>
-                            </div>
-                            <p className="spark-workspace-note">Each opens its own view. Atlas and HOLO share published Spark notes, with examples when none are published. VAYU actions and imports remain separate.</p>
-                        </div>
-                        <button type="button" className="spark-experience-card spark-brain" onClick={()=>{setShowJarvis(true);setShowExperiences(false);}}>
-                            <span className="spark-exp-symbol">◉</span><span className="spark-exp-subtitle">CONNECTED FOUNDER INTELLIGENCE</span>
-                            <strong>VAOS JARVIS</strong><small>Sign in · ask Jarvis · source evidence · workforce</small>
-                            <em>CONNECT JARVIS →</em>
+                        <button type="button" className="spark-experience-card spark-brain" onClick={()=>{setShowSparkData(true);setShowExperiences(false);}}>
+                            <span className="spark-exp-symbol">◉</span><span className="spark-exp-subtitle">YOUR LOCAL RECORDS</span>
+                            <strong>SPARK</strong><small>VAYU · VYNDI OS · VAOS · Personal · local records</small>
+                            <em>OPEN RECORDS →</em>
                         </button>
                         <button type="button" className="spark-experience-card spark-core" onClick={activateSparkCore}
                             title="Activate SPARK voice core and return to the cockpit">
@@ -2038,7 +2020,7 @@ function App() {
             )}
 
             {/* Main Content */}
-            <div className="flex-1 relative z-10 flex flex-col items-center justify-center">
+            <div inert={showWorkspace ? '' : undefined} aria-hidden={showWorkspace || undefined} className="flex-1 relative z-10 flex flex-col items-center justify-center">
                 {/* Central Visualizer (AI Audio) */}
                 <div
                     id="visualizer"

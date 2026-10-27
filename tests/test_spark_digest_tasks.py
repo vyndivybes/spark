@@ -109,6 +109,21 @@ class DigestSchedulingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await schedule.run_due(self.refresh, self.notify))['state'], 'shown')
         self.assertEqual(len(self.notices), 2)
 
+    async def test_corrupted_persisted_schedule_fails_without_delivery_and_recovers(self):
+        for invalid in ('not-a-time', '07:xx', '07:00:01'):
+            with self.subTest(schedule=invalid):
+                with self.engine._db() as db:
+                    db.execute("UPDATE settings SET value=? WHERE key='schedule_ist'", (invalid,))
+                result = await DigestSchedule(self.engine).run_due(self.refresh, self.notify)
+                self.assertEqual(result['state'], 'failed')
+                self.assertEqual(result['phase'], 'schedule')
+                self.assertEqual(self.refreshes, 0)
+                self.assertEqual(self.notices, [])
+                with self.engine._db() as db:
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM deliveries').fetchone()[0], 0)
+        self.engine.configure(schedule_ist='07:00')
+        self.assertEqual((await DigestSchedule(self.engine).run_due(self.refresh, self.notify))['state'], 'shown')
+
     async def test_unconfirmed_desktop_delivery_is_not_claimed_as_shown(self):
         async def failed(_):
             return {'ok': False, 'state': 'unsupported'}

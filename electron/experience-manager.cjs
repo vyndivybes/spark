@@ -7,22 +7,12 @@ const net = require('node:net');
 const http = require('node:http');
 const {spawn,spawnSync} = require('node:child_process');
 
-const KNOWN = Object.freeze({holo:4890,brain:4710,vayu:4891,graphify:4720,graphiti:4721,hermes:4722,obsidian:4723});
+const KNOWN = Object.freeze({graphify:4720,graphiti:4721,hermes:4722,obsidian:4723});
 
 function getExperiencePlan(name,{root,userData,python='python',notesDir,vayuExportsDir}={}) {
   if(!Object.prototype.hasOwnProperty.call(KNOWN,name))throw new Error('Unknown SPARK experience.');
   if(!root||!userData||typeof python!=='string'||!python.trim())throw new Error('SPARK experience paths are unavailable.');
   const vendor=path.join(root,'vendor');
-  if(name==='vayu'){
-    const folder=path.join(vendor,'vayu-workspace');
-    const wrapper=path.join(root,'scripts','vayu_launcher.py');
-    if(!fs.existsSync(path.join(folder,'start.py'))||!fs.existsSync(wrapper))throw new Error('The bundled VAYU workspace or launcher is missing. Restore the SPARK checkout.');
-    return {name,port:KNOWN.vayu,url:'http://127.0.0.1:'+KNOWN.vayu,
-      page:'/VYNDI_VAOS_Neural_Schema_Gesture_Hologram_v4.html',steps:[
-        {command:python,args:[wrapper,'--port',String(KNOWN.vayu),'--data-dir',path.join(userData,'vayu-workspace')],cwd:folder,shell:false,once:false,
-          env:{SPARK_VAYU_EXPORTS_DIR:vayuExportsDir||path.join(userData,'vayu-exports')}}
-      ]};
-  }
   if(name==='graphify'){
     const wrapper=path.join(root,'scripts','spark_knowledge_dashboard.py');
     if(!fs.existsSync(wrapper)) throw new Error('SPARK knowledge dashboard is missing.');

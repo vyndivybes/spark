@@ -20,13 +20,26 @@ class WorkspaceAccessTests(unittest.TestCase):
 
 
 class OfflineWorkspaceTests(unittest.IsolatedAsyncioTestCase):
-    async def test_real_socket_handler_allows_repository_reads_without_audio_but_not_execution(self):
+    async def test_real_socket_handler_keeps_repository_workflow_token_and_face_gated_without_audio(self):
         from unittest.mock import patch
         from tests.test_spark_evolution import EvolutionSocketTests
         with patch.dict('os.environ',{'SPARK_WORKSPACE_TOKEN':'a'*64}):
             for action,token,unlocked,expected in [
                 ('analyze_repository','a'*64,True,True),
                 ('preview_repository','a'*64,True,True),
+                ('stage_repository_upgrade','a'*64,True,True),
+                ('stage_repository_upgrade',None,True,False),
+                ('stage_repository_upgrade','b'*64,True,False),
+                ('stage_repository_upgrade','a'*64,False,False),
+                ('list_repair_candidates','a'*64,True,True),
+                ('list_repairs','a'*64,True,True),
+                ('test_repair_candidate','a'*64,True,True),
+                ('activate_repair_candidate','a'*64,True,True),
+                ('rollback_repair','a'*64,True,True),
+                ('test_repair_candidate',None,True,False),
+                ('activate_repair_candidate','b'*64,True,False),
+                ('activate_repair_candidate','a'*64,False,False),
+                ('rollback_repair',None,True,False),
                 ('preview_repository',None,True,False),
                 ('analyze_repository',None,True,False),
                 ('analyze_repository','a'*64,False,False),

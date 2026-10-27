@@ -15,7 +15,10 @@ class DigestSchedule:
         if not schedule:
             return {'state': 'not_configured'}
         instant = datetime.fromtimestamp(now, IST)
-        hour, minute = map(int, schedule.split(':'))
+        try:
+            hour, minute = map(int, schedule.split(':'))
+        except ValueError:
+            return {'state': 'failed', 'phase': 'schedule', 'error': 'Invalid schedule format'}
         if (instant.hour, instant.minute) < (hour, minute):
             return {'state': 'waiting', 'schedule_ist': schedule}
         date = ist_date(now)

@@ -41,6 +41,38 @@ class TaskEngineTests(unittest.TestCase):
         self.assertEqual(t.execute_approved(True, lambda *_: actions.append(True), lambda *_: False), m.State.FAILED)
         self.assertEqual(len(actions), 1)
 
+    def test_transient_verifier_failure_never_repeats_an_executed_action(self):
+        task = self.new_task()
+        task.request_approval()
+        actions = []
+        checks = []
+
+        def verify(*_):
+            checks.append(True)
+            if len(checks) == 1:
+                raise m.TransientExecutionError('Verification transport failed')
+            return True
+
+        self.assertEqual(task.execute_approved(True, lambda *_: actions.append(True) or 'done', verify), m.State.FAILED)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(len(checks), 1)
+        self.assertEqual(task.steps[0].attempts, 1)
+        self.assertEqual(task.cursor, 0)
+
+    def test_transient_result_formatting_failure_never_repeats_an_executed_action(self):
+        task = self.new_task()
+        task.request_approval()
+        actions = []
+
+        class Outcome:
+            def __str__(self):
+                raise m.TransientExecutionError('Formatting failed after successful execution')
+
+        self.assertEqual(task.execute_approved(True, lambda *_: actions.append(True) or Outcome(), lambda *_: True), m.State.FAILED)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(task.steps[0].attempts, 1)
+        self.assertEqual(task.cursor, 0)
+
     def test_retry_is_bounded(self):
         t = self.new_task()
         t.request_approval()
@@ -50,6 +82,24 @@ class TaskEngineTests(unittest.TestCase):
             raise m.TransientExecutionError()
         self.assertEqual(t.execute_approved(True, fail, lambda *_: True), m.State.FAILED)
         self.assertEqual(len(calls), m.MAX_RETRIES + 1)
+
+    def test_executor_transient_failure_recovers_then_verifies_once(self):
+        task = self.new_task()
+        task.request_approval()
+        actions = []
+        checks = []
+
+        def execute(*_):
+            actions.append(True)
+            if len(actions) == 1:
+                raise m.TransientExecutionError('Try the execution again')
+            return 'OK'
+
+        self.assertEqual(task.execute_approved(True, execute, lambda *_: checks.append(True) or True), m.State.PENDING)
+        self.assertEqual(len(actions), 2)
+        self.assertEqual(len(checks), 1)
+        self.assertEqual(task.steps[0].attempts, 2)
+        self.assertEqual(task.cursor, 1)
 
     def test_limits_and_cancel(self):
         with self.assertRaises(ValueError):

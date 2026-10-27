@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 from spark_pc_access import PcAccess, pc_live_config
@@ -72,6 +72,16 @@ class PcAccessTests(unittest.TestCase):
         result = self.access.execute({'action': 'run', 'command': command, 'timeout': 1})
         self.assertTrue(result['timed_out'])
         self.assertFalse(result['ok'])
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows process-tree cleanup')
+    def test_terminal_timeout_kills_owned_child_when_tree_cleanup_times_out(self):
+        import subprocess
+        with patch('spark_pc_access.subprocess.run', side_effect=subprocess.TimeoutExpired(['taskkill'], 5)):
+            result = self.access.execute({'action': 'run', 'command': 'Start-Sleep -Seconds 10', 'timeout': 1})
+        self.assertTrue(result['timed_out'], result)
+        self.assertFalse(result['ok'])
+        self.assertIsNotNone(result['exit_code'])
+        self.assertIn('could not be confirmed', result['cleanup_warning'])
 
     def test_real_program_launch_uses_literal_arguments(self):
         target = self.root / 'program-output.txt'

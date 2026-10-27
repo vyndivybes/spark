@@ -155,7 +155,7 @@ def dependency_map(root):
             "count": len(deps) + len(dev_deps)}
 
 
-def import_evidence(url, *, selected=None, timeout=120, max_bytes=200 * 1024 * 1024):
+def import_evidence(url, *, selected=None, timeout=120, max_bytes=200 * 1024 * 1024, goal=''):
     """Clone `url`, gather license + dependency evidence, then delete the clone.
 
     Returns the same source-sample shape as `snapshot` plus `imported` metadata.
@@ -176,7 +176,7 @@ def import_evidence(url, *, selected=None, timeout=120, max_bytes=200 * 1024 * 1
             raise RepoImportError("Repository checkout exceeds the size limit.")
         spdx, license_class, license_file, _ = _read_license(target)
         # Reuse the bounded, symlink-safe sampler used for local repositories.
-        evidence = snapshot(str(target), selected or [])
+        evidence = snapshot(str(target), selected or [], goal=goal)
         evidence["repository"] = "%s/%s" % (owner, repo)
         evidence["imported"] = {
             "owner": owner, "repo": repo, "url": url,
