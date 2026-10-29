@@ -13,7 +13,7 @@ from spark_jarvis import JarvisClient, JARVIS_TOOL
 from spark_business import BusinessClient, BUSINESS_TOOLS
 from spark_google_mcp import GOOGLE_WRITE_TOOLS
 
-ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack','fireflies')
+ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack')
 
 
 def mcp_result_payload(result):
