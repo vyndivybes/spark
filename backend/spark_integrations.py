@@ -165,7 +165,7 @@ class Integrations:
                     token=CredentialStore().load('fireflies_api_key')
                 except Exception:
                     token=None
-                if not isinstance(token,str) or not 8 <= len(token) <= 2000 or '\\r' in token or '\\n' in token:
+                if not isinstance(token,str) or not 8 <= len(token) <= 2000 or '\r' in token or '\n' in token:
                     raise WorkbenchError('Fireflies local credential is unavailable. Authorize this host first.')
                 headers={'Authorization':'Bearer '+token}
             self.clients[server] = ReaClient(item.get("command"), item.get("args", []), item.get("env"),url=item.get('url') if item.get('transport')=='streamable-http' else None,headers=headers)
