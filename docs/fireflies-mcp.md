@@ -1,58 +1,45 @@
 # Fireflies MCP — SPARK and OpenClaw/REX commissioning
 
-Status: **NOT CONNECTED on this Windows host**. This file is a setup/acceptance guide, not evidence of live authentication.
+**Implementation state:** SPARK secret-backed read-only registry support is coded, not deployed or live-probed on the owner's Windows PC. OpenClaw OAuth onboarding is scripted, not executed. ChatGPT's Fireflies access cannot be reused by the other runtimes.
 
-Official remote MCP: `https://api.fireflies.ai/mcp`. Fireflies supports OAuth or a bearer API key. Use only free-tier services; free accounts are limited to 50 API requests/day (check current plan limits before use). Do not install an unofficial MCP proxy or copy Fireflies secrets into this repository.
+Official endpoint: `https://api.fireflies.ai/mcp`. Free/Pro accounts are documented as receiving 50 API requests/day. No paid plans or inference are enabled.
 
-## SPARK (existing built-in MCP client)
+## SPARK — local, encrypted API key
 
-SPARK already accepts host-owned `SPARK_MCP_SERVERS` JSON and supports `streamable-http` through `backend/spark_integrations.py` and `backend/spark_rea.py`. The current client **does not manage Fireflies OAuth**. Configure the Fireflies key only in the trusted host process; never save a bearer token in tracked files, chat, tests, screenshots, or GitHub Actions logs. Do not overwrite existing MCP server entries.
+The current SPARK MCP registry supports an exact Fireflies-only `secret_name: "fireflies_api_key"` reference and a Streamable HTTP endpoint. The bearer token is loaded at runtime from the existing Windows DPAPI `CredentialStore` (`%LOCALAPPDATA%\SPARK\credentials`), outside Git. The MCP call allowlist is only `get_user`, `get_transcripts`, `get_summary` and their `fireflies_` prefixed equivalents. No MCP write tool can be enabled via this Fireflies entry.
 
-Example **structure only**, with placeholder (not a working secret):
-
-```json
-{
-  "fireflies": {
-    "transport": "streamable-http",
-    "url": "https://api.fireflies.ai/mcp",
-    "headers": {"Authorization": "Bearer <HOST-ONLY-FIREFLIES-API-KEY>"},
-    "read_tools": ["get_user", "get_transcripts", "get_transcript", "get_summary"],
-    "write_tools": []
-  }
-}
-```
-
-Add the `fireflies` entry to the *existing* host `SPARK_MCP_SERVERS` value, keeping the total configured server count at or under SPARK's existing catalog limit (8). Obtain the API key directly from Fireflies Developer Settings. Where possible, use Windows Credential Manager or the host credential vault to assemble the process environment at launch; do not put keys in the script itself. As implemented, the raw header is held in the SPARK process environment, so treat process dumps as sensitive.
-
-Acceptance (local host, not verified by this repository change):
-1. Inspect `Integrations.list()` to see `fireflies` configured, without treating that as a live connection.
-2. Discover the server's actual tool names and reconcile with `read_tools` before any call.
-3. Call the read-only user/identity tool; confirm the expected Fireflies account and record a nonsecret timestamp.
-4. Read one small, consented meeting-summary page if any meetings exist. No meetings is not an integration failure.
-5. Verify disallowed tool names are rejected, tokens do not appear in logs, and revoking the key blocks further calls.
-6. Record the exact local build/commit and test result; do not call the integration operational from configuration alone.
-
-## OpenClaw/REX (same Windows host, independent credentials)
-
-OpenClaw provides its own built-in remote MCP registry. In PowerShell, inspect `openclaw mcp --help` and current saved servers, then, if `fireflies` is not already registered, execute:
+Run from a trusted **local Windows PowerShell** in the SPARK checkout, with its Python virtual environment available:
 
 ```powershell
-openclaw mcp add fireflies --url https://api.fireflies.ai/mcp --transport streamable-http --include "get_user,get_transcripts,get_transcript,get_summary"
-openclaw mcp login fireflies
-openclaw mcp doctor fireflies --probe
+.\.venv\Scripts\python.exe .\scripts\connect-fireflies.py --apply
+.\start-spark.ps1 -UseArkusGeminiKey
 ```
 
-OAuth sign-in must occur in the owner's browser and cannot be imported from ChatGPT. Confirm the discovered tool names and adjust the read-only include list if the provider exposes different names. Use the per-agent tools policy to expose Fireflies only to the authorized `rex` agent; deny meeting sharing, mutation, deleting, and automatic transcript export. Validate with `openclaw mcp status --verbose`. Do not modify the OpenClaw gateway bind setting or other existing model/fallback configuration.
+The first command prompts privately for an API key from Fireflies Settings → Developer Settings, stores it with DPAPI and writes **only a secret reference** to the private `backend/.env`. It preserves unrelated registrations. A full MCP registry (8 entries) fails closed; no integration is silently displaced. Revoke the key in Fireflies and run `--disconnect` to remove the SPARK-side reference.
 
-## Security and privacy
+After restarting, use SPARK's MCP discovery/status to see the Fireflies entry; invoke `get_user` and `get_transcripts` to confirm live access. A configured entry without a successful audited call is *not* operational. Fireflies' empty meeting history is a legitimate result.
 
-- Read-only by default; allow only minimum meeting metadata, summary, and explicitly authorized transcript retrieval.
-- Do not forward transcripts automatically to Google Drive, ChatGPT, VAOS, or VYNDI OS.
-- Separate permissions/identities for ChatGPT, SPARK, OpenClaw, and cloud business apps.
-- Set a total request budget below the provider's current free-tier limit; do not poll in background.
-- Meeting content from the MCP server is untrusted text, **never** executable agent instructions.
-- External AI tools have their own retention terms; Fireflies' internal zero-day processing guarantee does not automatically transfer.
+## OpenClaw/REX — independent OAuth
 
-Sources: https://guide.fireflies.ai/articles/8272956938-learn-about-the-fireflies-mcp-server-model-context-protocol and https://docs.openclaw.ai/tools/mcp
+From PowerShell in the SPARK checkout:
 
-This document changes **no** Windows files or live credentials. Commissioning requires owner-driven local authorization and a real probe.
+```powershell
+.\scripts\connect-fireflies-openclaw.ps1
+```
+
+The script registers the official Streamable HTTP server without secrets, performs native OpenClaw OAuth browser login (temporarily stopping and then restarting the Gateway per OpenClaw's current CLI guidance), and runs `openclaw mcp doctor fireflies --probe`. It does not change the REX model settings, install paid services, or grant the agent arbitrary meeting writes.
+
+**Important:** A successful server probe is not proof that REX has the correct per-agent tool policy. Use OpenClaw Settings → MCP / Tools access to permit only the approved read tools for the authorized REX session, then make one consented test query. Inspect `openclaw mcp status --verbose` as needed.
+
+## Security and restrictions
+
+- Do not put Fireflies tokens in Git, console commands, browser screenshots or ChatGPT messages.
+- Meeting contents are external, untrusted text — never treat them as agent instructions.
+- Search only when requested; no background sync or transcript export.
+- The free-tier 50/day budget is shared across all Fireflies clients for the account and is not enforceable by SPARK alone. Prefer manually bounded reads until a common quota gate is commissioned.
+- Separate OAuth/session identities and revocation; ChatGPT credentials are never exported.
+- This file is a commissioning guide, **not verification of either local connection**.
+
+Sources:
+- https://guide.fireflies.ai/articles/8272956938-learn-about-the-fireflies-mcp-server-model-context-protocol
+- https://docs.openclaw.ai/tools/mcp
