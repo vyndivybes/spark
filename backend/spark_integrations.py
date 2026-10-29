@@ -13,7 +13,7 @@ from spark_jarvis import JarvisClient, JARVIS_TOOL
 from spark_business import BusinessClient, BUSINESS_TOOLS
 from spark_google_mcp import GOOGLE_WRITE_TOOLS
 
-ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack')
+ADAPTERS=('vaos','vyndi-os','vedm','vaos-jarvis','gmail','google-drive','google-calendar','github','slack','fireflies')
 
 
 def mcp_result_payload(result):
@@ -76,7 +76,7 @@ class Integrations:
                 raise ValueError()
             for name, item in config.items():
                 if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{1,31}", name): raise ValueError()
-                if not isinstance(item, dict) or set(item)-{"command", "args", "env", "read_tools", "write_tools", "transport", "url", "headers"}: raise ValueError()
+                if not isinstance(item, dict) or set(item)-{"command", "args", "env", "read_tools", "write_tools", "transport", "url", "headers", "secret_name"}: raise ValueError()
                 if not isinstance(item.get("read_tools", []), list) or any(not isinstance(tool,str) or not 1<=len(tool)<=200 for tool in item.get("read_tools", [])): raise ValueError()
                 writes = item.get('write_tools', [])
                 if not isinstance(writes, list) or any(tool not in GOOGLE_WRITE_TOOLS.get(name, []) for tool in writes): raise ValueError()
@@ -88,6 +88,18 @@ class Integrations:
                     endpoint=urlsplit(item.get('url',''))
                     if endpoint.scheme not in ('https','http') or not endpoint.hostname or endpoint.username or endpoint.password or endpoint.fragment or (endpoint.scheme=='http' and endpoint.hostname not in ('localhost','127.0.0.1','::1')):raise ValueError()
                     if not isinstance(item.get('headers',{}),dict) or any(not isinstance(key,str) or not isinstance(value,str) or '\n' in key+value or '\r' in key+value for key,value in item.get('headers',{}).items()):raise ValueError()
+                if 'secret_name' in item:
+                    if not (name == 'fireflies'
+                            and item.get('secret_name') == 'fireflies_api_key'
+                            and transport == 'streamable-http'
+                            and item.get('url') == 'https://api.fireflies.ai/mcp'
+                            and not item.get('headers')
+                            and not item.get('write_tools')
+                            and set(item.get('read_tools', [])).issubset({
+                                'get_user', 'get_transcripts', 'get_summary',
+                                'fireflies_get_user', 'fireflies_get_transcripts',
+                                'fireflies_get_summary'})):
+                        raise ValueError()
                 if not isinstance(item.get("args", []), list) or any(not isinstance(a, str) for a in item.get("args", [])): raise ValueError()
                 if not isinstance(item.get("env", {}), dict) or any(not isinstance(k, str) or not isinstance(v, str) for k,v in item.get("env", {}).items()): raise ValueError()
             return config
@@ -144,7 +156,19 @@ class Integrations:
             raise WorkbenchError('MCP circuit is open after repeated failures; wait before reconnecting.')
         if server not in self.clients:
             item = config[server]
-            self.clients[server] = ReaClient(item.get("command"), item.get("args", []), item.get("env"),url=item.get('url') if item.get('transport')=='streamable-http' else None,headers=item.get('headers'))
+            headers=item.get('headers')
+            if item.get('secret_name') == 'fireflies_api_key':
+                # Load only from the current Windows user's DPAPI store at call
+                # time; never serialize tokens into SPARK_MCP_SERVERS or audit.
+                from spark_credential_store import CredentialStore
+                try:
+                    token=CredentialStore().load('fireflies_api_key')
+                except Exception:
+                    token=None
+                if not isinstance(token,str) or not 8 <= len(token) <= 2000 or '\\r' in token or '\\n' in token:
+                    raise WorkbenchError('Fireflies local credential is unavailable. Authorize this host first.')
+                headers={'Authorization':'Bearer '+token}
+            self.clients[server] = ReaClient(item.get("command"), item.get("args", []), item.get("env"),url=item.get('url') if item.get('transport')=='streamable-http' else None,headers=headers)
         try:
             started=time.monotonic()
             result=await self.clients[server].request("rea_discover" if action == "mcp_discover" else "rea_call", args)
