@@ -41,6 +41,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_dpapi_secret_is_sent_only_as_transient_bearer_header(self):
         with patch('spark_credential_store.CredentialStore') as store, patch('spark_integrations.ReaClient') as client:
             store.return_value.load.return_value='FAKE-LOCAL-SECRET-12345'
+            client.return_value.close=unittest.mock.AsyncMock()
             client.return_value.request=unittest.mock.AsyncMock(return_value=[
                 {'name':'get_user','inputSchema':{'type':'object','properties':{}}}
             ])
