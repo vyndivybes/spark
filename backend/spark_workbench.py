@@ -19,6 +19,7 @@ from spark_morning_digest import DigestEngine, DigestError, NewsSource
 from spark_messaging_hub import MessagingHub, HubError
 from spark_credential_store import CredentialStore
 from spark_opencode_agent import OpenCodeAgent, OpenCodeError
+from spark_openclaw_bridge import OpenClawBridge, OpenClawError
 from spark_deep_research import ResearchEngine, ResearchError, ResearchSource
 from spark_proactive_agent import ProactiveAgent, ProactiveError, Proposal
 from spark_monitor_agents import MonitorAgents, MonitorError
@@ -81,6 +82,8 @@ ACTION_KEYS = {
     "hub_receive": {"channel"},
     "hub_history": {"limit"},
     "opencode_status": set(),
+    "openclaw_status": set(),
+    "openclaw_run": {"prompt", "model", "timeout"},
     "opencode_run": {"prompt", "cwd", "timeout"},
     "opencode_diff": {"session"},
     "opencode_test": {"command", "cwd"},
@@ -163,6 +166,7 @@ class Workbench:
         # The scoped OpenCode root is SPARK's own repository: sessions may
         # only work inside it, and every other path is refused.
         self.opencode = OpenCodeAgent(REPOSITORY_ROOT)
+        self.openclaw = OpenClawBridge()
         self.research = ResearchEngine([
             ResearchSource("local-snapshots", self._snapshot_docs),
             ResearchSource("obsidian-vault", self._obsidian_docs),
@@ -371,6 +375,14 @@ class Workbench:
         if action in ("hub_configure", "hub_disconnect", "hub_approve", "hub_send",
                       "hub_receive", "hub_history"):
             return await self._hub(action, payload)
+        if action == "openclaw_status":
+            return await asyncio.to_thread(self.openclaw.status)
+        if action == "openclaw_run":
+            try:
+                return await asyncio.to_thread(self.openclaw.run,
+                    payload["prompt"], payload["model"], payload["timeout"])
+            except OpenClawError as error:
+                raise WorkbenchError(str(error)) from None
         if action == "opencode_run":
             if not payload["cwd"] or payload["cwd"] == "REPO_ROOT":
                 cwd = None

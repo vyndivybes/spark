@@ -102,9 +102,11 @@ export const CAPABILITY_PAGES = [
         {action:'skill_revoke', label:'Revoke skill', fields:[{key:'key',type:'text',def:''},{key:'approved_by',type:'text',def:''}]},
      ]},
     {id:'agent-runtimes', num:'10', title:'Agent Runtimes',
-     blurb:'ReAct, CodeAct and recursive plans refuse before executing; step budgets hold and CodeAct is an AST-allowlisted pure interpreter.',
+     blurb:'ReAct, CodeAct, recursive plans and local OpenClaw Rex; owner-gated tasks with explicitly approved free-tier models.',
      status:'agents_status',
      actions:[
+        {action:'openclaw_status', label:'Check OpenClaw Rex status', fields:[]},
+        {action:'openclaw_run', label:'Ask Rex (free model only)', fields:[{key:'prompt',type:'text',def:'health check'},{key:'model',type:'text',def:''},{key:'timeout',type:'number',def:120}], note:'Enter an exact approved model from SPARK_OPENCLAW_FREE_MODELS; Rex operator scope must be authorized.'},
         {action:'agents_react', label:'Run ReAct plan', fields:[{key:'goal',type:'text',def:''},{key:'steps',type:'number',def:8},{key:'grant_side_effects',type:'bool',def:false}]},
         {action:'agents_codeact', label:'Run CodeAct snippet', fields:[{key:'code',type:'text',def:''}]},
         {action:'agents_recursive', label:'Run recursive plan', fields:[{key:'goal',type:'text',def:''},{key:'steps',type:'number',def:8},{key:'subgoals',type:'json',def:'[]'}]},

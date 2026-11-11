@@ -24,6 +24,7 @@ class GovernanceTests(unittest.TestCase):
         expected = {
             "digest_status", "digest_run", "digest_history", "digest_speech", "hub_status",
             "proactive_summary", "proactive_inbox", "opencode_status",
+            "openclaw_status",
             "research_run", "trace_status", "learning_status",
             "spec_search_status",
             "skill_status", "skill_list", "agents_status", "monitor_status",
@@ -47,6 +48,7 @@ class GovernanceTests(unittest.TestCase):
             ("list the proactive inbox", "proactive_inbox",
              {"state": "", "limit": 20}),
             ("check the opencode status", "opencode_status", {}),
+            ("check Rex status", "openclaw_status", {}),
             ("research what documents mention carbon",
              "research_run", {"question": "what documents mention carbon",
                               "max_hops": ""}),
@@ -89,6 +91,7 @@ class GovernanceTests(unittest.TestCase):
             "record a telemetry measurement",
             "capture a trace",
             "run a headless opencode session",
+            "ask Rex to delete files",
             "capture the git patch",
             "run the monitor now",
             "cancel the monitor",
@@ -117,9 +120,10 @@ class GovernanceTests(unittest.TestCase):
         self.assertNotIn("backend_opt_in", voice.VOICE_WORKBENCH_ACTIONS)
         self.assertNotIn("connector_revoke", voice.VOICE_WORKBENCH_ACTIONS)
         self.assertNotIn("opencode_run", voice.VOICE_WORKBENCH_ACTIONS)
+        self.assertNotIn("openclaw_run", voice.VOICE_WORKBENCH_ACTIONS)
 
     def test_unknown_actions_are_not_governed_by_voice(self):
-        for action in ("hub_send", "proactive_execute", "opencode_run",
+        for action in ("hub_send", "proactive_execute", "opencode_run", "openclaw_run",
                        "connector_revoke", "backend_opt_in",
                        "learning_activate", "skill_run", "trace_capture"):
             self.assertNotIn(action, voice.VOICE_WORKBENCH_ACTIONS)
@@ -170,6 +174,7 @@ class VoiceLoopAcceptanceTests(unittest.IsolatedAsyncioTestCase):
             "proactive_summary": ["show the proactive daily summary"],
             "proactive_inbox": ["list the proactive inbox"],
             "opencode_status": ["check the opencode status"],
+            "openclaw_status": ["check Rex status"],
             "research_run": ["research what documents mention carbon"],
             "trace_status": ["check the trace learning status"],
             "learning_status": ["check the learning status"],

@@ -167,6 +167,8 @@ _CAPABILITY_TABLE = [
      "proactive_summary", {}),
     (r"(?:show|check|list) (?:the )?proactive inbox",
      "proactive_inbox", {"state": "", "limit": 20}),
+    (r"(?:show|check) (?:the )?(?:openclaw|rex) status",
+      "openclaw_status", {}),
     (r"(?:show|check) (?:the )?opencode status",
      "opencode_status", {}),
     (r"research (.{2,200})",
@@ -253,6 +255,9 @@ def capability_voice_summary(action, result):
         proposals = result.get("proposals") if isinstance(result.get("proposals"), list) else []
         extra = f" Latest: {proposals[-1].get('title')}" if proposals and isinstance(proposals[-1], dict) and proposals[-1].get("title") else ""
         return f"{len(proposals)} proactive proposals waiting in the inbox.{extra}"
+    if action == "openclaw_status":
+        return ("OpenClaw Rex: " + str(result.get("state", "unknown")) +
+                ". Operator access requires a successful live Rex turn.")
     if action == "opencode_status":
         discovery = result.get("discovery") or {}
         if discovery.get("installed"):
@@ -322,7 +327,7 @@ CAPABILITY_READ_ONLY_ACTIONS = frozenset({
     "digest_status", "digest_run", "digest_history",
     "hub_status", "hub_history",
     "proactive_summary", "proactive_inbox",
-    "opencode_status",
+    "opencode_status", "openclaw_status",
     "research_run",
     "trace_status", "trace_labeled",
     "learning_status",
