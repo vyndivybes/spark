@@ -21,6 +21,7 @@ SERVER_DISPLAY = {
     "vaos-jarvis": "VAOS Jarvis", "gmail": "Gmail", "google-drive": "Google Drive",
     "google-calendar": "Google Calendar", "github": "GitHub", "slack": "Slack",
     "graphify": "Graphify", "graphiti": "Graphiti", "hermes": "Hermes",
+    "fireflies": "Fireflies",
 }
 
 AUDIT_WINDOW_SECONDS = 7 * 86400
@@ -123,12 +124,12 @@ class Connectivity:
             by_name["VAOS"] = self._entry("VAOS", "unknown",
                                           "Registration is invalid; connectivity cannot be assessed.")
             for display in ("VYNDI OS", "VEDM", "VAOS Jarvis", "GitHub", "Google Drive",
-                            "Gmail", "Google Calendar", "Slack", "Graphify", "Graphiti",
+                            "Gmail", "Google Calendar", "Slack", "Fireflies", "Graphify", "Graphiti",
                             "Hermes"):
                 by_name[display] = self._entry(display, "unknown", "Registration is invalid.")
         else:
             for server in ("vaos", "vyndi-os", "vedm", "vaos-jarvis", "gmail",
-                           "google-drive", "google-calendar", "github", "slack"):
+                           "google-drive", "google-calendar", "github", "slack", "fireflies"):
                 display = SERVER_DISPLAY[server]
                 if server in names:
                     evidence = "Registered under SPARK_MCP_SERVERS."
@@ -243,7 +244,7 @@ class Connectivity:
         order = []
         base = ("MCP registration", "Graphify", "Graphiti", "Hermes", "REA", "Obsidian",
                 "VAOS", "VYNDI OS", "VEDM", "VAOS Jarvis", "GitHub", "Google Drive",
-                "Gmail", "Google Calendar", "Slack", "LLM providers",
+                "Gmail", "Google Calendar", "Slack", "Fireflies", "LLM providers",
                 "Voice and multimodal services")
         for display in base:
             if display in by_name:
