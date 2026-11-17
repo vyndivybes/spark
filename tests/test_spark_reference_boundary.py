@@ -14,10 +14,10 @@ from spark_repo_import import import_evidence
 class ImportedReferenceTests(unittest.IsolatedAsyncioTestCase):
     async def test_restricted_reference_never_reaches_model(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            base = Path(directory)
             class MaintenanceStub:
-                backups = root / 'data' / 'maintenance'
-                root = root / 'spark'
+                backups = base / 'data' / 'maintenance'
+                root = base / 'spark'
             model = AsyncMock()
             engine = RepositoryUpgrades(MaintenanceStub(), model)
             evidence = {
@@ -33,10 +33,10 @@ class ImportedReferenceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_staging_old_restricted_report_stays_blocked(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            base = Path(directory)
             class MaintenanceStub:
-                backups = root / 'data' / 'maintenance'
-                root = root / 'spark'
+                backups = base / 'data' / 'maintenance'
+                root = base / 'spark'
             model = AsyncMock()
             engine = RepositoryUpgrades(MaintenanceStub(), model)
             engine.read = lambda project, identity: {
