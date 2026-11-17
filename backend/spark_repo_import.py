@@ -20,6 +20,7 @@ from pathlib import Path
 
 from spark_maintenance import MaintenanceError, digest
 from spark_repo_upgrade import eligible, linked, snapshot
+from spark_feature_inventory import inventory_python_symbols
 
 
 class RepoImportError(ValueError):
@@ -191,6 +192,8 @@ def import_evidence(url, *, selected=None, timeout=120, max_bytes=200 * 1024 * 1
                      "License text is heuristic; confirm before reusing any code."),
         }
         evidence["dependency_map"] = dependency_map(target)
+        # Static names only: no third-party source bodies, strings or docstrings.
+        evidence["python_api"] = inventory_python_symbols(target)
         evidence["limitations"] = list(evidence.get("limitations", [])) + [
             "Imported repository code is never executed, installed or built.",
             "Only a shallow, single-branch clone without submodules is inspected.",
