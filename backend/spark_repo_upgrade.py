@@ -6,6 +6,7 @@ from pathlib import Path
 import secrets
 
 from spark_maintenance import MaintenanceError, atomic_write, digest
+from spark_feature_inventory import model_shareable_reference
 
 
 SKIP = {'.git', '.svn', 'node_modules', '.venv', 'venv', '__pycache__',
@@ -345,6 +346,8 @@ class RepositoryUpgrades:
         return result
 
     async def analyze(self, project, evidence, goal):
+        if not model_shareable_reference(evidence):
+            raise MaintenanceError('Imported reference license does not permit model source sharing; only the offline Python symbol inventory is available. No source was sent to the model.')
         targets = self.targets()
         allowed = {relative.casefold() for relative in targets}
         mentioned = re.findall(r'(?<![\w])backend/[a-z0-9_.-]+\.py(?![\w.])',
@@ -415,6 +418,8 @@ class RepositoryUpgrades:
 
     async def stage(self, project, identity, index):
         report = self.read(project, identity)
+        if not model_shareable_reference(report):
+            raise MaintenanceError('Imported reference license does not permit model source sharing or automated patch staging. No source was sent to the model.')
         if type(index) is not int or not 0 <= index < len(report['opportunities']):
             raise MaintenanceError('Choose an opportunity from this repository analysis.')
         opportunity = report['opportunities'][index]
