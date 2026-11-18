@@ -29,3 +29,17 @@ test('ignores AI speech, page data, ambiguous speech, oversized text and unappro
         null, {},
     ]) assert.equal(browserVoiceCommand(data), null);
 });
+
+test('buffers Gemini Live partial words until the utterance is complete', async () => {
+    const { createBrowserVoiceAccumulator } = await load();
+    const words = createBrowserVoiceAccumulator();
+    assert.equal(words.push({ sender: 'User', text: 'Spark, scroll ' }), true);
+    assert.equal(words.push({ sender: 'User', text: 'up fa' }), true);
+    assert.equal(words.push({ sender: 'User', text: 'st' }), true);
+    assert.deepEqual(words.finish(), { action: 'present_scroll', direction: 'up', speed: 'fast' });
+    assert.equal(words.finish(), null);
+    assert.equal(words.push({ sender: 'SPARK', text: 'stop scrolling' }), false);
+    assert.equal(words.finish(), null);
+    assert.equal(words.push({ sender: 'User', text: 'pause here' }), true);
+    assert.deepEqual(words.finish(), { action: 'pause_scroll' });
+});
