@@ -148,6 +148,43 @@ class DestinationTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get('SPARK_TEST_LOCAL_BROWSER') == '1', 'Opt-in real local Chromium and Socket.IO test')
 class LocalBrowserIntegration(unittest.IsolatedAsyncioTestCase):
+    async def test_real_chromium_presentation_scroll_pause_resume_stop(self):
+        """Exercise actual Chromium animation, not just mocked evaluate calls."""
+        from playwright.async_api import async_playwright
+        class NoopSocket:
+            async def emit(self, *args, **kwargs):
+                pass
+        controller = BrowserSessions(NoopSocket(), lambda sid: True)
+        async with async_playwright() as driver:
+            browser = await driver.chromium.launch(headless=True)
+            try:
+                page = await browser.new_page(viewport={"width": 1440, "height": 900})
+                await page.set_content('<html><body style="margin:0"><main style="height:7000px">SPARK SCROLL TEST</main></body></html>')
+                await controller._apply(page, {"action": "present_scroll", "direction": "down", "speed": "slow"})
+                await page.wait_for_function("window.scrollY > 35", timeout=5000)
+                await controller._apply(page, {"action": "pause_scroll"})
+                at_pause = await page.evaluate("window.scrollY")
+                await asyncio.sleep(0.25)
+                self.assertLessEqual(abs(await page.evaluate("window.scrollY") - at_pause), 2)
+
+                await controller._apply(page, {"action": "resume_scroll"})
+                await page.wait_for_function("(before) => window.scrollY > before + 25", at_pause, timeout=5000)
+                await controller._apply(page, {"action": "stop_scroll"})
+                at_stop = await page.evaluate("window.scrollY")
+                await asyncio.sleep(0.25)
+                self.assertLessEqual(abs(await page.evaluate("window.scrollY") - at_stop), 2)
+
+                await controller._apply(page, {"action": "present_scroll", "direction": "up", "speed": "fast"})
+                await page.wait_for_function("window.scrollY <= 1", timeout=5000)
+                await controller._apply(page, {"action": "stop_scroll"})
+
+                await controller._apply(page, {"action": "zoom_in"})
+                self.assertAlmostEqual(float(await page.evaluate("document.documentElement.style.zoom")), 1.1)
+                await controller._apply(page, {"action": "zoom_out"})
+                self.assertAlmostEqual(float(await page.evaluate("document.documentElement.style.zoom")), 1.0)
+            finally:
+                await browser.close()
+
     async def test_real_socket_session_navigation_frames_and_disconnect_cleanup(self):
         import socketio
         from aiohttp import web
