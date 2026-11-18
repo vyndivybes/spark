@@ -55,7 +55,23 @@ Then start SPARK normally and open the browser view. Use **Go** for a URL or sea
 click the streamed page to focus a field, and use **Type** to insert the entered text.
 Enter, Tab, Backspace, Escape and arrow keys work when the view has focus.
 The mouse wheel scrolls; Back, Forward and Reload navigate. Frames update roughly
-twice per second, so this is a browser control view rather than a video player.
+twice per second when idle, so this is a browser control view rather than a video player.
+The local **PRESENT** toolbar adds Auto ↓ / Auto ↑, Pause, Resume, Stop,
+Slower and Faster. Voice transcription from the human speaker can control
+the same active local browser: “Spark, scroll down slowly”, “pause here”,
+“continue”, “stop scrolling”, “faster”, “slower”, “zoom in”, and
+“show us the entire website”. Scrolling animates inside Chromium using
+requestAnimationFrame and stops at the document boundary. During presentation
+frames stream more frequently (around five per second, resource-dependent).
+
+Voice control is intentionally limited to an open local WEB_AGENT_VIEW with
+Web Agent permission enabled (and face authentication, if configured).
+No website text or SPARK-generated transcript is interpreted as a command.
+It does **not** control arbitrary existing Chrome/Edge tabs or external windows;
+open the site in SPARK's local browser first. Some sites with nested custom
+scroll panes may require manual scrolling. On a Windows installation, confirm
+microphone/transcription permissions and test stop/pause latency before relying
+on hands-free operation. This feature makes no paid API calls.
 Closing the view or disconnecting releases its private, temporary browser session.
 Reconnecting creates a fresh session, without retaining cookies or login state.
 
@@ -71,7 +87,7 @@ Verification commands, after installing pytest, pytest-asyncio, python-socketio
 and aiohttp in a development environment:
 
 ```powershell
-node --test tests/browser-session.test.cjs
+node --test tests/browser-session.test.cjs tests/browser-presentation.test.cjs
 .\.venv\Scripts\python.exe -m pytest tests/test_spark_browser_session.py tests/test_web_agent_safety.py -q
 $env:SPARK_TEST_LOCAL_BROWSER = '1'
 .\.venv\Scripts\python.exe -m pytest tests/test_spark_browser_session.py -q
