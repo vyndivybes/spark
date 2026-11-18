@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Globe, X } from 'lucide-react';
 import { connectBrowserView } from '../browserSession.mjs';
-import { browserVoiceCommand } from '../browserPresentation.mjs';
+import { createBrowserVoiceAccumulator } from '../browserPresentation.mjs';
 
 const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
     const [input, setInput] = useState('');
@@ -18,22 +18,33 @@ const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
         return () => { connection.dispose(); session.current = null; };
     }, [socket, local]);
     useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs, view.logs]);
-    // User-only transcripts can drive the displayed, permission-gated local view.
-    // The command parser never delegates browser access decisions to page content.
+    // Voice streams can contain partial words. Wait briefly for the utterance to
+    // settle, then run only the deterministic, human-speech command whitelist.
     useEffect(() => {
         if (!local || !socket) return;
-        const onSpeech = transcript => {
-            const intent = browserVoiceCommand(transcript);
+        const utterance = createBrowserVoiceAccumulator();
+        let flushTimer;
+        const flush = () => {
+            clearTimeout(flushTimer);
+            const intent = utterance.finish();
             if (!intent) return;
             const commandKey = JSON.stringify(intent);
             const now = Date.now();
             if (lastVoice.current.command === commandKey && now - lastVoice.current.at < 1500) return;
             if (session.current?.command(intent)) lastVoice.current = { command: commandKey, at: now };
         };
+        const onSpeech = transcript => {
+            if (!utterance.push(transcript)) return;
+            clearTimeout(flushTimer);
+            flushTimer = setTimeout(flush, 350);
+        };
         socket.on('transcription', onSpeech);
-        return () => socket.off('transcription', onSpeech);
+        return () => {
+            clearTimeout(flushTimer);
+            utterance.clear();
+            socket.off('transcription', onSpeech);
+        };
     }, [socket, local]);
-
     const command = data => session.current?.command(data);
     const send = action => {
         if (!input.trim()) return;
