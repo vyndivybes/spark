@@ -25,3 +25,28 @@ export function browserVoiceCommand(transcript) {
     if (/^zoom out$/.test(phrase)) return { action: 'zoom_out' };
     return null;
 }
+
+ 
+// Gemini Live emits delta fragments. Do not execute until speech has settled,
+// so "scroll up fast" cannot be mistaken for the incomplete "scroll up".
+export function createBrowserVoiceAccumulator() {
+    let utterance = '';
+    return {
+        push(transcript) {
+            if (!transcript || !['user', 'you', 'human'].includes(String(transcript.sender || '').toLowerCase())
+                || typeof transcript.text !== 'string') return false;
+            if (utterance.length + transcript.text.length > 240) {
+                utterance = '';
+                return false;
+            }
+            utterance += transcript.text;
+            return true;
+        },
+        finish() {
+            const command = browserVoiceCommand({ sender: 'User', text: utterance });
+            utterance = '';
+            return command;
+        },
+        clear() { utterance = ''; },
+    };
+}
