@@ -107,6 +107,35 @@ class BrowserSessionsTests(unittest.IsolatedAsyncioTestCase):
         self.page.mouse.click.assert_not_awaited()
 
 
+    async def test_presentation_scroll_controls_and_validation(self):
+        await self.sessions._apply(self.page, {'action': 'present_scroll', 'direction': 'down', 'speed': 'slow'})
+        self.page.evaluate.assert_awaited_once()
+        self.assertIn('requestAnimationFrame', self.page.evaluate.await_args.args[0])
+        self.assertEqual(self.page.evaluate.await_args.args[1], {'direction': 'down', 'speed': 120})
+        for action in ('pause_scroll', 'resume_scroll', 'stop_scroll', 'speed_up', 'slow_down', 'zoom_in', 'zoom_out'):
+            await self.sessions._apply(self.page, {'action': action})
+        self.assertEqual(self.page.evaluate.await_count, 8)
+        for payload in (
+            {'action': 'present_scroll', 'direction': 'sideways'},
+            {'action': 'present_scroll', 'direction': 'up', 'speed': 'extreme'},
+            {'action': 'present_scroll', 'direction': 'down', 'speed': 300000},
+        ):
+            with self.assertRaises(ValueError):
+                await self.sessions._apply(self.page, payload)
+        self.assertEqual(self.page.evaluate.await_count, 8)
+
+    async def test_presentation_commands_remain_owned_by_one_session(self):
+        await self.start()
+        await self.sessions.command('other', {'session_id': 'view', 'action': 'present_scroll', 'direction': 'down'})
+        await self.sessions.command('one', {'session_id': 'old', 'action': 'present_scroll', 'direction': 'down'})
+        await asyncio.sleep(0.03)
+        self.page.evaluate.assert_not_awaited()
+        await self.sessions.command('one', {'session_id': 'view', 'action': 'present_scroll', 'direction': 'down'})
+        await until(lambda: self.page.evaluate.await_count == 1)
+        await self.sessions.command('one', {'session_id': 'view', 'action': 'stop_scroll'})
+        await until(lambda: self.page.evaluate.await_count == 2)
+
+
 class DestinationTests(unittest.TestCase):
     def test_urls_and_search(self):
         self.assertEqual(destination('example.com'), 'https://example.com')
