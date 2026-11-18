@@ -168,7 +168,7 @@ class LocalBrowserIntegration(unittest.IsolatedAsyncioTestCase):
                 self.assertLessEqual(abs(await page.evaluate("window.scrollY") - at_pause), 2)
 
                 await controller._apply(page, {"action": "resume_scroll"})
-                await page.wait_for_function("(before) => window.scrollY > before + 25", at_pause, timeout=5000)
+                await page.wait_for_function("(before) => window.scrollY > before + 25", arg=at_pause, timeout=5000)
                 await controller._apply(page, {"action": "stop_scroll"})
                 at_stop = await page.evaluate("window.scrollY")
                 await asyncio.sleep(0.25)
