@@ -86,7 +86,8 @@ memory improvement, neural voice, or live REA source analysis yet.
 - Existing local browser now accepts an explicit `inspect` command and emits
   `web_browser_context` to the owning browser session with a bounded title,
   URL and body text; this does not transmit content to a model.
-  The UI must supply an inspect action before this capability is user accessible.
+  The local BrowserWindow now provides an explicit **Inspect text** button.
+  Its result appears only in that browser view, and is not sent to an AI model.
 
 ### Test commands
 ```sh
@@ -99,3 +100,10 @@ python -m unittest discover -s tests -p 'test_spark*.py'
 Voice/avatar changes, live pair transport, full Android control and autonomous
 code promotion remain unimplemented. Existing HOLO, voice, Skill Forge and
 self-healing must be independently benchmarked before adding replacements.
+
+### Desktop UI
+- Workspace -> REA / Brahma upgrades now exposes the candidate report, REA tool
+  names, explicit memory creation/list/deletion and fixed Calculator/Notepad reflexes.
+- All buttons use the existing `workspace_action` + per-launch workspace token;
+  the backend enforces permissions. Browser `Inspect text` is opt-in.
+- This UI is not a phone pairing or agent automation interface.
