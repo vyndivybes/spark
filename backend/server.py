@@ -60,6 +60,8 @@ from spark_google_briefing_voice import spoken_briefing
 from spark_workspace import SparkWorkspace, WorkspaceError
 from spark_evolution import Evolution, ACTION_KEYS as EVOLUTION_ACTIONS
 from spark_rea import ReaError
+from spark_brahma_composer import compose as brahma_compose
+from spark_reflex import reflex_execute
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
@@ -794,6 +796,7 @@ async def workspace_action(sid, data):
         'rea_workflow_status','rea_workflow_blueprint','rea_workflow_generate',
         'rea_workflow_list','rea_workflow_read','rea_workflow_section','rea_workflow_build','rea_workflow_index',
         'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit',
+        'brahma_composition',
     )) | CAPABILITY_READ_ONLY_ACTIONS
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
     if not isinstance(request_id, str) or len(request_id)>64:
@@ -824,7 +827,19 @@ async def workspace_action(sid, data):
     try:
         project = data.get("project") if isinstance(data, dict) else None
         payload = data.get("payload") if isinstance(data, dict) else None
-        if isinstance(action, str) and action in EVOLUTION_ACTIONS:
+        if action == 'brahma_composition':
+            if payload not in (None, {}):
+                raise WorkbenchError('Brahma composition takes no client-supplied evidence.')
+            result = brahma_compose()
+        elif action == 'brahma_reflex':
+            if not isinstance(payload, dict) or set(payload) != {'command'}:
+                raise WorkbenchError('Supply exactly one reflex command.')
+            try:
+                result = await asyncio.to_thread(
+                    reflex_execute, payload['command'], getattr(audio_loop, 'pc_access', None))
+            except ValueError as error:
+                raise WorkbenchError(str(error)[:180]) from None
+        elif isinstance(action, str) and action in EVOLUTION_ACTIONS:
             phases={'generate_python_tool':'generating','repair_python_tool':'repairing','test_python_tool':'testing','activate_python_tool':'registering','run_python_tool':'running'}
             if action in phases:await sio.emit('generated_tool_progress',{'phase':phases[action],'name':action.replace('_',' '),'project':project},room=sid)
             result = await spark_evolution.execute(action, project, payload)
