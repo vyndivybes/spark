@@ -61,3 +61,41 @@ python -m unittest discover -s tests -p 'test_spark_brahma_composer.py' -v
 
 No third-party Brahma source was copied. This does not implement phone pairing,
 memory improvement, neural voice, or live REA source analysis yet.
+
+## Phase 2 implementation inventory (still draft)
+
+### Project-scoped explicit memory
+- `backend/spark_personal_memory.py`: local SQLite entries with source, confidence,
+  creation, expiry and deletion; no implicit chat/clipboard ingestion.
+- Authenticated workspace actions: `brahma_memory_list` (empty payload),
+  `brahma_memory_remember` (payload `{"body":"..."}`, source forced to
+  user_explicit), and `brahma_memory_forget` (`{"id":"<32 hex chars>"}`).
+- Data is stored locally outside Git; **not encrypted at rest**. Do not store secrets.
+- REA tool discovery: `brahma_rea_discovery` lists configured REA MCP tool names
+  through the existing REA client; it does not call those tools or analyze source.
+
+### Android groundwork
+- `backend/spark_android_pairing.py`: one-time 120-second pairing invitation,
+  owner approval, replay rejection and revocation (process-local only).
+  Not exposed over network, with no encrypted transport and no commands granted.
+- `android-companion/`: Android Keystore-backed P-256 identity application.
+  It is not connected to SPARK and has **no verified APK**. Public keys do not
+  prove device possession until challenge/response is implemented.
+
+### Browser context
+- Existing local browser now accepts an explicit `inspect` command and emits
+  `web_browser_context` to the owning browser session with a bounded title,
+  URL and body text; this does not transmit content to a model.
+  The UI must supply an inspect action before this capability is user accessible.
+
+### Test commands
+```sh
+python -m unittest discover -s tests -p 'test_spark_personal_memory.py' -v
+python -m unittest discover -s tests -p 'test_spark_android_pairing.py' -v
+python -m unittest discover -s tests -p 'test_spark_browser_context.py' -v
+python -m unittest discover -s tests -p 'test_spark*.py'
+```
+
+Voice/avatar changes, live pair transport, full Android control and autonomous
+code promotion remain unimplemented. Existing HOLO, voice, Skill Forge and
+self-healing must be independently benchmarked before adding replacements.
