@@ -30,6 +30,13 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
     const [hits,setHits]=useState([]);
     const [skills,setSkills]=useState([]);
     const [notice,setNotice]=useState('Connect SPARK to unlock local workspace operations.');
+    const [skillVoiceText,setSkillVoiceText]=useState('');
+    const [skillVoiceResult,setSkillVoiceResult]=useState('Say “Spark, create skill to…” or “Spark, upgrade skill NAME to…”.');
+    useEffect(()=>{
+        const listener=data=>setSkillVoiceResult(String(data?.message || data?.error || 'Skill request unavailable.').slice(0,600));
+        socket?.on('skill_voice_result',listener);
+        return()=>socket?.off('skill_voice_result',listener);
+    },[socket]);
     const [working,setWorking]=useState(false);
     const [skillDraft,setSkillDraft]=useState(JSON.stringify({
         name:'frame_area',description:'Calculate rectangular layup area',
@@ -214,8 +221,28 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 </div>
             ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project} initialPage={intelligencePage} compactNavigation={embedded}/></React.Suspense> : tab==='capabilities' ? <CapabilitiesCenter socket={socket} project={project}/> : (
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <section className={panelStyle} aria-label="Voice-first Skill Forge">
+                      <h3 className="text-lg font-semibold text-cyan-200">Teach SPARK by speaking</h3>
+                      <p className="mt-1 text-sm text-slate-300">Use the main microphone, or type a plain-language command. SPARK prepares and tests a candidate before activation.</p>
+                      <div className="mt-3 space-y-1 text-sm text-slate-200">
+                        <p>“Spark, create skill to convert millimetres to metres accurately.”</p>
+                        <p>“Spark, upgrade skill area_calc to calculate area in square metres.”</p>
+                        <p>“Spark, list skills.”</p>
+                        <p>“Spark, activate tested skill area_calc.”</p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <input aria-label="Teach SPARK a skill" value={skillVoiceText} onChange={e=>setSkillVoiceText(e.target.value)} maxLength={600}
+                          placeholder="Describe the skill in plain language" className="min-w-0 flex-1 rounded-lg border border-cyan-700 bg-slate-900 px-3 py-2 text-sm"/>
+                        <button type="button" className={buttonStyle} disabled={!socket?.connected || !skillVoiceText.trim()} onClick={()=>{
+                          socket.emit('user_input',{text:skillVoiceText.trim()});
+                          setSkillVoiceResult('Instruction sent to the active voice session. Checking the result…');
+                        }}>Teach / Upgrade</button>
+                      </div>
+                      <p role="status" className="mt-3 text-sm text-cyan-200">{skillVoiceResult}</p>
+                      <p className="mt-2 text-xs text-slate-400">Sandboxed code skills only. Operating-system commands and external messages are not enabled here.</p>
+                    </section>
                     <div className={panelStyle}>
-                        <h3 className="font-semibold mb-2">Skill specification (declarative JSON only)</h3>
+                        <h3 className="font-semibold mb-2">Advanced: skill specification (declarative JSON)</h3>
                         <textarea aria-label="Skill specification JSON" rows={8} value={skillDraft}
                             onChange={e=>setSkillDraft(e.target.value)}
                             className="w-full rounded-lg bg-slate-900 border border-white/20 p-2 text-sm font-mono"/>
