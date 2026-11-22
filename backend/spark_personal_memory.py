@@ -4,6 +4,7 @@ Does not ingest chats, email, clipboard, or files automatically.
 All persistence is local, with bounded content and explicit deletion.
 """
 import re
+from contextlib import closing
 import sqlite3
 import threading
 import time
@@ -47,13 +48,13 @@ class PersonalMemory:
             raise MemoryError("TTL must be 1–365 days.")
         now = self.clock()
         identity=uuid.uuid4().hex
-        with self.lock, self._database(project) as db:
+        with self.lock, closing(self._database(project)) as db, db:
             db.execute("INSERT INTO memories VALUES (?,?,?,?,?,?)",
                        (identity,body.strip(),source,float(confidence),now,now+ttl_days*86400))
         return {"id":identity,"source":source,"expires_at":now+ttl_days*86400}
 
     def list(self, project):
-        with self.lock, self._database(project) as db:
+        with self.lock, closing(self._database(project)) as db, db:
             db.execute("DELETE FROM memories WHERE expiry <= ?",(self.clock(),))
             rows=db.execute("SELECT id,body,source,confidence,created,expiry FROM memories ORDER BY created DESC, id DESC LIMIT 100").fetchall()
         return [{"id":i,"body":body,"source":source,"confidence":confidence,
@@ -62,6 +63,6 @@ class PersonalMemory:
     def forget(self, project, identity):
         if not isinstance(identity,str) or not re.fullmatch(r"[a-f0-9]{32}",identity):
             raise MemoryError("Invalid memory identifier.")
-        with self.lock, self._database(project) as db:
+        with self.lock, closing(self._database(project)) as db, db:
             deleted=db.execute("DELETE FROM memories WHERE id=?",(identity,)).rowcount
         return {"deleted":bool(deleted)}
