@@ -1685,9 +1685,7 @@ async def user_input(sid, data):
         return
 
     if text and parse_skill_voice(text):
-        result = await voice_workspace_action(sid, 'skill_voice_command', {'command': text}, text)
-        await sio.emit('skill_voice_result', result, room=sid)
-        await sio.emit('transcription', {'text': result.get('message', result.get('error', 'Skill request unavailable.'))}, room=sid)
+        await voice_workspace_action(sid, 'skill_voice_command', {'command': text}, text)
         return
 
     if text and getattr(audio_loop, "provider", None) == "groq":
