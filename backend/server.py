@@ -62,6 +62,7 @@ from spark_evolution import Evolution, ACTION_KEYS as EVOLUTION_ACTIONS
 from spark_rea import ReaError
 from spark_brahma_composer import compose as brahma_compose
 from spark_reflex import reflex_execute
+from spark_personal_memory import PersonalMemory, MemoryError as PersonalMemoryError
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
 from spark_productivity import WorkbenchError
@@ -94,6 +95,7 @@ spark_evolution = Evolution(spark_workspace)
 spark_workbench = Workbench(spark_workspace)
 spark_telegram_worker = None
 pc_tasks=PcTasks(_SPARK_WORKSPACE_ROOT/'pc-tasks')
+personal_memory=PersonalMemory(_SPARK_WORKSPACE_ROOT)
 # File organization stays off until PC autonomy is enabled; it is also confined
 # to an allowed root (SPARK_FILE_ORG_ROOT, else the user's home folder).
 file_organizer = FileOrganizer(
@@ -796,7 +798,8 @@ async def workspace_action(sid, data):
         'rea_workflow_status','rea_workflow_blueprint','rea_workflow_generate',
         'rea_workflow_list','rea_workflow_read','rea_workflow_section','rea_workflow_build','rea_workflow_index',
         'agent_snapshot','instructional_list','improvement_list','list_integrations','mcp_audit',
-        'brahma_composition',
+        'brahma_composition','brahma_memory_list','brahma_memory_remember',
+        'brahma_memory_forget','brahma_rea_discovery',
     )) | CAPABILITY_READ_ONLY_ACTIONS
     request_id = (data.get("request_id") if isinstance(data, dict) else None)
     if not isinstance(request_id, str) or len(request_id)>64:
@@ -831,6 +834,31 @@ async def workspace_action(sid, data):
             if payload not in (None, {}):
                 raise WorkbenchError('Brahma composition takes no client-supplied evidence.')
             result = brahma_compose()
+        elif action == 'brahma_memory_list':
+            if payload not in (None, {}):
+                raise WorkbenchError('Memory listing takes no input.')
+            spark_workspace.skills._file(project)
+            result = await asyncio.to_thread(personal_memory.list, project)
+        elif action == 'brahma_memory_remember':
+            if not isinstance(payload, dict) or set(payload) != {'body'}:
+                raise WorkbenchError('Only explicitly supplied memory text is accepted.')
+            spark_workspace.skills._file(project)
+            result = await asyncio.to_thread(personal_memory.remember, project, payload['body'])
+        elif action == 'brahma_memory_forget':
+            if not isinstance(payload, dict) or set(payload) != {'id'}:
+                raise WorkbenchError('Supply one memory identifier.')
+            spark_workspace.skills._file(project)
+            result = await asyncio.to_thread(personal_memory.forget, project, payload['id'])
+        elif action == 'brahma_rea_discovery':
+            if payload not in (None, {}):
+                raise WorkbenchError('REA discovery accepts no client-supplied executable arguments.')
+            tools = await spark_evolution.rea.request('rea_discover', {})
+            if not isinstance(tools, list):
+                raise WorkbenchError('REA discovery returned unexpected data.')
+            result = {'available': True, 'tool_names': sorted(
+                {item['name'] for item in tools if isinstance(item, dict)
+                 and isinstance(item.get('name'), str)})[:100],
+                'executed_tools': 0}
         elif action == 'brahma_reflex':
             if not isinstance(payload, dict) or set(payload) != {'command'}:
                 raise WorkbenchError('Supply exactly one reflex command.')
@@ -874,7 +902,7 @@ async def workspace_action(sid, data):
         await sio.emit("workspace_result",{
             "request_id":request_id,"action":action,"ok":True,"result":result
         },room=sid)
-    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError, FileOrganizerError, FileIntelligenceError) as error:
+    except (WorkspaceError, MaintenanceError, ReaError, SkillError, WorkbenchError, FileOrganizerError, FileIntelligenceError, PersonalMemoryError) as error:
         if isinstance(action,str) and action.endswith('_python_tool'):
             await sio.emit('generated_tool_progress',{'phase':'failed','name':'Python tool operation failed','project':data.get('project')},room=sid)
         await sio.emit("workspace_result",{
