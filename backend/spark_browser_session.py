@@ -19,6 +19,16 @@ def destination(text):
     return "https://www.google.com/search?q=" + quote_plus(text)
 
 
+async def explicit_page_context(page):
+    """Bounded, user-invoked visible page text; never automatically sent to AI."""
+    title = (await page.title())[:180]
+    url = page.url[:2048]
+    content = (await page.locator("body").inner_text(timeout=5000))[:3000]
+    return {"title": title, "url": url, "visible_text": content,
+            "source": "explicit_local_browser_inspection",
+            "model_transmission": False}
+
+
 class BrowserSessions:
     def __init__(self, sio, allowed, launcher=None, interval=0.5):
         self.sio, self.allowed = sio, allowed
@@ -143,7 +153,13 @@ class BrowserSessions:
                     continue
                 try:
                     await self.status(sid, session_id, "busy", "Loading browser action...")
-                    await self._apply(page, data)
+                    if data.get("action") == "inspect":
+                        context = await explicit_page_context(page)
+                        await self.sio.emit("web_browser_context", {
+                            "session_id": session_id, **context,
+                        }, room=sid)
+                    else:
+                        await self._apply(page, data)
                     await self.status(sid, session_id, "ready", "Browser ready.")
                 except Exception as exc:
                     # Navigation failures are recoverable; retain the live page.
