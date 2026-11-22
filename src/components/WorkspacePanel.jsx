@@ -220,7 +220,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                     </div>
                 </div>
             ) : tab==='evolution' ? <EvolutionPanel socket={socket} project={project} /> : tab==='workbench' ? <WorkbenchPanel socket={socket} project={project} /> : tab==='intelligence' ? <React.Suspense fallback={<p role="status">Loading intelligence controls…</p>}><IntelligenceConsole socket={socket} project={project} initialPage={intelligencePage} compactNavigation={embedded}/></React.Suspense> : tab==='capabilities' ? <CapabilitiesCenter socket={socket} project={project}/> : (
-                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                <>
                     <section className={panelStyle} aria-label="Voice-first Skill Forge">
                       <h3 className="text-lg font-semibold text-cyan-200">Teach SPARK by speaking</h3>
                       <p className="mt-1 text-sm text-slate-300">Use the main microphone, or type a plain-language command. SPARK prepares and tests a candidate before activation.</p>
@@ -241,7 +241,10 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                       <p role="status" className="mt-3 text-sm text-cyan-200">{skillVoiceResult}</p>
                       <p className="mt-2 text-xs text-slate-400">Sandboxed code skills only. Operating-system commands and external messages are not enabled here.</p>
                     </section>
-                    <div className={panelStyle}>
+                    <details className="mt-3 rounded-xl border border-cyan-700/40 p-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-cyan-200">Advanced manual Skill Forge controls</summary>
+                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                        <div className={panelStyle}>
                         <h3 className="font-semibold mb-2">Advanced: skill specification (declarative JSON)</h3>
                         <textarea aria-label="Skill specification JSON" rows={8} value={skillDraft}
                             onChange={e=>setSkillDraft(e.target.value)}
@@ -275,7 +278,9 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         <textarea aria-label="Skill numeric inputs JSON" rows={2} value={runInputs} onChange={e=>setRunInputs(e.target.value)} className="mt-2 w-full rounded-lg bg-slate-900 border border-white/20 p-2 text-sm font-mono"/>
                         <button type="button" disabled={!runName||working} className={buttonStyle} onClick={runSkill}>Run locally</button>
                     </div>
-                </div>
+                      </div>
+                    </details>
+                </>
             )}
         </section>
     );
