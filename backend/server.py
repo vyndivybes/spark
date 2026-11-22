@@ -62,6 +62,7 @@ from spark_evolution import Evolution, ACTION_KEYS as EVOLUTION_ACTIONS
 from spark_rea import ReaError
 from spark_brahma_composer import compose as brahma_compose
 from spark_reflex import reflex_execute
+from spark_skill_voice import parse_skill_voice, execute_skill_voice
 from spark_personal_memory import PersonalMemory, MemoryError as PersonalMemoryError
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
@@ -220,6 +221,15 @@ async def voice_workspace_action(sid, name, arguments, utterance):
         return {'ok': False, 'error': 'Invalid workspace arguments.'}
     project = workspace_project_by_sid.get(sid, 'default')
     try:
+        if name == 'skill_voice_command':
+            if set(arguments) != {'command'} or arguments['command'] != utterance:
+                return {'ok': False, 'error': 'Skill commands must match the exact owner utterance.'}
+            parsed = parse_skill_voice(utterance)
+            if parsed is None:
+                return {'ok': False, 'error': 'Say upgrade skill NAME to GOAL, create skill to GOAL, or activate tested skill NAME.'}
+            result = await execute_skill_voice(spark_evolution, project, parsed)
+            await sio.emit('skill_voice_result', result, room=sid)
+            return result
         if name == 'rea_workflow_command':
             from spark_rea_voice import parse_rea_command
             if set(arguments) != {'command'}:
@@ -1672,6 +1682,12 @@ async def user_input(sid, data):
 
     if not audio_loop.session:
         await sio.emit('error', {'msg': 'Selected AI provider is not ready.'}, room=sid)
+        return
+
+    if text and parse_skill_voice(text):
+        result = await voice_workspace_action(sid, 'skill_voice_command', {'command': text}, text)
+        await sio.emit('skill_voice_result', result, room=sid)
+        await sio.emit('transcription', {'text': result.get('message', result.get('error', 'Skill request unavailable.'))}, room=sid)
         return
 
     if text and getattr(audio_loop, "provider", None) == "groq":
