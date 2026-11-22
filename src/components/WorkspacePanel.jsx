@@ -4,6 +4,7 @@ import WorkbenchPanel from './WorkbenchPanel';
 import IntegrationSyncPanel from './IntegrationSyncPanel';
 import ExecutiveBriefingPanel from './ExecutiveBriefingPanel';
 import CapabilitiesCenter from './CapabilitiesCenter';
+const BrahmaUpgradePanel=React.lazy(()=>import('./BrahmaUpgradePanel'));
 const IntelligenceConsole=React.lazy(()=>import('./IntelligenceConsole'));
 const SparkScreens=React.lazy(()=>import('./SparkScreens'));
 
@@ -143,11 +144,12 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                 <button type="button" role="tab" aria-selected={tab==='workbench'} className={buttonStyle} onClick={()=>setTab('workbench')}>Workbench</button>
                 <button type="button" role="tab" aria-selected={tab==='intelligence'} className={buttonStyle} onClick={()=>setTab('intelligence')}>Intelligence</button>
                 <button type="button" role="tab" aria-selected={tab==='capabilities'} className={buttonStyle} onClick={()=>setTab('capabilities')}>Capabilities</button>
+                <button type="button" role="tab" aria-selected={tab==='brahma'} className={buttonStyle} onClick={()=>setTab('brahma')}>REA / Brahma upgrades</button>
             </div>
             </>}
             {(!embedded || ['knowledge','skills'].includes(tab)) && <p role="status" className="mt-3 rounded-lg bg-cyan-950/40 px-3 py-2 text-sm text-cyan-100">{notice}</p>}
             {tab==='knowledge'&&<IntegrationSyncPanel socket={socket}/>}
-            {tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose} initialPage={initialScreen} compactNavigation={embedded}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
+            {tab==='brahma' ? <React.Suspense fallback={<p role="status">Loading Brahma composition…</p>}><BrahmaUpgradePanel socket={socket} project={project}/></React.Suspense> : tab==='screens' ? <React.Suspense fallback={<p role="status">Loading SPARK screens…</p>}><SparkScreens socket={socket} project={project} onCockpit={onClose} initialPage={initialScreen} compactNavigation={embedded}/></React.Suspense> : tab==='home' ? <div className="mt-4 space-y-4">
                 <ExecutiveBriefingPanel socket={socket}/>
                 <div><h3 className="text-2xl font-semibold">Your project starts here</h3><p className="mt-1 text-slate-300">Bring in knowledge, run reviewed agents, and inspect Spark's health.</p></div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -156,6 +158,7 @@ export default function WorkspacePanel({socket,visible,project:rawProject,onClos
                         ['Your documents','Import and search project documents.',()=>setTab('knowledge')],
                         ['Your tools','Use and manage SPARK skills.',()=>setTab('skills')],
                         ['Improve SPARK','Review repairs and learn from repositories.',()=>setTab('evolution')],
+                        ['Brahma inspirations','Review REA candidates, memories and reflexes.',()=>setTab('brahma')],
                         ['Connections','Check the status of configured services.',()=>openIntelligence('Integrations')],
                     ].map(([label,description,open])=><button key={label} type="button" onClick={open} className={`${panelStyle} text-left hover:border-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300`}><span className="block font-semibold text-cyan-100">{label}</span><span className="mt-1 block text-sm text-slate-300">{description}</span></button>)}
                 </div>
