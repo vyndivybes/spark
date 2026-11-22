@@ -107,3 +107,39 @@ self-healing must be independently benchmarked before adding replacements.
 - All buttons use the existing `workspace_action` + per-launch workspace token;
   the backend enforces permissions. Browser `Inspect text` is opt-in.
 - This UI is not a phone pairing or agent automation interface.
+
+## Voice-first Skill Forge (new candidate workflow)
+
+The original ARKUS declarative Skill Forge remains available under an
+**Advanced manual Skill Forge controls** disclosure in Workspace → Skill Forge.
+
+Supported natural-language commands for the existing sandboxed **code skills**:
+- "Spark, create skill to convert millimetres to metres accurately"
+- "Spark, upgrade skill area_calc to calculate area in square metres"
+- "Spark, list skills"
+- "Spark, activate tested skill area_calc"
+
+The parser is deterministic and local. Groq speech, Gemini Live utterances and
+active-session typed commands route through the same existing owner-authenticated
+`voice_workspace_action` boundary. The generator uses the already configured
+provider and existing CodeSkills restrictions; it never directly executes an
+untrusted source script or imports third-party code. Candidate generation must
+return two or more test cases, and the existing test lifecycle runs before a
+revision can be activated. It is NOT generalized self-learning, and unsupported
+skills must fail with a clear message rather than claiming success.
+
+**Explicit two-turn activation:** A requested upgrade creates and tests a new
+candidate but does not activate it. A separate "activate tested skill NAME"
+utterance activates only when exactly one tested candidate exists for that name.
+If the model changes the requested skill name, activation is withheld. The
+original active revision remains available until a qualified replacement is
+activated. Failed or unverified inference is not a success result.
+
+**Limits:** Existing built-in skills outside `list_code_skills` cannot be
+upgraded through this shortcut. External skill installations, unrestricted
+Python/PowerShell, arbitrary application permissions and paid inference fallbacks
+are not enabled. Voice/device acceptance still requires a real Windows
+microphone and active speech session; model generation can fail on free-tier
+limits.
+
+Tests: `python -m unittest discover -s tests -p 'test_spark_skill_voice.py' -v`.
