@@ -33,3 +33,31 @@ python -m unittest discover -s tests -p 'test_spark_brahma_composer.py' -v
 
 ### Release posture
 Proposal-only. No user permissions changed; no runtime integration; no billing configuration; no deployment.
+
+## Implemented stage: authenticated deterministic reflexes
+
+The following workspace actions are wired into `backend/server.py` and share the
+existing owner-session and workspace-token authentication checks:
+
+- `brahma_composition` with empty payload: returns the static, licensing-gated
+  eight-candidate evidence manifest. This is read-only and available without
+  a live voice session to an authenticated desktop workspace.
+- `brahma_reflex` with `{"command":"reflex help"}`: lists exact recognized commands.
+- `brahma_reflex` with `{"command":"open calculator"}` or
+  `{"command":"open notepad"}`: dispatches a fixed executable through the
+  **existing** `PcAccess.execute` audit path, but only when the current
+  authenticated owner has PC autonomy enabled.
+
+These commands are API-facing; the UI and voice intent router do not yet expose
+a dedicated button or spoken-command shortcut. Unknown, injected, multiline,
+and non-ASCII inputs fail closed. The launcher only confirms process startup;
+it does not claim a usable window is visible.
+
+Tests:
+```sh
+python -m unittest discover -s tests -p 'test_spark_reflex.py' -v
+python -m unittest discover -s tests -p 'test_spark_brahma_composer.py' -v
+```
+
+No third-party Brahma source was copied. This does not implement phone pairing,
+memory improvement, neural voice, or live REA source analysis yet.
