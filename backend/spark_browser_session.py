@@ -30,9 +30,18 @@ async def explicit_page_context(page):
 
 
 class BrowserSessions:
-    def __init__(self, sio, allowed, launcher=None, interval=0.5):
+    def __init__(self, sio, allowed, launcher=None, interval=0.5, token_authorizer=None):
         self.sio, self.allowed = sio, allowed
         self.launcher, self.interval = launcher, interval
+        self.token_authorizer = token_authorizer
+
+    def _authorized(self, data):
+        if self.token_authorizer is None:
+            return True  # Standalone local tests; SPARK server always supplies a validator.
+        try:
+            return bool(isinstance(data, dict) and self.token_authorizer(data.get('workspace_token')))
+        except Exception:
+            return False
         self.sessions = {}
         self.lock = asyncio.Lock()
 
@@ -46,6 +55,9 @@ class BrowserSessions:
         session_id = data.get("session_id")
         if not isinstance(session_id, str) or not 1 <= len(session_id) <= 100:
             return
+        if not self._authorized(data):
+            await self.status(sid, session_id, 'error', 'Authenticated workspace token required.')
+            return
         async with self.lock:
             current = self.sessions.get(sid)
             if current and current["id"] == session_id and not current["task"].done():
@@ -54,7 +66,8 @@ class BrowserSessions:
             if not self.allowed(sid):
                 await self.status(sid, session_id, "error", "Authenticate and enable Web Agent in Settings.")
                 return
-            session = {"id": session_id, "queue": asyncio.Queue(maxsize=20)}
+            session = {"id": session_id, "queue": asyncio.Queue(maxsize=20),
+                       "workspace_token": data.get("workspace_token")}
             self.sessions[sid] = session
             session["task"] = asyncio.create_task(self._run(sid, session))
 
@@ -72,6 +85,8 @@ class BrowserSessions:
             if data is not None and (not isinstance(data, dict) or not session
                                      or data.get("session_id") != session["id"]):
                 return
+            if data is not None and not self._authorized(data):
+                return
             await self._stop(sid)
 
     async def close(self):
@@ -81,7 +96,7 @@ class BrowserSessions:
 
     async def command(self, sid, data):
         session = self.sessions.get(sid)
-        if not session or not isinstance(data, dict) or data.get("session_id") != session["id"]:
+        if not session or not isinstance(data, dict) or data.get("session_id") != session["id"] or not self._authorized(data):
             return
         if not self.allowed(sid):
             await self.stop(sid)
@@ -138,7 +153,7 @@ class BrowserSessions:
             await page.set_content("<html><body style='background:#101820;color:#eee;font:32px sans-serif;padding:60px'><h1>SPARK local browser</h1><p>Enter a URL or search above to begin.</p><p>Click the view, then use Type to fill a field.</p></body></html>")
             await self.status(sid, session_id, "ready", "Local browser ready. URL and search need no AI key.")
             while True:
-                if not self.allowed(sid):
+                if not self.allowed(sid) or not self._authorized(session):
                     raise PermissionError("Browser access is disabled. Authenticate and retry.")
                 if page.is_closed():
                     raise RuntimeError("The browser page closed. Select Retry.")
@@ -180,8 +195,8 @@ class BrowserSessions:
                     await asyncio.wait_for(driver.stop(), 5)
 
 
-def register_browser_sessions(sio, allowed):
-    sessions = BrowserSessions(sio, allowed)
+def register_browser_sessions(sio, allowed, *, token_authorizer=None):
+    sessions = BrowserSessions(sio, allowed, token_authorizer=token_authorizer)
     sio.on("start_web_browser", sessions.start)
     sio.on("stop_web_browser", sessions.stop)
     sio.on("web_browser_command", sessions.command)
