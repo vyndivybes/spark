@@ -1,4 +1,57 @@
-# SPARK Android Companion — Health Connect + controlled USB pairing preview
+# SPARK Mobile for Android — standalone offline edition (0.3 preview)
+
+**This APK runs SPARK Mobile independently on an Android 14+ phone.**
+It is no longer just a Health Connect companion. It is a native Android
+application and does not require the Windows SPARK desktop to launch,
+make notes, maintain a local checklist or respond to supported commands.
+
+## Available on the phone
+
+- Native SPARK Mobile cockpit: dark console, text command input, quick
+  access to Notes, Tasks, Status and the existing Health/USB panel.
+- Offline command engine: 'note <text>', 'remember <text>', 'show notes',
+  'delete note 1', 'add task <text>', 'list tasks', 'complete task 1',
+  'time', 'status', 'help', and 'open health'.
+- Up to 100 notes and 100 tasks, saved across app restarts in Android's
+  app-private local preferences. No Cloudflare, Gemini, OpenAI token or
+  paid API is needed. Clearing the app's data or uninstalling removes the
+  local records. They are not automatically transferred to Windows.
+- VOICE IN uses the installed Android speech-recognition provider on a tap.
+  SPARK requests an offline result; this is a best-effort hint and the
+  recognizer may use network processing depending on your phone's speech
+  service. Text-only mode always works.
+- VOICE OUT is off by default. It enables only when Android reports an
+  installed offline English TTS voice. This is not Windows VoiceStudio.
+- Existing Health Connect read and USB-only, manually paired summary
+  transfer remain available under HEALTH CONNECT / USB PHONE LINK.
+
+**Not yet running on the phone:** desktop Python/Electron tools, Gemini/Groq
+conversation intelligence, browser control, historical memory, cross-device
+sync, autonomous skill learning, wake word, remote phone automation,
+VYNDI/VAOS business mutations. Unsupported questions receive an explicit
+limitation rather than a fabricated AI answer. Tasks are not scheduled alerts.
+
+**Privacy:** App backup is disabled. Notes/tasks are app-private but not
+protected by a separate application passphrase. Do not save credentials,
+sensitive records or company secrets in local notes. Android's VOICE IN
+provider may contact the network; check your selected recognizer settings.
+Existing USB/Health consent and permissions are unchanged.
+
+## Installing SPARK Mobile
+
+Open the green Build SPARK Android Companion GitHub Actions workflow for the
+merged revision, download its spark-mobile-android-debug artifact, and install
+app-debug.apk on an Android 14+ phone after reviewing the sideload warning.
+The package name is still com.spark.companion, upgrading the earlier test
+companion in place; the launcher display name becomes SPARK Mobile.
+
+The GitHub artifact is a debug evaluation build, not a store-signed production
+release. GitHub CI does not prove Android voice quality or your phone's
+performance until physical-device acceptance is performed.
+
+---
+
+## Existing Health Connect and USB functions
 
 ## What SPARK actually supports
 
@@ -68,7 +121,7 @@ seamless wireless pairing.
 ## Build and install
 
 GitHub Actions workflow **Build SPARK Android Companion** runs Gradle
-`testDebugUnitTest assembleDebug` and publishes a `spark-android-health-connect-debug`
+`testDebugUnitTest assembleDebug` and publishes a `spark-mobile-android-debug`
 APK artifact from `android/app/build/outputs/apk/debug/app-debug.apk`.
 The debug build is for personal evaluation; it is **unsigned for production
 distribution** and not a Play Store app. Download the artifact from that
