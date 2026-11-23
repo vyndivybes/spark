@@ -518,6 +518,22 @@ class AudioLoop:
         utterance = self._user_utterance.strip()
         if not utterance:
             return
+        from spark_browser_voice import parse_browser_voice
+        if self.on_workspace_action and parse_browser_voice(utterance):
+            self._graphify_dispatched = True
+            try:
+                result = await asyncio.wait_for(self.on_workspace_action(
+                    'browser_voice_command', {'command': utterance}, utterance), timeout=15)
+                statement = str(result.get('message') or result.get('error') or
+                                'Browser command unavailable.')[:400]
+            except Exception:
+                statement = 'Browser command could not be verified.'
+            await session.send_client_content(
+                turns={'role': 'user', 'parts': [{'text':
+                    'The local browser controller returned this status. Speak it accurately; '
+                    'do not claim navigation finished merely because it was queued: ' + statement}]},
+                turn_complete=True)
+            return
         from spark_skill_voice import parse_skill_voice
         if self.on_workspace_action and parse_skill_voice(utterance):
             self._graphify_dispatched = True
