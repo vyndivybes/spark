@@ -145,7 +145,7 @@ class SparkAiLinkActivity : ComponentActivity() {
                 status.text = "Ask a question between 3 and 400 characters."
                 return@button
             }
-            isEnabled = false
+            send.isEnabled = false
             status.text = "Waiting for your PC AI…"
             lifecycleScope.launch {
                 try {
@@ -163,7 +163,7 @@ class SparkAiLinkActivity : ComponentActivity() {
                 } catch (_: Exception) {
                     status.text = "AI reply not confirmed. Check PC approval, provider and pairing. No action taken."
                 } finally {
-                    isEnabled = token != null
+                    send.isEnabled = token != null
                 }
             }
         }
