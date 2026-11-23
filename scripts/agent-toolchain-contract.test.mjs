@@ -15,6 +15,8 @@ test('Chrome DevTools remains an isolated development-only browser', () => {
   const chrome = config.mcp['chrome-devtools'];
   assert.equal(chrome.type, 'local');
   assert.equal(chrome.enabled, true);
+  assert.ok(chrome.command.includes("chrome-devtools-mcp@1.13.0"), "Chrome DevTools MCP must be pinned to its reviewed version");
+  assert.ok(!chrome.command.some((arg) => /@latest$/.test(arg)), "No unreviewed floating npm versions");
   for (const arg of ['--isolated', '--no-usage-statistics', '--no-performance-crux']) {
     assert.ok(chrome.command.includes(arg), arg);
   }
