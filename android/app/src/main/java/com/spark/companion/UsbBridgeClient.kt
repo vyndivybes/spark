@@ -39,14 +39,41 @@ object UsbBridgeClient {
                 parsed.optInt("sequence") == sequence
         }
 
+    data class Advisory(val answer: String, val provider: String)
+
+    suspend fun chat(token: String, sequence: Int, prompt: String): Advisory =
+        withContext(Dispatchers.IO) {
+            require(UsbPairingProtocol.validToken(token))
+            require(sequence in 1..1_000_000)
+            require(UsbPairingProtocol.validChatPrompt(prompt))
+            val body = JSONObject().put("sequence", sequence).put("prompt", prompt.trim())
+            val reply = post("/mobile-chat", body, token)
+            if (reply.status != 200)
+                throw IllegalStateException(
+                    if (reply.status == 403) "AI replies must be enabled on the PC."
+                    else "SPARK PC AI is unavailable or the session has expired.")
+            val parsed = JSONObject(reply.body)
+            val actual = parsed.keys().asSequence().toSet()
+            if (actual != setOf("ok", "answer", "provider", "advisoryOnly", "sequence")
+                || !parsed.optBoolean("ok")
+                || !parsed.optBoolean("advisoryOnly")
+                || parsed.optInt("sequence") != sequence)
+                throw IllegalStateException("Invalid SPARK PC AI response")
+            val answer = parsed.optString("answer")
+            val provider = parsed.optString("provider")
+            if (!UsbPairingProtocol.validChatAnswer(answer, provider))
+                throw IllegalStateException("Invalid SPARK PC AI response")
+            Advisory(answer, provider)
+        }
+
     private fun post(path: String, payload: JSONObject, token: String?): Reply {
-        require(path == "/pair" || path == "/summary")
+        require(path in setOf("/pair", "/summary", "/mobile-chat"))
         val body = payload.toString().toByteArray(StandardCharsets.UTF_8)
         require(body.size <= 6000)
         val conn = URL(UsbPairingProtocol.BASE_URL + path)
             .openConnection(Proxy.NO_PROXY) as HttpURLConnection
         conn.connectTimeout = 4000
-        conn.readTimeout = 7000
+        conn.readTimeout = if (path == "/mobile-chat") 45000 else 7000
         conn.instanceFollowRedirects = false
         conn.requestMethod = "POST"
         conn.doOutput = true
@@ -58,9 +85,9 @@ object UsbBridgeClient {
             val status = conn.responseCode
             // Never retain an unbounded or untrusted server response.
             val stream = if (status in 200..299) conn.inputStream else conn.errorStream
-            val response = stream?.use { input -> input.readNBytes(2049) }
+            val response = stream?.use { input -> input.readNBytes(5001) }
                 ?: ByteArray(0)
-            if (response.size > 2048) throw IllegalStateException("Unexpected USB response")
+            if (response.size > 5000) throw IllegalStateException("Unexpected USB response")
             return Reply(status, response.toString(StandardCharsets.UTF_8))
         } finally {
             conn.disconnect()

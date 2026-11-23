@@ -1,0 +1,44 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const read=p=>fs.readFileSync(path.resolve(__dirname,'..',p),'utf8');
+test('desktop mobile AI must obtain separate founder-permitted session and never expose workspace bearer to phone',()=>{
+ const bridge=read('electron/phone-usb-bridge.cjs');
+ const main=read('electron/main.js');
+ const panel=read('src/components/HealthConnectPanel.jsx');
+ assert.match(bridge,/aiEnabled=false/);
+ assert.match(bridge,/if\(!aiEnabled\|\|typeof mobileChat!==['"]function['"]\)/);
+ assert.match(bridge,/setAiEnabled\(enabled\)/);
+ assert.match(bridge,/AI_SESSION_REVOKED/);
+ assert.match(main,/X-SPARK-Workspace-Token/);
+ assert.match(main,/127\.0\.0\.1/);
+ assert.match(main,/trustedWorkspaceSender\(event,mainWindow/);
+ assert.match(main,/request\.action==='set-ai'&&typeof request\.enabled==='boolean'/);
+ assert.match(panel,/action:'set-ai'/);
+ assert.match(panel,/Enable AI replies to Android/);
+});
+test('desktop AI backend does not expose tools or live mutation interfaces to phone',()=>{
+ const backend=read('backend/spark_mobile_advisory.py');
+ const server=read('backend/server.py');
+ assert.match(backend,/tools=\[\]/);
+ assert.match(backend,/max_completion_tokens/);
+ assert.match(backend,/MobileAdvisoryError/);
+ assert.match(server,/@app\.post\(["']\/mobile\/advisory["']\)/);
+ assert.match(server,/compare_digest\(supplied, expected\)/);
+ assert.match(server,/face_auth_enabled/);
+ assert.doesNotMatch(backend,/execute_web_tool|pc_access\.execute|execute_generated|send_email/);
+});
+test('SPARK Mobile has dedicated explicit consent UI and no arbitrary network endpoint',()=>{
+ const ui=read('android/app/src/main/java/com/spark/companion/SparkAiLinkActivity.kt');
+ const protocol=read('android/app/src/main/java/com/spark/companion/UsbPairingProtocol.kt');
+ const client=read('android/app/src/main/java/com/spark/companion/UsbBridgeClient.kt');
+ const manifest=read('android/app/src/main/AndroidManifest.xml');
+ assert.match(ui,/UsbBridgeClient\.chat\(session, next, prompt\)/);
+ assert.match(ui,/promptInput\.setText\(heard\)/);
+ assert.match(ui,/No API keys are stored on Android/);
+ assert.match(protocol,/BASE_URL = "http:\/\/127\.0\.0\.1:38177"/);
+ assert.match(client,/require\(path in setOf\("\/pair", "\/summary", "\/mobile-chat"\)\)/);
+ assert.match(manifest,/SparkAiLinkActivity" android:exported="false"/);
+ assert.doesNotMatch(ui,/GROQ_API_KEY|GEMINI_API_KEY|autoSend|WebView|exec\(/);
+});

@@ -1,4 +1,54 @@
-# SPARK Mobile for Android — standalone offline edition (0.3 preview)
+# SPARK Mobile for Android — offline core + optional PC-backed AI (0.4 preview)
+
+The Android application runs **independently offline** for local notes, tasks,
+voice input and Health Connect. A new **SPARK DESKTOP AI / SECURE USB LINK**
+screen also offers text-based conversational replies from the **existing**
+Gemini or Groq provider configured on your Windows SPARK PC.
+
+## Commission read-only mobile AI (no Android API key)
+
+1. Install the latest debug APK (workflow below) on Android 14+.
+2. Open desktop SPARK, select **PHONE / WATCH**, then **Start USB pairing**.
+3. On your own Windows PC with an authorized Android USB cable and ADB:
+   `adb devices` then `adb reverse tcp:38177 tcp:38177`.
+   Verify Android authorizes this PC for debugging.
+4. Select **Enable AI replies to Android** in desktop PHONE / WATCH.
+   This explicit desktop action authorizes only text-generation replies.
+5. In SPARK Mobile, open **SPARK DESKTOP AI / SECURE USB LINK**. Enter the
+   short-lived eight-digit code and tap **PAIR WITH SPARK PC**.
+6. Enter a question and tap **ASK SPARK (READ-ONLY)**. Android voice input,
+   if available, only fills the question box: tap ASK separately to send.
+7. Choose VOICE OUT if an installed Android *offline* English TTS voice is
+   present. This is **not** VoiceStudio or cinematic voice.
+8. Select **Disable mobile AI replies** or **Stop / revoke** on the PC,
+   close the PHONE / WATCH panel, disconnect USB, and run
+   `adb reverse --remove tcp:38177` after use.
+
+**Privacy and credentials:** Android only knows an ephemeral per-pairing
+session bearer. The desktop alone holds its workspace token and provider key.
+The backend accepts the workspace token only from localhost and never exposes
+agent tools to the mobile route. Text questions are sent to the selected
+Gemini or Groq provider via the existing PC; they **may leave your device**
+under the provider's processing policies. AI is OFF until the owner explicitly
+enables it on the PC, and pairing expires after 10 minutes.
+
+**Free-only policy:** No new subscription, API key or paid service is created.
+SPARK uses whichever previously configured desktop provider you selected,
+subject to its own free-tier availability and rate limits. No automatic paid
+fallback, autonomous actions, business writes, purchase orders, emails,
+browser operations, file edits or remote phone control are permitted.
+
+**Limitations:** This is a PC-assisted AI chat, not an independent on-phone
+Gemini model. It requires trusted USB and a running desktop SPARK backend.
+Phone-to-PC conversation history is kept in temporary memory only until the
+session is revoked. Desktop historical memory, arbitrary automation, skills,
+wireless connectivity, cinematic voice and shared persistent conversation
+sync are **not yet implemented on the phone**. CI and APK compilation do not
+replace a real-device confirmation.
+
+---
+
+## Prior offline Android 0.3 functionality
 
 **This APK runs SPARK Mobile independently on an Android 14+ phone.**
 It is no longer just a Health Connect companion. It is a native Android
@@ -25,8 +75,8 @@ make notes, maintain a local checklist or respond to supported commands.
 - Existing Health Connect read and USB-only, manually paired summary
   transfer remain available under HEALTH CONNECT / USB PHONE LINK.
 
-**Not yet running on the phone:** desktop Python/Electron tools, Gemini/Groq
-conversation intelligence, browser control, historical memory, cross-device
+**Still not running independently on the phone:** desktop Python/Electron tools,
+local on-device Gemini/Groq, browser control, historical memory, cross-device
 sync, autonomous skill learning, wake word, remote phone automation,
 VYNDI/VAOS business mutations. Unsupported questions receive an explicit
 limitation rather than a fabricated AI answer. Tasks are not scheduled alerts.

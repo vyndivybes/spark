@@ -201,19 +201,47 @@ app.whenReady().then(async () => {
         // Local-only speech can never become a general proxy into private services.
         return createVoiceStudioClient().render(text);
     });
-    phoneUsbBridge=createPhoneUsbBridge();
+    phoneUsbBridge=createPhoneUsbBridge({mobileChat:async({prompt,history})=>{
+        // Only Electron owns the desktop workspace token. Android never sees it.
+        const port=Number(process.env.SPARK_BACKEND_PORT||8000);
+        if(!Number.isInteger(port)||port<1024||port>65535)
+            throw Error('MOBILE_BACKEND_PORT_INVALID');
+        const aborter=new AbortController();
+        const timer=setTimeout(()=>aborter.abort(),40000);
+        try{
+            const response=await fetch('http://127.0.0.1:'+port+'/mobile/advisory',{
+                method:'POST',redirect:'error',
+                headers:{'Content-Type':'application/json','X-SPARK-Workspace-Token':workspaceToken},
+                body:JSON.stringify({prompt,history}),signal:aborter.signal
+            });
+            if(!response.ok||Number(response.headers.get('content-length')||0)>8192)
+                throw Error('MOBILE_ADVISORY_UNAVAILABLE');
+            const raw=await response.text();
+            if(raw.length>8192)throw Error('MOBILE_ADVISORY_TOO_LARGE');
+            const result=JSON.parse(raw);
+            if(!result||Object.keys(result).sort().join(',')!=='answer,provider')
+                throw Error('MOBILE_ADVISORY_INVALID');
+            return result;
+        }finally{clearTimeout(timer);}
+    }});
+
     ipcMain.handle('spark:phone-usb',async(event,request)=>{
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
             throw Error('PHONE_USB_COCKPIT_DENIED');
         if(!request||typeof request!=='object'||Array.isArray(request)||
-           Object.keys(request).length!==1||
-           !['start','stop','status','take'].includes(request.action))
+           !(
+             (Object.keys(request).length===1&&
+              ['start','stop','status','take'].includes(request.action)) ||
+             (Object.keys(request).sort().join(',')==='action,enabled'&&
+              request.action==='set-ai'&&typeof request.enabled==='boolean')
+           ))
             throw Error('PHONE_USB_ACTION_DENIED');
         switch(request.action){
             case 'start':return phoneUsbBridge.start();
             case 'stop':return phoneUsbBridge.stop();
             case 'status':return phoneUsbBridge.status();
             case 'take':return phoneUsbBridge.take();
+            case 'set-ai':return phoneUsbBridge.setAiEnabled(request.enabled);
         }
     });
     ipcMain.handle('spark:workspace-token',event=>{

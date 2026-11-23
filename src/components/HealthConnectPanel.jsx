@@ -54,6 +54,17 @@ export default function HealthConnectPanel({onClose}) {
       if(ipc)void ipc.invoke('spark:phone-usb',{action:'stop'}).catch(()=>{});
     };
   },[]);
+  const toggleMobileAi=async()=>{
+    const ipc=phoneUsbIpc();
+    if(!ipc)return setUsbNotice('SPARK desktop connection unavailable.');
+    try{
+      const next=await ipc.invoke('spark:phone-usb',{action:'set-ai',enabled:!usb.aiEnabled});
+      setUsb(next);
+      setUsbNotice(next.aiEnabled
+        ? 'Read-only mobile AI enabled for this USB session. Questions will go to the configured desktop provider.'
+        : 'Mobile AI disabled. Any further phone prompts are denied.');
+    }catch{setUsbNotice('Could not change mobile AI permission. Restart USB pairing.');}
+  };
   const changeUsb=async(action)=>{
     const ipc=phoneUsbIpc();
     if(!ipc){setUsbNotice('USB pairing requires the installed SPARK Electron desktop app.');return;}
@@ -107,12 +118,24 @@ export default function HealthConnectPanel({onClose}) {
           <button type="button" disabled={!usb.listening} onClick={()=>changeUsb('stop')}
             className="px-3 py-2 rounded border border-slate-600 disabled:opacity-50">Stop / revoke</button>
         </div>
+        <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
+          <p className="font-semibold text-cyan-200">SPARK Mobile AI — separate desktop approval</p>
+          <p className="text-xs text-slate-300 mt-1">Enable optional read-only AI answers to paired Android. Mobile text may be sent by your PC to its existing Gemini or Groq provider. This does not grant file, browser, agent, email, purchase or business-write controls, and does not add a paid subscription.</p>
+          <button type="button" disabled={!usb.listening}
+            onClick={toggleMobileAi}
+            className="mt-2 px-3 py-2 rounded border border-cyan-700 disabled:opacity-50">
+            {usb.aiEnabled?'Disable mobile AI replies':'Enable AI replies to Android'}
+          </button>
+          <p role="status" className="mt-2 text-xs text-slate-300">
+            {usb.aiEnabled?'Mobile AI read-only replies permitted until revoked or session expiry.':'Mobile AI OFF. Pairing alone cannot use desktop AI.'}
+          </p>
+        </div>
         {usb.listening&&!usb.paired&&usb.code&&
           <p className="mt-3 text-slate-200">Enter this one-time code in the Android companion:
             <strong className="block mt-1 text-2xl tracking-widest text-cyan-300 select-all">{usb.code}</strong>
             <span className="text-xs text-slate-400">Expires after 2 minutes. Restart pairing if expired.</span>
           </p>}
-        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired for this session. Use the phone's explicit Send summary button.</p>}
+        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired. Use the phone's explicit Send summary action, or the dedicated SPARK Desktop AI screen when AI is separately enabled.</p>}
         {usbNotice&&<p role="status" className="mt-2 text-xs text-slate-300">{usbNotice}</p>}
         <p className="mt-2 text-xs text-amber-200">This is not wireless pairing or phone control. The listener is confined to PC localhost; USB forwarding is temporary. Disconnect USB debugging when finished.</p>
       </div>

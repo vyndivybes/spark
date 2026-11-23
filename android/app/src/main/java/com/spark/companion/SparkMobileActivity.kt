@@ -117,11 +117,19 @@ class SparkMobileActivity : ComponentActivity() {
         }
         root.addView(healthButton, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(53)
-        ).apply { topMargin = dp(8); bottomMargin = dp(10) })
+        ).apply { topMargin = dp(8); bottomMargin = dp(8) })
+
+        val desktopAiButton = button("SPARK DESKTOP AI  /  SECURE USB LINK") {
+            startActivity(Intent(this, SparkAiLinkActivity::class.java))
+        }
+        root.addView(desktopAiButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(53)
+        ).apply { bottomMargin = dp(10) })
 
         val notice = text(
             "This is the independent Android edition: offline notes, task checklist and phone services. " +
-            "Full SPARK AI, desktop control, historic memory sync and cinematic voice are not connected.",
+            "Optional read-only PC-backed AI is available through trusted USB. " +
+            "Desktop control, historic memory sync and cinematic voice remain unavailable.",
             13f, Color.rgb(191, 206, 219)
         ).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
