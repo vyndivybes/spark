@@ -1,0 +1,36 @@
+name: Verify SPARK Android Companion
+on:
+  pull_request:
+    paths:
+      - 'android-companion/**'
+      - '.github/workflows/android-companion.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Compile debug APK
+        working-directory: android-companion
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Upload unsigned-debug test APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-android-debug-unsigned
+          path: android-companion/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 5
