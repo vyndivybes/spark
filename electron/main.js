@@ -233,7 +233,7 @@ app.whenReady().then(async () => {
         if(!request||typeof request!=='object'||Array.isArray(request)||
            !(
              (Object.keys(request).length===1&&
-              ['start','stop','status','take'].includes(request.action)) ||
+              ['start','stop','status','take','personal-list'].includes(request.action)) ||
              (Object.keys(request).sort().join(',')==='action,enabled'&&
               ['set-ai','set-sync'].includes(request.action)&&
               typeof request.enabled==='boolean')
@@ -246,6 +246,7 @@ app.whenReady().then(async () => {
             case 'take':return phoneUsbBridge.take();
             case 'set-ai':return phoneUsbBridge.setAiEnabled(request.enabled);
             case 'set-sync':return phoneUsbBridge.setSyncEnabled(request.enabled);
+            case 'personal-list':return personalMobileStore.read();
         }
     });
     ipcMain.handle('spark:workspace-token',event=>{
