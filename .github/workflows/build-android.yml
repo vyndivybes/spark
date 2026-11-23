@@ -38,6 +38,6 @@ jobs:
       - name: Android debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: spark-android-health-connect-debug
+          name: spark-mobile-android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
