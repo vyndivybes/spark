@@ -63,6 +63,7 @@ from spark_rea import ReaError
 from spark_brahma_composer import compose as brahma_compose
 from spark_reflex import reflex_execute
 from spark_skill_voice import parse_skill_voice, execute_skill_voice
+from spark_browser_voice import parse_browser_voice, perform_browser_voice
 from spark_personal_memory import PersonalMemory, MemoryError as PersonalMemoryError
 from arkus_skill_forge import SkillError
 from spark_workbench import Workbench, ACTION_KEYS as WORKBENCH_ACTIONS
@@ -221,6 +222,15 @@ async def voice_workspace_action(sid, name, arguments, utterance):
         return {'ok': False, 'error': 'Invalid workspace arguments.'}
     project = workspace_project_by_sid.get(sid, 'default')
     try:
+        if name == 'browser_voice_command':
+            if set(arguments) != {'command'} or arguments['command'] != utterance:
+                return {'ok': False, 'error': 'Browser commands must match the owner utterance.'}
+            parsed = parse_browser_voice(utterance)
+            if parsed is None:
+                return {'ok': False, 'error': 'Supported: browser open HTTPS site, back, forward, reload or inspect page.'}
+            result = await perform_browser_voice(browser_sessions, sid, parsed)
+            await sio.emit('browser_voice_result', result, room=sid)
+            return result
         if name == 'skill_voice_command':
             if set(arguments) != {'command'} or arguments['command'] != utterance:
                 return {'ok': False, 'error': 'Skill commands must match the exact owner utterance.'}
@@ -1685,6 +1695,10 @@ async def user_input(sid, data):
 
     if not audio_loop.session:
         await sio.emit('error', {'msg': 'Selected AI provider is not ready.'}, room=sid)
+        return
+
+    if text and parse_browser_voice(text):
+        await voice_workspace_action(sid, 'browser_voice_command', {'command': text}, text)
         return
 
     if text and parse_skill_voice(text):
