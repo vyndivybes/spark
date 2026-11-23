@@ -552,7 +552,10 @@ browser_sessions = register_browser_sessions(sio, lambda sid: bool(
     and SETTINGS.get('tool_permissions', {}).get('run_web_agent', False)
     and (not SETTINGS.get('face_auth_enabled', False)
          or (authenticator and authenticator.authenticated))
-))
+), token_authorizer=lambda token: workspace_access_allowed(
+    token, os.environ.get('SPARK_WORKSPACE_TOKEN'),
+    face_required=SETTINGS.get('face_auth_enabled', False),
+    face_authenticated=bool(authenticator and authenticator.authenticated)))
 
 @app.on_event("shutdown")
 async def close_browser_sessions():
