@@ -11,8 +11,10 @@ export function connectBrowserView(socket, update, { timeout = 45000 } = {}) {
         clearTimeout(timer);
         timer = setTimeout(() => fail('No browser frames received. Check the backend, then select Retry.'), timeout);
     };
+    const authorized = () => typeof socket?.workspaceToken === 'string' && socket.workspaceToken.length === 64;
     const start = () => {
         if (disposed) return;
+        if (!authorized()) { fail('Desktop workspace token is unavailable. Reconnect and select Retry.'); return; }
         clearTimeout(timer);
         if (sessionId && socket?.connected) socket.emit('stop_web_browser', { session_id: sessionId, workspace_token: socket.workspaceToken });
         sessionId = globalThis.crypto.randomUUID();
@@ -47,7 +49,7 @@ export function connectBrowserView(socket, update, { timeout = 45000 } = {}) {
     return {
         retry: start,
         command(data) {
-            if (!socket?.connected || !state.image || state.state === 'error') return false;
+            if (!socket?.connected || !authorized() || !state.image || state.state === 'error') return false;
             socket.emit('web_browser_command', { ...data, session_id: sessionId, workspace_token: socket.workspaceToken });
             arm();
             return true;
