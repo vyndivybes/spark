@@ -18,6 +18,12 @@ object UsbPairingProtocol {
     fun validSummary(text: String): Boolean =
         text.length in 45..4000 && summaryPattern.matches(text) &&
         (summaryPattern.find(text)?.groupValues?.get(1)?.toIntOrNull() ?: Int.MAX_VALUE) <= 100_000
+    fun validChatPrompt(prompt: String): Boolean =
+        prompt.trim().length in 3..400 && prompt.length <= 400 &&
+        prompt.none { it.code < 32 && it != '\n' && it != '\t' || it.code == 127 }
+    fun validChatAnswer(answer: String, provider: String): Boolean =
+        provider in setOf("gemini", "groq") && answer.trim().isNotEmpty() &&
+        answer.length <= 2800
     fun nextSequence(previous: Int): Int {
         require(previous in 0 until 1_000_000)
         return previous + 1
