@@ -24,6 +24,7 @@ async function startup(source) {
         './workspace-auth.cjs':{trustedWorkspaceSender:()=>false},
         './voicestudio-client.cjs':{createVoiceStudioClient:()=>({render:async()=>{throw Error('VoiceStudio disabled in startup test')}})},
         './phone-usb-bridge.cjs':{createPhoneUsbBridge:()=>({status:()=>({listening:false}),start:async()=>({}),stop:async()=>({stopped:true}),take:()=>null})},
+        './mobile-personal-sync.cjs':{createMobilePersonalStore:()=>({merge:async records=>records})},
         './rea-evidence.cjs':{},
         './rea-preview.cjs':require('../electron/rea-preview.cjs'),
         './brain-display.cjs':{readBrainDisplay:async()=>({nodes:[],edges:[]})},
