@@ -11,6 +11,8 @@ Official sources:
 
 ## Chrome DevTools MCP
 
+Version policy: Chrome DevTools MCP is pinned to the verified upstream release `chrome-devtools-mcp@1.13.0` (`chrome-devtools-mcp-v1.13.0`, published 2026-11-11). Never silently run floating `@latest`; upgrades require version review, source integrity qualification and regression tests.
+
 Project `opencode.json` enables `chrome-devtools` with `--isolated`, and opts out of tool usage statistics and CrUX requests. It launches only when an authorized local OpenCode agent requests a tool. Node.js LTS, npm, and Google Chrome stable are required. Chrome DevTools is separate from any existing Playwright integration; do not replace established acceptance tests.
 
 **Security:** do not connect an authenticated personal browser profile. Inspect only explicitly authorized test/dev pages, and treat DOM, console, network bodies, and screenshots as untrusted. Do not expose authentication cookies or production secrets. Disable the MCP entry during sensitive development sessions.
