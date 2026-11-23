@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
+const {createVoiceStudioClient}=require('./voicestudio-client.cjs');
 // Honor a deterministic launcher-provided token (parallel installs and
 // vesting harnesses); otherwise generate a fresh per-launch token.
 const workspaceToken=(process.env.SPARK_WORKSPACE_TOKEN
@@ -97,10 +98,12 @@ function createWindow() {
 
     const loadFrontend = (retries = 3) => {
         const backendPort = process.env.SPARK_BACKEND_PORT || '8000';
-        const url = isDev ? 'http://localhost:5173' : null;
+        const voiceStudioActive=process.env.SPARK_VOICE_PROVIDER==='voicestudio';
+        const url = isDev ? 'http://localhost:5173'+
+            (voiceStudioActive?'?sparkVoiceProvider=voicestudio':'') : null;
         const loadPromise = isDev
             ? mainWindow.loadURL(url)
-            : mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), {query: {sparkBackendPort: backendPort}});
+            : mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), {query: {sparkBackendPort: backendPort,...(voiceStudioActive?{sparkVoiceProvider:'voicestudio'}:{})}});
 
         loadPromise
             .then(() => {
@@ -188,6 +191,13 @@ app.whenReady().then(async () => {
             case 'disconnect':return jarvisBridge.disconnect();
             default:throw Error('Unknown Jarvis operation.');
         }
+    });
+    ipcMain.handle('spark:voicestudio:render',async(event,text)=>{
+        if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
+            throw Error('VOICESTUDIO_COCKPIT_DENIED');
+        // Neither origin nor port nor audio file path is supplied by the page.
+        // Local-only speech can never become a general proxy into private services.
+        return createVoiceStudioClient().render(text);
     });
     ipcMain.handle('spark:workspace-token',event=>{
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))

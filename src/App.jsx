@@ -12,6 +12,7 @@ import ToolsModule from './components/ToolsModule';
 import {BrowserEchoAudio} from './audio/BrowserEchoAudio.mjs';
 import {useStartupBriefing} from './audio/useStartupBriefing.mjs';
 import {WindowsSpeech} from './audio/WindowsSpeech.mjs';
+import {VoiceStudioSpeech} from './audio/VoiceStudioSpeech.mjs';
 import { Mic, MicOff, Settings, X, Minus, Power, Video, VideoOff, Layout, Hand, Printer, Clock, Activity, Search, Timer } from 'lucide-react';
 // MemoryPrompt removed - memory is now actively saved to project
 import ConfirmationPopup from './components/ConfirmationPopup';
@@ -515,12 +516,28 @@ function App() {
             const synth = window.speechSynthesis;
             const Utterance = window.SpeechSynthesisUtterance;
             windowsSpeechRef.current?.stop();
-            const speaker = new WindowsSpeech({
-                synth, Utterance, bridge,
+            const speechOptions = {
+                bridge,
                 isUserMuted: () => userMutedRef.current,
                 onComplete: failed => socket.emit('browser_speech_done', {error: failed}),
                 onError: message => addMessage('System', message)
-            });
+            };
+            const useVoiceStudio = new URLSearchParams(window.location.search)
+                .get('sparkVoiceProvider') === 'voicestudio';
+            let speaker;
+            if (useVoiceStudio) {
+                // The Electron main process enforces cockpit identity, a local
+                // host and the SPARK_VOICE_PROVIDER opt-in. The renderer holds
+                // no bearer key and never directly fetches VoiceStudio.
+                let ipc;
+                try { ipc = window.require?.('electron')?.ipcRenderer; } catch (_) {}
+                speaker = new VoiceStudioSpeech({
+                    ...speechOptions,
+                    render: ipc?.invoke ? text => ipc.invoke('spark:voicestudio:render', text) : undefined
+                });
+            } else {
+                speaker = new WindowsSpeech({synth, Utterance, ...speechOptions});
+            }
             windowsSpeechRef.current = speaker;
             speaker.speak(payload.text);
         });

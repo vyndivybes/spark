@@ -607,15 +607,20 @@ class GroqVoiceLoop:
         future=asyncio.get_running_loop().create_future()
         self._speech_future=future
         try:
-            # Do not send text to cloud TTS; Web Speech uses the existing
-            # Windows voice and temporarily gates the Chromium microphone.
+            # Groq never receives audio from the local TTS. The desktop
+            # independently selects Windows speech or the optional VoiceStudio
+            # loopback provider; either way the AEC microphone stays gated.
+            local_tts=os.environ.get("SPARK_VOICE_PROVIDER")=="voicestudio"
             self.on_browser_tts({"text":str(text)[:1600]})
-            played=await asyncio.wait_for(future,timeout=30)
+            played=await asyncio.wait_for(future,timeout=180 if local_tts else 30)
             if not played and self.on_error:
-                self.on_error("Windows speech synthesis could not play. Check the installed voice and default speaker.")
+                self.on_error("Local VoiceStudio playback failed." if local_tts else
+                              "Windows speech synthesis could not play. Check the installed voice and default speaker.")
         except asyncio.TimeoutError:
             if self.on_error:
-                self.on_error("Windows speech playback timed out. Check speaker output.")
+                self.on_error("Local VoiceStudio playback timed out." if
+                              os.environ.get("SPARK_VOICE_PROVIDER")=="voicestudio" else
+                              "Windows speech playback timed out. Check speaker output.")
         finally:
             self._speech_future=None
             self._drop_stale_pcm()

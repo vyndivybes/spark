@@ -22,9 +22,16 @@ param(
     [ValidateSet('gemini', 'groq')]
     [string]$AIProvider = 'gemini',
     [ValidateSet('openai/gpt-oss-20b', 'llama-3.1-8b-instant')]
-    [string]$GroqModel = 'openai/gpt-oss-20b'
+    [string]$GroqModel = 'openai/gpt-oss-20b',
+    [ValidateSet('windows', 'voicestudio')]
+    [string]$VoiceProvider = 'windows'
 )
 $ErrorActionPreference = 'Stop'
+if ($PSBoundParameters.ContainsKey('VoiceProvider')) {
+    $env:SPARK_VOICE_PROVIDER = $VoiceProvider
+} elseif ($env:SPARK_VOICE_PROVIDER -notin @('windows', 'voicestudio')) {
+    $env:SPARK_VOICE_PROVIDER = 'windows'
+}
 $env:SPARK_OPEN_WHATSAPP = if ($OpenWhatsApp) { '1' } else { '0' }
 Set-Location $PSScriptRoot
 

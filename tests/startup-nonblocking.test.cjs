@@ -22,6 +22,7 @@ async function startup(source) {
         './business-portals.cjs':{createBusinessPortals:()=>({})},
         './whatsapp-window.cjs':{createWhatsAppWindow:()=>({open:async()=>null,status:()=>null,readChats:async()=>[],close(){}})},
         './workspace-auth.cjs':{trustedWorkspaceSender:()=>false},
+        './voicestudio-client.cjs':{createVoiceStudioClient:()=>({render:async()=>{throw Error('VoiceStudio disabled in startup test')}})},
         './rea-evidence.cjs':{},
         './rea-preview.cjs':require('../electron/rea-preview.cjs'),
         './brain-display.cjs':{readBrainDisplay:async()=>({nodes:[],edges:[]})},

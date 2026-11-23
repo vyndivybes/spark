@@ -8,6 +8,16 @@ Jarvis answers now offer **Prepare report task**, with editable PC steps and
 approval of the exact plan before execution. The cockpit toolbar stays on one
 row with reachable window controls. See [the upgrade guide](docs/workspace-upgrade.md).
 
+## Optional personal cinematic voice (local)
+
+SPARK can use an independently installed VoiceStudio speech engine instead
+of the Windows speech voice for the Groq Chromium-AEC path. Launch with
+`-AIProvider groq -VoiceProvider voicestudio` after reviewing local model
+requirements and licenses. No subscription or cloud TTS is added; the
+VoiceStudio local service must already be installed and running. See
+[VoiceStudio local voice](docs/voicestudio-local-voice.md).
+Gemini Live voice and all VYNDI business authorization remain unchanged.
+
 ## VAOS Jarvis
 
 For Graphify, Graphiti and Obsidian controls and data refresh steps, see
