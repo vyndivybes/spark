@@ -52,7 +52,7 @@ function createMobilePersonalStore(directory){
   try{info=await fs.lstat(file);}catch(error){
    if(error.code==='ENOENT')return EMPTY();throw error;
   }
-  if(!info.isFile()||info.isSymbolicLink()||info.size>64000)
+  if(!info.isFile()||info.isSymbolicLink()||info.size>256000)
    throw Error('Personal sync file is unsafe.');
   const data=await fs.readFile(file,'utf8');
   return validateRecords(JSON.parse(data));
