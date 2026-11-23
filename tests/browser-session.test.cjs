@@ -65,3 +65,17 @@ test('startup and stalled streams time out visibly; server errors are retained',
         assert.equal(view.message, 'Install Chromium');
     } finally { client.dispose(); }
 });
+
+test('browser rejects missing desktop workspace token before starting or issuing commands', async () => {
+    const { connectBrowserView } = await load();
+    const socket = new Socket();
+    socket.workspaceToken = undefined;
+    let view;
+    const client = connectBrowserView(socket, data => view = data);
+    try {
+        assert.equal(view.state, 'error');
+        assert.match(view.message, /workspace token/i);
+        assert.equal(socket.sent.filter(([name]) => name === 'start_web_browser').length, 0);
+        assert.equal(client.command({ action: 'reload' }), false);
+    } finally { client.dispose(); }
+});
