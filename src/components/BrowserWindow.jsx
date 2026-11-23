@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Globe, X } from 'lucide-react';
 import { connectBrowserView } from '../browserSession.mjs';
+import { createBrowserVoiceAccumulator } from '../browserPresentation.mjs';
 
 const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
     const [input, setInput] = useState('');
@@ -8,6 +9,7 @@ const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
     const [view, setView] = useState({ state: 'connecting', logs: [] });
     const session = useRef(null);
     const logsEndRef = useRef(null);
+    const lastVoice = useRef({ command: '', at: 0 });
     useEffect(() => { if (imageSrc) setLocal(false); }, [imageSrc]);
     useEffect(() => {
         if (!local) return;
@@ -16,6 +18,33 @@ const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
         return () => { connection.dispose(); session.current = null; };
     }, [socket, local]);
     useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs, view.logs]);
+    // Voice streams can contain partial words. Wait briefly for the utterance to
+    // settle, then run only the deterministic, human-speech command whitelist.
+    useEffect(() => {
+        if (!local || !socket) return;
+        const utterance = createBrowserVoiceAccumulator();
+        let flushTimer;
+        const flush = () => {
+            clearTimeout(flushTimer);
+            const intent = utterance.finish();
+            if (!intent) return;
+            const commandKey = JSON.stringify(intent);
+            const now = Date.now();
+            if (lastVoice.current.command === commandKey && now - lastVoice.current.at < 1500) return;
+            if (session.current?.command(intent)) lastVoice.current = { command: commandKey, at: now };
+        };
+        const onSpeech = transcript => {
+            if (!utterance.push(transcript)) return;
+            clearTimeout(flushTimer);
+            flushTimer = setTimeout(flush, 350);
+        };
+        socket.on('transcription', onSpeech);
+        return () => {
+            clearTimeout(flushTimer);
+            utterance.clear();
+            socket.off('transcription', onSpeech);
+        };
+    }, [socket, local]);
     const command = data => session.current?.command(data);
     const send = action => {
         if (!input.trim()) return;
@@ -41,6 +70,23 @@ const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
                 <button className={buttonClass} disabled={disabled}>Go</button>
                 <button type="button" className={buttonClass} disabled={disabled} onClick={() => send('type')}>Type</button>
             </form>}
+            {local && <div className="flex flex-wrap items-center gap-1 px-2 py-1 bg-[#161616] shrink-0" aria-label="Hands-free browser presentation controls">
+                <span className="text-[10px] text-cyan-400 mr-1">PRESENT</span>
+                <button type="button" className={buttonClass} disabled={disabled}
+                    onClick={() => command({ action: 'present_scroll', direction: 'down', speed: 'slow' })}>Auto ↓</button>
+                <button type="button" className={buttonClass} disabled={disabled}
+                    onClick={() => command({ action: 'present_scroll', direction: 'up', speed: 'slow' })}>Auto ↑</button>
+                <button type="button" className={buttonClass} disabled={disabled}
+                    onClick={() => command({ action: 'pause_scroll' })}>Pause</button>
+                <button type="button" className={buttonClass} disabled={disabled}
+                    onClick={() => command({ action: 'resume_scroll' })}>Resume</button>
+                <button type="button" className={buttonClass} disabled={disabled}
+                    onClick={() => command({ action: 'stop_scroll' })}>Stop</button>
+                <button type="button" className={buttonClass} disabled={disabled}
+                    onClick={() => command({ action: 'slow_down' })}>Slower</button>
+                <button type="button" className={buttonClass} disabled={disabled}
+                    onClick={() => command({ action: 'speed_up' })}>Faster</button>
+            </div>}
             {local && <div role="status" className="flex items-center justify-between gap-1 px-2 py-1 text-xs shrink-0">
                 <span className={view.state === 'error' ? 'text-red-400' : 'text-cyan-400'}>{view.message}</span>
                 {view.state === 'error' && <button className={buttonClass} onClick={() => session.current?.retry()}>Retry</button>}
