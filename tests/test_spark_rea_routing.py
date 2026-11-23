@@ -92,6 +92,33 @@ class EvolutionRoutingTests(unittest.TestCase):
 
 class VoiceRoutingTests(unittest.TestCase):
  @immediate
+ async def test_preview_speech_requires_evidence_for_the_requested_operation(self):
+  from spark_rea import ReaError
+
+  async def desktop_call(event, payload, **options):
+   return response
+
+  speak = function_from_source('backend/server.py', 'rea_voice_result', {
+   'sio': SimpleNamespace(call=desktop_call),
+   'MaintenanceError': MaintenanceError,
+   'ReaError': ReaError,
+  })
+  report_id = 'a' * 24
+  for action, response, expected in [
+   ('test', {}, 'did not confirm'),
+   ('test', {'ok': False, 'message': 'Preview completed.'}, 'did not confirm'),
+   ('test', {'ok': True, 'state': 'passed', 'checkCount': True}, 'expected preview evidence'),
+   ('test', {'ok': True, 'state': 'passed', 'checkCount': 0}, 'expected preview evidence'),
+   ('test', {'ok': True, 'state': 'passed', 'checkCount': 3}, 'passed 3 checks'),
+   ('open', {'ok': True, 'state': 'passed', 'checkCount': 3}, 'expected preview evidence'),
+   ('open', {'ok': True, 'state': 'opened'}, 'Opened the tested app'),
+  ]:
+   with self.subTest(action=action, response=response):
+    answer = await speak('owner', 'default', {
+     'action': 'rea_workflow_preview', 'payload': {'id': report_id, 'action': action}})
+    self.assertIn(expected, answer)
+
+ @immediate
  async def test_owner_gate_and_exact_utterance_prevent_model_chosen_actions(self):
   env={'audio_loop':None,'SETTINGS':{},'sio':SimpleNamespace(manager=SimpleNamespace(is_connected=lambda *args:True)),'workspace_project_by_sid':{},'re':__import__('re')}
   execute=function_from_source('backend/server.py','voice_workspace_action',env)

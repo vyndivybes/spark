@@ -186,7 +186,15 @@ async def rea_voice_result(sid, project, command):
     try:
         if action == 'rea_workflow_preview':
             result = await sio.call('rea_workflow_preview', {**payload, 'project': project}, to=sid, timeout=45)
-            return str(result.get('message', 'Preview completed.')) if isinstance(result, dict) else 'Preview did not return a result.'
+            if not isinstance(result, dict) or result.get('ok') is not True:
+                return 'The desktop did not confirm the preview operation. Check Recovery and REA.'
+            if payload['action'] == 'test':
+                count = result.get('checkCount')
+                if result.get('state') == 'passed' and type(count) is int and count > 0:
+                    return f'Hidden browser test passed {count} checks for REA report {payload["id"]}.'
+            elif result.get('state') == 'opened':
+                return f'Opened the tested app for REA report {payload["id"]}.'
+            return 'The desktop did not return the expected preview evidence.'
         if action == 'rea_workflow_voice_section':
             result = await spark_evolution.execute('rea_workflow_section', project,
                 {'id': payload['id'], 'section': payload['section']})
