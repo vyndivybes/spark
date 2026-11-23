@@ -15,6 +15,7 @@ export default function HealthConnectPanel({onClose}) {
   const [error,setError]=useState('');
   const [usb,setUsb]=useState({listening:false,paired:false,pending:false,code:null});
   const [usbNotice,setUsbNotice]=useState('');
+  const [savedPersonal,setSavedPersonal]=useState(null);
   useEffect(()=>{
     let active=true,working=false;
     const poll=async()=>{
@@ -75,6 +76,20 @@ export default function HealthConnectPanel({onClose}) {
         ? 'Personal notes/tasks sync enabled for this USB session. Android must still tap Sync explicitly.'
         : 'Personal notes/tasks sync disabled. Saved PC records remain in your local SPARK data folder.');
     }catch{setUsbNotice('Could not change personal sync permission. Reopen USB pairing.');}
+  };
+  const reviewPersonal=async()=>{
+    const ipc=phoneUsbIpc();
+    if(!ipc)return setUsbNotice('Personal records are only available in the SPARK desktop cockpit.');
+    try{
+      const records=await ipc.invoke('spark:phone-usb',{action:'personal-list'});
+      if(!records||!Array.isArray(records.notes)||!Array.isArray(records.tasks))
+        throw Error('UNSUPPORTED_PERSONAL_RECORDS');
+      setSavedPersonal(records);
+      setUsbNotice('Showing the locally saved personal notes/tasks snapshot. No phone transfer was triggered.');
+    }catch{
+      setSavedPersonal(null);
+      setUsbNotice('Stored personal notes/tasks could not be read. No changes were made.');
+    }
   };
   const changeUsb=async(action)=>{
     const ipc=phoneUsbIpc();
@@ -149,6 +164,22 @@ export default function HealthConnectPanel({onClose}) {
             className="mt-2 px-3 py-2 rounded border border-cyan-700 disabled:opacity-50">
             {usb.syncEnabled?'Disable personal notes/tasks sync':'Enable personal notes/tasks sync'}
           </button>
+          <button type="button" onClick={reviewPersonal}
+            className="mt-2 ml-0 px-3 py-2 rounded border border-slate-600">
+            Review saved personal notes &amp; tasks
+          </button>
+          {savedPersonal&&<div className="mt-3 p-2 rounded bg-slate-900 max-h-48 overflow-y-auto text-xs text-slate-200">
+            <p className="font-semibold text-cyan-200">Local PC snapshot — {savedPersonal.notes.length} notes, {savedPersonal.tasks.length} tasks</p>
+            <p className="mt-2 font-medium">Notes (first 20)</p>
+            {savedPersonal.notes.length===0&&<p>No personal notes synced yet.</p>}
+            {savedPersonal.notes.slice(0,20).map((note,i)=>
+              <p key={'note'+i} className="mt-1 break-words">{i+1}. {note}</p>)}
+            <p className="mt-2 font-medium">Tasks (first 20)</p>
+            {savedPersonal.tasks.length===0&&<p>No personal tasks synced yet.</p>}
+            {savedPersonal.tasks.slice(0,20).map((task,i)=>
+              <p key={'task'+i} className="mt-1 break-words">{i+1}. {task.done?'[done]':'[open]'} {task.title}</p>)}
+            <p className="mt-2 text-amber-200">Review only. Edit personal items on Android and manually sync again.</p>
+          </div>}
           <p className="mt-2 text-xs text-slate-400">{usb.syncEnabled
             ? 'Personal sync permitted until revoked or the panel closes.'
             : 'Personal sync OFF. Pairing alone does not share notes or tasks.'}</p>
