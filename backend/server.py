@@ -8,7 +8,8 @@ install_windows_policy()
 
 import socketio
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+import hmac
 import asyncio
 import threading
 import sys
@@ -37,6 +38,7 @@ from spark_live_profile import live_profile
 from spark_audio_meter import AudioMeter
 from spark_browser_audio import select_transport, validate_pcm
 from spark_groq import GroqVoiceLoop, GroqUnavailable, cloud_provider, groq_model
+from spark_mobile_advisory import mobile_advisory, MobileAdvisoryError
 from spark_camera_consent import can_stream_camera
 from spark_groq_capabilities import can_groq_vision_frame
 from authenticator import FaceAuthenticator
@@ -603,6 +605,39 @@ async def stop_telegram_worker():
             await worker.stop()
         except Exception:
             pass
+
+
+@app.post("/mobile/advisory")
+async def mobile_advisory_request(request: Request):
+    """Local Electron-owned relay. Never callable with phone bearer tokens.
+
+    Does not expose the assistant's action/function tools. A separate
+    desktop click and short-lived USB pairing gate network entry.
+    """
+    remote = request.client.host if request.client else None
+    expected = os.environ.get("SPARK_WORKSPACE_TOKEN", "")
+    supplied = request.headers.get("x-spark-workspace-token", "")
+    if (remote not in ("127.0.0.1", "::1") or len(expected) != 64
+            or not hmac.compare_digest(supplied, expected)):
+        raise HTTPException(status_code=403, detail="SPARK desktop authorization required.")
+    if SETTINGS.get("face_auth_enabled", False) and not (
+            authenticator and authenticator.authenticated):
+        raise HTTPException(status_code=403, detail="SPARK desktop authentication required.")
+    if int(request.headers.get("content-length") or 0) > 6000:
+        raise HTTPException(status_code=413, detail="Mobile request exceeds size limit.")
+    raw = await request.body()
+    if len(raw) > 6000:
+        raise HTTPException(status_code=413, detail="Mobile request exceeds size limit.")
+    try:
+        body = json.loads(raw)
+        provider = cloud_provider()
+        return await mobile_advisory(
+            body, provider=provider,
+            key_available=(spark.client is not None if provider == "gemini"
+                           else bool(os.environ.get("GROQ_API_KEY"))),
+            gemini_client=spark.client)
+    except (MobileAdvisoryError, ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=422, detail="Mobile AI unavailable or invalid request.") from None
 
 
 @app.get("/status")
