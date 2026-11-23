@@ -6,17 +6,18 @@
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <application
         android:allowBackup="false"
-        android:label="SPARK Companion"
+        android:label="SPARK Mobile"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config">
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".SparkMobileActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".MainActivity" android:exported="false" />
         <activity-alias
             android:name=".HealthPermissionUsageActivity"
             android:targetActivity=".MainActivity"
