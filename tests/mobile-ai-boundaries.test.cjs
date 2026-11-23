@@ -39,7 +39,7 @@ test('SPARK Mobile has dedicated explicit consent UI and no arbitrary network en
  assert.match(ui,/promptInput\.setText\(heard\)/);
  assert.match(ui,/No API keys are stored on Android/);
  assert.match(protocol,/BASE_URL = "http:\/\/127\.0\.0\.1:38177"/);
- assert.match(client,/require\(path in setOf\("\/pair", "\/summary", "\/mobile-chat"\)\)/);
+ assert.match(client,/require\(path in setOf\("\/pair", "\/summary", "\/mobile-chat", "\/mobile-sync"\)\)/);
  assert.match(manifest,/SparkAiLinkActivity" android:exported="false"/);
  assert.doesNotMatch(ui,/GROQ_API_KEY|GEMINI_API_KEY|autoSend|WebView|exec\(/);
 });
