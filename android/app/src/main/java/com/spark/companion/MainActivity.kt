@@ -8,6 +8,9 @@ import android.widget.Toast
 import android.graphics.Color
 import android.os.Bundle
 import android.widget.Button
+import android.widget.EditText
+import android.text.InputFilter
+import android.text.InputType
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -33,6 +36,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var share: Button
     private lateinit var copyButton: Button
     private var summary: String? = null
+    private var usbSessionToken: String? = null
+    private var usbSequence: Int = 0
+    private lateinit var usbSendButton: Button
+    private lateinit var usbStatus: TextView
     private val permissions = setOf(
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(StepsRecord::class),
@@ -59,7 +66,7 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 0, 0, 16)
         }
         val detail = TextView(this).apply {
-            text = "Read your last 7 days of activity from Android Health Connect. Garmin Connect data appears only after you enable its one-way Health Connect sharing and approve these permissions. Data stays on your device until you choose Share."
+            text = "Read your last 7 days of activity from Android Health Connect. Garmin Connect data appears only after you enable its one-way Health Connect sharing and approve these permissions. Data stays on your device until you choose to Share, Copy or Send to your SPARK PC over USB."
             textSize = 17f
             setTextColor(Color.rgb(46, 62, 61))
             setPadding(0, 0, 0, 20)
@@ -101,13 +108,97 @@ class MainActivity : ComponentActivity() {
             }
         }
         copyButton = copy
+        val usbHeading = TextView(this).apply {
+            text = "USB PC PAIRING  /  EXPLICIT TRANSFER"
+            textSize = 17f
+            setTextColor(Color.rgb(20, 69, 67))
+            setPadding(0, 28, 0, 8)
+        }
+        val usbHelp = TextView(this).apply {
+            text = "On the Windows PC, open SPARK PHONE / WATCH and select Start USB pairing. With trusted USB debugging enabled, run adb reverse tcp:38177 tcp:38177 on the PC. Enter the eight-digit code shown in SPARK here. Pairing does not transfer your health data."
+            textSize = 15f
+            setTextColor(Color.rgb(46, 62, 61))
+        }
+        val codeInput = EditText(this).apply {
+            hint = "Eight-digit code from SPARK"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(InputFilter.LengthFilter(8))
+            contentDescription = "SPARK one-time USB pairing code"
+        }
+        usbStatus = TextView(this).apply {
+            text = "Not paired. All activity stays on this Android phone."
+            textSize = 15f
+            setTextColor(Color.rgb(46, 62, 61))
+            setPadding(0, 8, 0, 6)
+        }
+        val pairButton = Button(this).apply {
+            text = "Pair with SPARK over USB"
+            setOnClickListener {
+                val code = codeInput.text.toString()
+                if (code.length != 8 || !code.all { ch -> ch.isDigit() }) {
+                    usbStatus.text = "Enter the eight-digit code shown in SPARK."
+                    return@setOnClickListener
+                }
+                isEnabled = false
+                lifecycleScope.launch {
+                    try {
+                        val token = UsbBridgeClient.pair(code)
+                        usbSessionToken = token
+                        usbSequence = 0
+                        codeInput.text.clear()
+                        usbStatus.text = "Paired with SPARK for this session. No activity transferred yet."
+                        usbSendButton.isEnabled = summary != null
+                    } catch (_: Exception) {
+                        usbSessionToken = null
+                        usbSendButton.isEnabled = false
+                        usbStatus.text = "USB pairing failed. Check the PC code, USB debugging and adb reverse tunnel."
+                    } finally {
+                        isEnabled = true
+                    }
+                }
+            }
+        }
+        usbSendButton = Button(this).apply {
+            text = "Send current summary to SPARK PC"
+            isEnabled = false
+            setOnClickListener {
+                val token = usbSessionToken ?: return@setOnClickListener
+                val report = summary ?: return@setOnClickListener
+                isEnabled = false
+                lifecycleScope.launch {
+                    try {
+                        val next = UsbPairingProtocol.nextSequence(usbSequence)
+                        val sent = UsbBridgeClient.sendSummary(token, next, report)
+                        if (!sent) throw IllegalStateException("Unconfirmed receipt")
+                        usbSequence = next
+                        usbStatus.text = "Summary delivered to SPARK's in-memory PHONE / WATCH inbox."
+                    } catch (_: Exception) {
+                        usbStatus.text = "Transfer not confirmed. Reopen pairing on the PC if the session expired."
+                    } finally {
+                        isEnabled = usbSessionToken != null && summary != null
+                    }
+                }
+            }
+        }
         root.addView(title)
         root.addView(detail)
         root.addView(connect)
         root.addView(output)
         root.addView(copy)
         root.addView(share)
+        root.addView(usbHeading)
+        root.addView(usbHelp)
+        root.addView(codeInput)
+        root.addView(pairButton)
+        root.addView(usbSendButton)
+        root.addView(usbStatus)
         setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    override fun onDestroy() {
+        usbSessionToken = null
+        usbSequence = 0
+        super.onDestroy()
     }
 
     private fun connectAndRead() {
@@ -163,10 +254,12 @@ class MainActivity : ComponentActivity() {
                 output.text = summary
                 share.isEnabled = true
                 copyButton.isEnabled = true
+                usbSendButton.isEnabled = usbSessionToken != null
             } catch (error: Exception) {
                 summary = null
                 share.isEnabled = false
                 copyButton.isEnabled = false
+                usbSendButton.isEnabled = false
                 output.text = "Activity read failed: ${error.javaClass.simpleName}. Check permissions and try again."
             }
         }

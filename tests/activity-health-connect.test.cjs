@@ -31,7 +31,7 @@ test('Invalid, oversized, inaccurate and untrusted summary text fails closed',as
  }
 });
 
-test('ARKUS-ported Android project retains permission-only Health Connect reader',()=>{
+test('Android Health Connect retains read-only sensor scopes and USB loopback-only transport',()=>{
  const app=read('android/app/src/main/java/com/spark/companion/MainActivity.kt');
  const manifest=read('android/app/src/main/AndroidManifest.xml');
  const build=read('android/app/build.gradle.kts');
@@ -44,7 +44,13 @@ test('ARKUS-ported Android project retains permission-only Health Connect reader
  assert.match(app,/ACTION_SEND/);
  assert.match(app,/Copy summary/);
  assert.doesNotMatch(app,/http:|https:|BluetoothGatt|BluetoothSocket|WifiManager/);
- assert.doesNotMatch(manifest,/<uses-permission.*INTERNET/);
+ assert.match(manifest,/<uses-permission android:name="android.permission.INTERNET"\s*\/>/);
+ const security=read('android/app/src/main/res/xml/network_security_config.xml');
+ const usb=read('android/app/src/main/java/com/spark/companion/UsbBridgeClient.kt');
+ assert.match(security,/<base-config cleartextTrafficPermitted="false"\s*\/>/);
+ assert.match(security,/<domain includeSubdomains="false">127\.0\.0\.1<\/domain>/);
+ assert.match(usb,/BASE_URL \+ path/);
+ assert.doesNotMatch(usb,/https?:\/\/[^\s"']+/);
  assert.match(manifest,/health.READ_EXERCISE/);
  assert.match(build,/applicationId = "com.spark.companion"/);
  assert.match(gradle,/SPARKAndroid/);

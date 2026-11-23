@@ -4,6 +4,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
 const {createVoiceStudioClient}=require('./voicestudio-client.cjs');
+const {createPhoneUsbBridge}=require('./phone-usb-bridge.cjs');
 // Honor a deterministic launcher-provided token (parallel installs and
 // vesting harnesses); otherwise generate a fresh per-launch token.
 const workspaceToken=(process.env.SPARK_WORKSPACE_TOKEN
@@ -52,6 +53,7 @@ let experienceManager;
 let whatsappWindow;
 let jarvisBridge,jarvisBridgeUrl;
 let businessPortals;
+let phoneUsbBridge;
 let lastReaInventory=null;
 
 // Packaged builds place backend/public/vendor under process.resourcesPath via
@@ -198,6 +200,21 @@ app.whenReady().then(async () => {
         // Neither origin nor port nor audio file path is supplied by the page.
         // Local-only speech can never become a general proxy into private services.
         return createVoiceStudioClient().render(text);
+    });
+    phoneUsbBridge=createPhoneUsbBridge();
+    ipcMain.handle('spark:phone-usb',async(event,request)=>{
+        if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
+            throw Error('PHONE_USB_COCKPIT_DENIED');
+        if(!request||typeof request!=='object'||Array.isArray(request)||
+           Object.keys(request).length!==1||
+           !['start','stop','status','take'].includes(request.action))
+            throw Error('PHONE_USB_ACTION_DENIED');
+        switch(request.action){
+            case 'start':return phoneUsbBridge.start();
+            case 'stop':return phoneUsbBridge.stop();
+            case 'status':return phoneUsbBridge.status();
+            case 'take':return phoneUsbBridge.take();
+        }
     });
     ipcMain.handle('spark:workspace-token',event=>{
         if(!trustedWorkspaceSender(event,mainWindow,path.join(__dirname,'../dist/index.html'),process.env.NODE_ENV!=='production'))
@@ -420,6 +437,7 @@ app.on('will-quit', () => {
     whatsappWindow?.close();
     jarvisBridge?.close();
     businessPortals?.close();
+    void phoneUsbBridge?.stop();
     experienceManager?.stopAll();
     console.log('App closing... Killing Python backend.');
     if (pythonProcess) {
