@@ -1,5 +1,13 @@
 # SPARK — Immersive AI Workstation
 
+## SPARK Mobile for Android
+
+The Android 14+ build now includes a standalone SPARK Mobile cockpit with offline
+text commands, private notes and tasks, opt-in Android speech input/offline voice
+output, and the existing Health Connect/USB phone link. It works without
+Windows for its local features; full SPARK AI and desktop memory are not yet
+available on the phone. See [SPARK Mobile setup](android/README.md).
+
 ## Connected projects and reviewed PC tasks
 
 Publish selected Spark notes and current task states from **Home / Knowledge →
