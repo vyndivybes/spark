@@ -14,7 +14,8 @@ test('desktop mobile AI must obtain separate founder-permitted session and never
  assert.match(main,/X-SPARK-Workspace-Token/);
  assert.match(main,/127\.0\.0\.1/);
  assert.match(main,/trustedWorkspaceSender\(event,mainWindow/);
- assert.match(main,/request\.action==='set-ai'&&typeof request\.enabled==='boolean'/);
+ assert.match(main,/\['set-ai','set-sync'\]\.includes\(request\.action\)/);
+ assert.match(main,/typeof request\.enabled==='boolean'/);
  assert.match(panel,/action:'set-ai'/);
  assert.match(panel,/Enable AI replies to Android/);
 });
