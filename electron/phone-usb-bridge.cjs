@@ -7,7 +7,7 @@ const {validateRecords}=require('./mobile-personal-sync.cjs');
 const PAIRING_MS=120000;
 const SESSION_MS=600000;
 const MAX_BODY=6000;
-const MAX_PERSONAL_SYNC_BODY=60000;
+const MAX_PERSONAL_SYNC_BODY=256000;
 
 const HEALTH_SUMMARY=/^Last 7 days\n\nActivities: (\d{1,7})\nSteps: (?:\d{1,3}(?:,\d{3})*|\d{1,10})\nDistance: \d{1,8}(?:\.\d{1,2})? km\n\n(?:(?:Source apps: [a-zA-Z0-9._,\s-]+)|(?:No activity-session sources found))(?:\nShowing first 100 activities\.)?\n\nHealth Connect totals may include non-Garmin sources\.$/;
 function validSummary(text){
