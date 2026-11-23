@@ -25,7 +25,7 @@ class MobileBrain(
         LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH))
     }
 ) {
-    private val taskCompletion = Regex("^complete task ([1-9][0-9]{0,2})$", RegexOption.IGNORE_CASE)
+    private val taskCompletion = Regex("^complete task ([0-9]{1,3})$", RegexOption.IGNORE_CASE)
     private val noteDeletion = Regex("^delete note ([1-9][0-9]{0,2})$", RegexOption.IGNORE_CASE)
 
     fun reply(raw: String): MobileReply {
