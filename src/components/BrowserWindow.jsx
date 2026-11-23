@@ -40,6 +40,7 @@ const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
                 <input aria-label="URL, search, or text to type" value={input} onChange={e => setInput(e.target.value)} placeholder="URL, search, or text to type" className="min-w-0 flex-1 bg-transparent px-1 text-xs outline-none" />
                 <button className={buttonClass} disabled={disabled}>Go</button>
                 <button type="button" className={buttonClass} disabled={disabled} onClick={() => send('type')}>Type</button>
+                <button type="button" className={buttonClass} disabled={disabled} onClick={() => command({action:'inspect'})}>Inspect text</button>
             </form>}
             {local && <div role="status" className="flex items-center justify-between gap-1 px-2 py-1 text-xs shrink-0">
                 <span className={view.state === 'error' ? 'text-red-400' : 'text-cyan-400'}>{view.message}</span>
@@ -68,6 +69,11 @@ const BrowserWindow = ({ imageSrc, logs = [], onClose, socket }) => {
                     onWheel={e => { if (local) command({ action: 'scroll', direction: e.deltaY > 0 ? 'down' : 'up' }); }}
                 /> : <span className="text-gray-500 text-xs">{view.state === 'error' ? 'Browser unavailable. See the error above.' : 'Starting browser...'}</span>}
             </div>
+            {local && view.context && <details className="max-h-40 shrink-0 overflow-y-auto border-t border-cyan-700/40 p-2 text-xs" open>
+                <summary className="cursor-pointer text-cyan-300">Explicit local page inspection: {view.context.title}</summary>
+                <p className="text-slate-400 break-all">{view.context.url}</p>
+                <pre className="whitespace-pre-wrap break-words text-slate-200">{view.context.visible_text}</pre>
+            </details>}
             {local && <div className="px-2 text-[10px] text-gray-500 truncate shrink-0" title={view.url}>{view.url || 'Local browser · no AI key required'}</div>}
             <div className="h-16 shrink-0 bg-black/90 border-t border-gray-800 p-2 font-mono text-[10px] overflow-y-auto text-green-500/80">
                 {(local ? view.logs : logs).map((log, i) => <div key={i} className="mb-1 break-words">{log}</div>)}

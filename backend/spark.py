@@ -518,6 +518,38 @@ class AudioLoop:
         utterance = self._user_utterance.strip()
         if not utterance:
             return
+        from spark_browser_voice import parse_browser_voice
+        if self.on_workspace_action and parse_browser_voice(utterance):
+            self._graphify_dispatched = True
+            try:
+                result = await asyncio.wait_for(self.on_workspace_action(
+                    'browser_voice_command', {'command': utterance}, utterance), timeout=15)
+                statement = str(result.get('message') or result.get('error') or
+                                'Browser command unavailable.')[:400]
+            except Exception:
+                statement = 'Browser command could not be verified.'
+            await session.send_client_content(
+                turns={'role': 'user', 'parts': [{'text':
+                    'The local browser controller returned this status. Speak it accurately; '
+                    'do not claim navigation finished merely because it was queued: ' + statement}]},
+                turn_complete=True)
+            return
+        from spark_skill_voice import parse_skill_voice
+        if self.on_workspace_action and parse_skill_voice(utterance):
+            self._graphify_dispatched = True
+            try:
+                result = await asyncio.wait_for(self.on_workspace_action(
+                    'skill_voice_command', {'command': utterance}, utterance), timeout=135)
+                statement = str(result.get('message') or result.get('error') or
+                                'Skill request unavailable.')[:500]
+            except Exception:
+                statement = 'The skill upgrade was not verified. The original skill remains in place.'
+            await session.send_client_content(
+                turns={'role': 'user', 'parts': [{'text':
+                    'The local Skill Forge has returned this result. Speak it accurately, '
+                    'without claiming the skill is active unless confirmed: ' + statement}]},
+                turn_complete=True)
+            return
         command = parse_workbench_command(utterance)
         if not command:
             return
