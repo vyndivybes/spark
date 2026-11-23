@@ -65,6 +65,17 @@ export default function HealthConnectPanel({onClose}) {
         : 'Mobile AI disabled. Any further phone prompts are denied.');
     }catch{setUsbNotice('Could not change mobile AI permission. Restart USB pairing.');}
   };
+  const togglePersonalSync=async()=>{
+    const ipc=phoneUsbIpc();
+    if(!ipc)return setUsbNotice('SPARK desktop connection unavailable.');
+    try{
+      const next=await ipc.invoke('spark:phone-usb',{action:'set-sync',enabled:!usb.syncEnabled});
+      setUsb(next);
+      setUsbNotice(next.syncEnabled
+        ? 'Personal notes/tasks sync enabled for this USB session. Android must still tap Sync explicitly.'
+        : 'Personal notes/tasks sync disabled. Saved PC records remain in your local SPARK data folder.');
+    }catch{setUsbNotice('Could not change personal sync permission. Reopen USB pairing.');}
+  };
   const changeUsb=async(action)=>{
     const ipc=phoneUsbIpc();
     if(!ipc){setUsbNotice('USB pairing requires the installed SPARK Electron desktop app.');return;}
@@ -130,12 +141,24 @@ export default function HealthConnectPanel({onClose}) {
             {usb.aiEnabled?'Mobile AI read-only replies permitted until revoked or session expiry.':'Mobile AI OFF. Pairing alone cannot use desktop AI.'}
           </p>
         </div>
+        <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
+          <p className="font-semibold text-cyan-200">Personal notes & tasks — separate sync approval</p>
+          <p className="mt-1 text-xs text-slate-300">Allow the paired Android app to merge up to 100 notes and 100 checklist items with SPARK's app-private Windows storage. Sync happens only when you tap it on Android. It keeps the union of records; deletions are not propagated and completed tasks stay completed. Stored personal text is not separately encrypted. Never sync passwords or company secrets.</p>
+          <button type="button" disabled={!usb.listening}
+            onClick={togglePersonalSync}
+            className="mt-2 px-3 py-2 rounded border border-cyan-700 disabled:opacity-50">
+            {usb.syncEnabled?'Disable personal notes/tasks sync':'Enable personal notes/tasks sync'}
+          </button>
+          <p className="mt-2 text-xs text-slate-400">{usb.syncEnabled
+            ? 'Personal sync permitted until revoked or the panel closes.'
+            : 'Personal sync OFF. Pairing alone does not share notes or tasks.'}</p>
+        </div>
         {usb.listening&&!usb.paired&&usb.code&&
           <p className="mt-3 text-slate-200">Enter this one-time code in the Android companion:
             <strong className="block mt-1 text-2xl tracking-widest text-cyan-300 select-all">{usb.code}</strong>
             <span className="text-xs text-slate-400">Expires after 2 minutes. Restart pairing if expired.</span>
           </p>}
-        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired. Use the phone's explicit Send summary action, or the dedicated SPARK Desktop AI screen when AI is separately enabled.</p>}
+        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired. Health summary transfer, AI replies and personal notes/tasks sync require their respective on-phone actions and desktop permissions.</p>}
         {usbNotice&&<p role="status" className="mt-2 text-xs text-slate-300">{usbNotice}</p>}
         <p className="mt-2 text-xs text-amber-200">This is not wireless pairing or phone control. The listener is confined to PC localhost; USB forwarding is temporary. Disconnect USB debugging when finished.</p>
       </div>
