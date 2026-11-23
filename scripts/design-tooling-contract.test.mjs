@@ -13,7 +13,7 @@ test('Chrome DevTools MCP remains isolated, telemetry opt-out and dev-only', () 
   assert.equal(chrome.type, 'local');
   assert.equal(chrome.enabled, true);
   assert.equal(chrome.command[0], 'npx');
-  assert.ok(chrome.command.includes('chrome-devtools-mcp@latest'));
+  assert.ok(chrome.command.includes('chrome-devtools-mcp@1.13.0'));
   for (const required of ['--isolated', '--no-usage-statistics', '--no-performance-crux']) {
     assert.ok(chrome.command.includes(required), required);
   }
