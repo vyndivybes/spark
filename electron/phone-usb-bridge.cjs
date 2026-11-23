@@ -99,7 +99,7 @@ function createPhoneUsbBridge({
    chatBusy=true;
    const session=token;
    try{
-    const output=await mobileChat({prompt:body.prompt.trim(),history:conversation.slice(-12)});
+    const output=await mobileChat({prompt:body.prompt.trim(),history:conversation.slice(-6)});
     if(!aiEnabled||token!==session||now()>=pairedUntil)
      return reply(res,403,{ok:false,code:'AI_SESSION_REVOKED'});
     if(!output||typeof output!=='object'||Array.isArray(output)||
@@ -111,7 +111,7 @@ function createPhoneUsbBridge({
     const answer=output.answer.trim();
     conversation.push({role:'user',content:body.prompt.trim()},
                       {role:'assistant',content:answer.slice(0,1000)});
-    conversation=conversation.slice(-12);
+    conversation=conversation.slice(-6);
     lastSequence=body.sequence;
     return reply(res,200,{ok:true,answer,provider:output.provider,
                           advisoryOnly:true,sequence:lastSequence});
