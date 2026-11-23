@@ -133,7 +133,7 @@ class SparkMobileActivity : ComponentActivity() {
             setPadding(0, dp(16), 0, dp(8))
         }
         root.addView(heading)
-        val logScroll = ScrollView(this).apply { fillViewport = true }
+        val logScroll = ScrollView(this).apply { isFillViewport = true }
         transcript = text("", 15f, Color.rgb(218, 236, 244)).apply {
             setPadding(15, 15, 15, 15)
             background = panel(Color.rgb(14, 25, 44))
