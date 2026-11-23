@@ -9,7 +9,7 @@ android {
         applicationId = "com.spark.companion"
         minSdk = 34
         targetSdk = 35
-        versionCode = 4
+        versionCode = 5
         versionName = "0.4.0-mobile-ai-preview"
     }
     compileOptions {
