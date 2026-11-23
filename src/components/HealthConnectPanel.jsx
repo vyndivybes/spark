@@ -1,15 +1,70 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {Activity, X, Smartphone, Watch, ClipboardPaste, ShieldCheck} from 'lucide-react';
 import {parseHealthConnectSummary} from '../utils/healthConnectSummary.mjs';
 
-/* Explicit manual activity import only. No cloud upload, polling, storage,
- * direct Garmin login, Bluetooth pairing or sensitive sensor streaming.
- * ARKUS mobile sources are session-package names, not audited Garmin provenance.
+/* Activity import remains user-selected and in panel memory. Optional USB
+ * companion transfer is polled only while this panel is open, never cloud
+ * uploaded or written to the company's systems.
  */
+function phoneUsbIpc() {
+  try {return window.require?.('electron')?.ipcRenderer || null;} catch {return null;}
+}
 export default function HealthConnectPanel({onClose}) {
   const [raw,setRaw]=useState('');
   const [summary,setSummary]=useState(null);
   const [error,setError]=useState('');
+  const [usb,setUsb]=useState({listening:false,paired:false,pending:false,code:null});
+  const [usbNotice,setUsbNotice]=useState('');
+  useEffect(()=>{
+    let active=true,working=false;
+    const poll=async()=>{
+      if(!active||working)return;
+      working=true;
+      try{
+        const ipc=phoneUsbIpc();
+        if(!ipc)return;
+        const next=await ipc.invoke('spark:phone-usb',{action:'status'});
+        if(!active)return;
+        setUsb(next);
+        if(next.pending){
+          const imported=await ipc.invoke('spark:phone-usb',{action:'take'});
+          if(!active)return;
+          if(typeof imported==='string'){
+            try{
+              setSummary(parseHealthConnectSummary(imported));
+              setRaw('');
+              setError('');
+              setUsbNotice('One Health Connect summary received from the paired Android device.');
+            }catch{
+              setError('USB summary was not recognized. Copy the summary manually from the companion.');
+            }
+          }
+        }
+      }catch{
+        if(active)setUsbNotice('USB bridge unavailable in this SPARK session.');
+      }finally{working=false;}
+    };
+    const interval=setInterval(poll,1200);
+    void poll();
+    return ()=>{
+      active=false;
+      clearInterval(interval);
+      const ipc=phoneUsbIpc();
+      // Closing the panel revokes both the short code and paired session.
+      if(ipc)void ipc.invoke('spark:phone-usb',{action:'stop'}).catch(()=>{});
+    };
+  },[]);
+  const changeUsb=async(action)=>{
+    const ipc=phoneUsbIpc();
+    if(!ipc){setUsbNotice('USB pairing requires the installed SPARK Electron desktop app.');return;}
+    try{
+      const result=await ipc.invoke('spark:phone-usb',{action});
+      setUsb(action==='stop'?{listening:false,paired:false,pending:false,code:null}:result);
+      setUsbNotice(action==='start'?'USB bridge started locally. Run adb reverse, then enter this code on Android.':'USB session revoked. No health data is retained.');
+    }catch{
+      setUsbNotice('USB bridge could not start. Check whether port 38177 is already in use.');
+    }
+  };
   const load=()=>{
     try{
       setSummary(parseHealthConnectSummary(raw));
@@ -42,11 +97,30 @@ export default function HealthConnectPanel({onClose}) {
         </p>
         <p className="mt-2 text-amber-200 font-medium">Not a live Bluetooth pairing. No automatic PC sync or verified Garmin-only totals.</p>
       </div>
+      <div className="mt-4 p-3 rounded-xl border border-cyan-900/70 bg-cyan-950/20">
+        <h3 className="font-semibold text-cyan-200">USB phone pairing — local-only preview</h3>
+        <p className="mt-2 text-xs text-slate-300">Connect a phone with trusted USB debugging and Android platform-tools. In PowerShell run:</p>
+        <code className="block mt-2 text-xs rounded bg-slate-950 p-2 select-all">adb reverse tcp:38177 tcp:38177</code>
+        <div className="flex gap-2 mt-3">
+          <button type="button" disabled={usb.listening} onClick={()=>changeUsb('start')}
+            className="px-3 py-2 rounded bg-cyan-800 hover:bg-cyan-700 disabled:opacity-50">Start USB pairing</button>
+          <button type="button" disabled={!usb.listening} onClick={()=>changeUsb('stop')}
+            className="px-3 py-2 rounded border border-slate-600 disabled:opacity-50">Stop / revoke</button>
+        </div>
+        {usb.listening&&!usb.paired&&usb.code&&
+          <p className="mt-3 text-slate-200">Enter this one-time code in the Android companion:
+            <strong className="block mt-1 text-2xl tracking-widest text-cyan-300 select-all">{usb.code}</strong>
+            <span className="text-xs text-slate-400">Expires after 2 minutes. Restart pairing if expired.</span>
+          </p>}
+        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired for this session. Use the phone's explicit Send summary button.</p>}
+        {usbNotice&&<p role="status" className="mt-2 text-xs text-slate-300">{usbNotice}</p>}
+        <p className="mt-2 text-xs text-amber-200">This is not wireless pairing or phone control. The listener is confined to PC localhost; USB forwarding is temporary. Disconnect USB debugging when finished.</p>
+      </div>
       <ol className="mt-4 list-decimal pl-5 text-slate-200 space-y-2">
         <li>Install the SPARK Companion Android debug APK after the Android build succeeds.</li>
         <li>Open the companion and tap <strong>Connect Health Connect</strong> to grant read-only access.</li>
-        <li>Tap <strong>Copy summary</strong> or <strong>Share activity summary</strong>. Transfer the text to this PC yourself.</li>
-        <li>Paste the seven-day summary below and select <strong>Import summary</strong>.</li>
+        <li>Choose either manual Copy / Share, or pair through USB and explicitly Send summary to SPARK PC.</li>
+        <li>For manual import, paste the summary below and select <strong>Import summary</strong>.</li>
       </ol>
       <label htmlFor="spark-android-summary" className="block mt-5 font-semibold text-cyan-300">
         Paste summary (private, not sent to cloud)
@@ -80,8 +154,9 @@ export default function HealthConnectPanel({onClose}) {
       </div>}
       <p className="mt-4 text-xs text-slate-400 flex gap-2 items-start">
         <ShieldCheck size={16} className="shrink-0"/>
-        Import remains in this open panel's memory only. It is discarded when the panel closes.
-        No remote transfer, watch pairing or automatic healthcare integration is performed.
+        Both manual and USB imports remain in this open panel's memory only and are discarded
+        when it closes. No cloud upload, wireless phone control, direct watch pairing or automatic
+        healthcare integration is performed.
       </p>
     </section>
   );
