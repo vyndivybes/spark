@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const {trustedWorkspaceSender}=require('./workspace-auth.cjs');
 const {createVoiceStudioClient}=require('./voicestudio-client.cjs');
 const {createPhoneUsbBridge}=require('./phone-usb-bridge.cjs');
+const {createMobilePersonalStore}=require('./mobile-personal-sync.cjs');
 // Honor a deterministic launcher-provided token (parallel installs and
 // vesting harnesses); otherwise generate a fresh per-launch token.
 const workspaceToken=(process.env.SPARK_WORKSPACE_TOKEN
@@ -201,7 +202,8 @@ app.whenReady().then(async () => {
         // Local-only speech can never become a general proxy into private services.
         return createVoiceStudioClient().render(text);
     });
-    phoneUsbBridge=createPhoneUsbBridge({mobileChat:async({prompt,history})=>{
+    const personalMobileStore=createMobilePersonalStore(path.join(app.getPath('userData'),'mobile-personal'));
+    phoneUsbBridge=createPhoneUsbBridge({mobileSync:records=>personalMobileStore.merge(records),mobileChat:async({prompt,history})=>{
         // Only Electron owns the desktop workspace token. Android never sees it.
         const port=Number(process.env.SPARK_BACKEND_PORT||8000);
         if(!Number.isInteger(port)||port<1024||port>65535)
@@ -231,9 +233,10 @@ app.whenReady().then(async () => {
         if(!request||typeof request!=='object'||Array.isArray(request)||
            !(
              (Object.keys(request).length===1&&
-              ['start','stop','status','take'].includes(request.action)) ||
+              ['start','stop','status','take','personal-list'].includes(request.action)) ||
              (Object.keys(request).sort().join(',')==='action,enabled'&&
-              request.action==='set-ai'&&typeof request.enabled==='boolean')
+              ['set-ai','set-sync'].includes(request.action)&&
+              typeof request.enabled==='boolean')
            ))
             throw Error('PHONE_USB_ACTION_DENIED');
         switch(request.action){
@@ -242,6 +245,8 @@ app.whenReady().then(async () => {
             case 'status':return phoneUsbBridge.status();
             case 'take':return phoneUsbBridge.take();
             case 'set-ai':return phoneUsbBridge.setAiEnabled(request.enabled);
+            case 'set-sync':return phoneUsbBridge.setSyncEnabled(request.enabled);
+            case 'personal-list':return personalMobileStore.read();
         }
     });
     ipcMain.handle('spark:workspace-token',event=>{

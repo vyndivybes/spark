@@ -11,7 +11,7 @@ test('desktop USB bridge is inaccessible except from owning SPARK cockpit',()=>{
  const handler=main.slice(start,end);
  assert.match(handler,/trustedWorkspaceSender\(event,mainWindow/);
  assert.match(handler,/PHONE_USB_COCKPIT_DENIED/);
- assert.match(handler,/\['start','stop','status','take'\]/);
+ assert.match(handler,/\['start','stop','status','take','personal-list'\]/);
  assert.doesNotMatch(handler,/shell\.open|exec\(|spawn\(/);
  assert.match(main,/void phoneUsbBridge\?\.stop\(\)/);
 });

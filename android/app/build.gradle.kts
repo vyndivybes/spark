@@ -9,8 +9,8 @@ android {
         applicationId = "com.spark.companion"
         minSdk = 34
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.0-mobile-ai-preview"
+        versionCode = 5
+        versionName = "0.5.0-mobile-personal-sync-preview"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

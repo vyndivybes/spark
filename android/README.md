@@ -1,3 +1,48 @@
+# SPARK Mobile — Android + manual PC personal sync (0.5 preview)
+
+SPARK Mobile now includes **separately approved, explicit USB synchronization
+of personal notes and checklist tasks**. It continues to work independently
+offline on the phone. The v0.4 PC-backed read-only Gemini/Groq chat remains
+available as an optional, separate desktop approval.
+
+## Sync notes and tasks across Android and Windows
+
+1. Open SPARK Desktop's **PHONE / WATCH** panel and click **Start USB pairing**.
+2. Authorize the phone's USB-debugging prompt for your trusted Windows PC.
+   In PowerShell: `adb devices`, then `adb reverse tcp:38177 tcp:38177`.
+3. On the PC click **Enable personal notes/tasks sync**. You may separately
+   enable AI replies, but AI is **not required for personal sync**.
+4. On the phone, open **SPARK PC LINK / AI & PERSONAL SYNC**, enter the
+   current eight-digit code and tap **PAIR WITH SPARK PC**.
+5. Tap **SYNC PERSONAL NOTES / TASKS**. Android sends only its existing local
+   notes and tasks, and receives a merged, bounded snapshot from the PC.
+6. Sync is manual; there is no background upload or periodic synchronization.
+   Close the desktop panel or click Stop to revoke the session, then remove
+   the ADB forwarding and disable USB debugging when finished.
+
+Records are merged **by exact note text and task title**. A task marked
+completed on either device stays completed. This is a *union-only* merge:
+**deletions are not synchronized and may reappear**. Limits are 100 notes,
+100 tasks and 240 characters per entry; an over-capacity merge is rejected
+rather than silently losing records. Android updates both collections in one
+app-private preferences transaction. The PC saves an atomic personal copy
+under SPARK's app-private `userData/mobile-personal` folder. Both locations
+are **not encrypted with an independent SPARK passphrase**; do not store
+passwords, medical records, confidential company information or secrets.
+
+On Windows, click **Review saved personal notes & tasks** in the SPARK
+PHONE / WATCH panel to inspect the first 20 entries from each collection.
+The PC currently provides a review interface, not a desktop editor; edits
+should be made on Android followed by another manual sync.
+
+This is **personal note/task continuity only**. It does not synchronize SPARK
+desktop's AI conversation archive, skill memory, project files, permissions,
+VAOS/VYNDI business data or autonomous tasks. It does not create Wi-Fi
+pairing, internet-facing control or an external data transfer. No new token,
+paid API or subscription is required.
+
+---
+
 # SPARK Mobile for Android — offline core + optional PC-backed AI (0.4 preview)
 
 The Android application runs **independently offline** for local notes, tasks,

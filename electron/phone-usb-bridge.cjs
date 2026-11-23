@@ -3,9 +3,11 @@
 // reverse control, background sync, or business-operation permissions.
 const http=require('node:http');
 const {randomInt,randomBytes,timingSafeEqual}=require('node:crypto');
+const {validateRecords}=require('./mobile-personal-sync.cjs');
 const PAIRING_MS=120000;
 const SESSION_MS=600000;
 const MAX_BODY=6000;
+const MAX_PERSONAL_SYNC_BODY=256000;
 
 const HEALTH_SUMMARY=/^Last 7 days\n\nActivities: (\d{1,7})\nSteps: (?:\d{1,3}(?:,\d{3})*|\d{1,10})\nDistance: \d{1,8}(?:\.\d{1,2})? km\n\n(?:(?:Source apps: [a-zA-Z0-9._,\s-]+)|(?:No activity-session sources found))(?:\nShowing first 100 activities\.)?\n\nHealth Connect totals may include non-Garmin sources\.$/;
 function validSummary(text){
@@ -22,17 +24,17 @@ function createPhoneUsbBridge({
  port=38177,now=Date.now,
  generateCode=()=>String(randomInt(0,100000000)).padStart(8,'0'),
  generateToken=()=>randomBytes(32).toString('hex'),
- mobileChat=null
+ mobileChat=null,mobileSync=null
 }={}){
  if(!Number.isInteger(port)||port<0||port>65535)throw Error('PHONE_USB_PORT_INVALID');
  let server=null,code=null,deadline=0,token=null,pairedUntil=0,
   badAttempts=0,lastSequence=0,pending=null,actualPort=null,
-  aiEnabled=false,chatBusy=false,conversation=[];
+  aiEnabled=false,chatBusy=false,conversation=[],syncEnabled=false,syncBusy=false;
  function state(){
   return {listening:Boolean(server),host:'127.0.0.1',
    port:actualPort,code:server&&!token&&now()<deadline?code:null,
    expiresAt:deadline,paired:Boolean(token&&now()<pairedUntil),
-   pending:Boolean(pending),aiEnabled};
+   pending:Boolean(pending),aiEnabled,syncEnabled};
  }
  function reply(res,status,message){
   res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',
@@ -40,12 +42,13 @@ function createPhoneUsbBridge({
   res.end(JSON.stringify(message));
  }
  async function receive(req){
+  const limit=req.url==='/mobile-sync'?MAX_PERSONAL_SYNC_BODY:MAX_BODY;
   const claimed=Number(req.headers['content-length']||'0');
-  if(claimed>MAX_BODY)throw Error('PAYLOAD_TOO_LARGE');
+  if(claimed>limit)throw Error('PAYLOAD_TOO_LARGE');
   let bytes=0;const chunks=[];
   for await(const chunk of req){
    bytes+=chunk.length;
-   if(bytes>MAX_BODY)throw Error('PAYLOAD_TOO_LARGE');
+   if(bytes>limit)throw Error('PAYLOAD_TOO_LARGE');
    chunks.push(chunk);
   }
   try{
@@ -54,7 +57,7 @@ function createPhoneUsbBridge({
  }
  async function handle(req,res){
   const url=req.url,host='127.0.0.1:'+actualPort;
-  if(req.method!=='POST'||!['/pair','/summary','/mobile-chat'].includes(url))
+  if(req.method!=='POST'||!['/pair','/summary','/mobile-chat','/mobile-sync'].includes(url))
    return reply(res,405,{ok:false,code:'METHOD_NOT_ALLOWED'});
   if(req.headers.host!==host||req.headers.origin||
      req.socket.remoteAddress!=='127.0.0.1')
@@ -84,6 +87,30 @@ function createPhoneUsbBridge({
   if(!token||!matchesSecret(auth,'Bearer '+token))
    return reply(res,403,{ok:false,code:'SESSION_DENIED'});
   if(now()>=pairedUntil)return reply(res,410,{ok:false,code:'SESSION_EXPIRED'});
+  if(url==='/mobile-sync'){
+   if(!syncEnabled||typeof mobileSync!=='function')
+    return reply(res,403,{ok:false,code:'SYNC_DISABLED'});
+   if(Object.keys(body).sort().join(',')!=='records,sequence'||
+      !Number.isSafeInteger(body.sequence)||body.sequence<1||body.sequence>1000000)
+    return reply(res,422,{ok:false,code:'SYNC_INVALID'});
+   let personal;
+   try{personal=validateRecords(body.records);}
+   catch{return reply(res,422,{ok:false,code:'SYNC_INVALID'});}
+   if(body.sequence!==lastSequence+1)
+    return reply(res,409,{ok:false,code:'SEQUENCE_REJECTED'});
+   if(syncBusy)return reply(res,409,{ok:false,code:'SYNC_BUSY'});
+   syncBusy=true;
+   const session=token;
+   try{
+    const merged=validateRecords(await mobileSync(personal));
+    if(!syncEnabled||token!==session||now()>=pairedUntil)
+     return reply(res,403,{ok:false,code:'SYNC_SESSION_REVOKED'});
+    lastSequence=body.sequence;
+    return reply(res,200,{ok:true,personalOnly:true,records:merged,sequence:lastSequence});
+   }catch{
+    return reply(res,503,{ok:false,code:'SYNC_UNAVAILABLE'});
+   }finally{syncBusy=false;}
+  }
   if(url==='/mobile-chat'){
    if(!aiEnabled||typeof mobileChat!=='function')
     return reply(res,403,{ok:false,code:'AI_DISABLED'});
@@ -139,6 +166,7 @@ function createPhoneUsbBridge({
    if(!/^[0-9]{8}$/.test(code))throw Error('PHONE_USB_CODE_INVALID');
    deadline=now()+PAIRING_MS;badAttempts=0;token=null;pairedUntil=0;
    lastSequence=0;pending=null;aiEnabled=false;chatBusy=false;conversation=[];
+   syncEnabled=false;syncBusy=false;
    const fresh=http.createServer((req,res)=>void handle(req,res).catch(()=>
     !res.headersSent?reply(res,503,{ok:false,code:'USB_TRANSFER_FAILED'}):res.end()));
    fresh.requestTimeout=10000;
@@ -161,11 +189,18 @@ function createPhoneUsbBridge({
    if(!enabled){conversation=[];}
    return state();
   },
+  setSyncEnabled(enabled){
+   if(typeof enabled!=='boolean')throw Error('PHONE_USB_SYNC_PERMISSION_INVALID');
+   if(!server)throw Error('PHONE_USB_NOT_RUNNING');
+   syncEnabled=enabled;
+   return state();
+  },
   async stop(){
    const existing=server;server=null;
    code=null;token=null;deadline=0;pairedUntil=0;
    badAttempts=0;lastSequence=0;pending=null;actualPort=null;
    aiEnabled=false;chatBusy=false;conversation=[];
+   syncEnabled=false;syncBusy=false;
    if(existing){
     existing.closeAllConnections();
     await new Promise(resolve=>existing.close(resolve));

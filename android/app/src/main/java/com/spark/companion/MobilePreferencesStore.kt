@@ -53,6 +53,25 @@ class MobilePreferencesStore(context: Context) : MobileMemoryStore {
         return prefs.edit().putString("tasks", json.toString()).commit()
     }
 
+    /** Explicit personal sync only. Never treats corrupted stored records as an empty backup. */
+    fun personalSnapshot(): MobilePersonalSnapshot =
+        MobileRecordMerge.validate(MobilePersonalSnapshot(
+            storedNotes()?.toList() ?: throw IllegalStateException("Local notes unreadable"),
+            storedTasks()?.toList() ?: throw IllegalStateException("Local tasks unreadable")
+        ))
+
+    /** Atomic two-collection commit after strict, no-loss union validation. */
+    fun applyPersonalSync(remote: MobilePersonalSnapshot): Boolean {
+        val merged = MobileRecordMerge.merge(personalSnapshot(), remote)
+        val notesJson = JSONArray()
+        merged.notes.forEach { notesJson.put(it) }
+        val tasksJson = JSONArray()
+        merged.tasks.forEach { tasksJson.put(
+            JSONObject().put("title", it.title).put("done", it.done)) }
+        return prefs.edit().putString("notes", notesJson.toString())
+            .putString("tasks", tasksJson.toString()).commit()
+    }
+
     override fun notes(): List<String> = storedNotes()?.toList() ?: emptyList()
     override fun tasks(): List<MobileTask> = storedTasks()?.toList() ?: emptyList()
     override fun addNote(text: String): Boolean {

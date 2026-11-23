@@ -15,6 +15,7 @@ export default function HealthConnectPanel({onClose}) {
   const [error,setError]=useState('');
   const [usb,setUsb]=useState({listening:false,paired:false,pending:false,code:null});
   const [usbNotice,setUsbNotice]=useState('');
+  const [savedPersonal,setSavedPersonal]=useState(null);
   useEffect(()=>{
     let active=true,working=false;
     const poll=async()=>{
@@ -64,6 +65,31 @@ export default function HealthConnectPanel({onClose}) {
         ? 'Read-only mobile AI enabled for this USB session. Questions will go to the configured desktop provider.'
         : 'Mobile AI disabled. Any further phone prompts are denied.');
     }catch{setUsbNotice('Could not change mobile AI permission. Restart USB pairing.');}
+  };
+  const togglePersonalSync=async()=>{
+    const ipc=phoneUsbIpc();
+    if(!ipc)return setUsbNotice('SPARK desktop connection unavailable.');
+    try{
+      const next=await ipc.invoke('spark:phone-usb',{action:'set-sync',enabled:!usb.syncEnabled});
+      setUsb(next);
+      setUsbNotice(next.syncEnabled
+        ? 'Personal notes/tasks sync enabled for this USB session. Android must still tap Sync explicitly.'
+        : 'Personal notes/tasks sync disabled. Saved PC records remain in your local SPARK data folder.');
+    }catch{setUsbNotice('Could not change personal sync permission. Reopen USB pairing.');}
+  };
+  const reviewPersonal=async()=>{
+    const ipc=phoneUsbIpc();
+    if(!ipc)return setUsbNotice('Personal records are only available in the SPARK desktop cockpit.');
+    try{
+      const records=await ipc.invoke('spark:phone-usb',{action:'personal-list'});
+      if(!records||!Array.isArray(records.notes)||!Array.isArray(records.tasks))
+        throw Error('UNSUPPORTED_PERSONAL_RECORDS');
+      setSavedPersonal(records);
+      setUsbNotice('Showing the locally saved personal notes/tasks snapshot. No phone transfer was triggered.');
+    }catch{
+      setSavedPersonal(null);
+      setUsbNotice('Stored personal notes/tasks could not be read. No changes were made.');
+    }
   };
   const changeUsb=async(action)=>{
     const ipc=phoneUsbIpc();
@@ -130,12 +156,40 @@ export default function HealthConnectPanel({onClose}) {
             {usb.aiEnabled?'Mobile AI read-only replies permitted until revoked or session expiry.':'Mobile AI OFF. Pairing alone cannot use desktop AI.'}
           </p>
         </div>
+        <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
+          <p className="font-semibold text-cyan-200">Personal notes & tasks — separate sync approval</p>
+          <p className="mt-1 text-xs text-slate-300">Allow the paired Android app to merge up to 100 notes and 100 checklist items with SPARK's app-private Windows storage. Sync happens only when you tap it on Android. It keeps the union of records; deletions are not propagated and completed tasks stay completed. Stored personal text is not separately encrypted. Never sync passwords or company secrets.</p>
+          <button type="button" disabled={!usb.listening}
+            onClick={togglePersonalSync}
+            className="mt-2 px-3 py-2 rounded border border-cyan-700 disabled:opacity-50">
+            {usb.syncEnabled?'Disable personal notes/tasks sync':'Enable personal notes/tasks sync'}
+          </button>
+          <button type="button" onClick={reviewPersonal}
+            className="mt-2 ml-0 px-3 py-2 rounded border border-slate-600">
+            Review saved personal notes &amp; tasks
+          </button>
+          {savedPersonal&&<div className="mt-3 p-2 rounded bg-slate-900 max-h-48 overflow-y-auto text-xs text-slate-200">
+            <p className="font-semibold text-cyan-200">Local PC snapshot — {savedPersonal.notes.length} notes, {savedPersonal.tasks.length} tasks</p>
+            <p className="mt-2 font-medium">Notes (first 20)</p>
+            {savedPersonal.notes.length===0&&<p>No personal notes synced yet.</p>}
+            {savedPersonal.notes.slice(0,20).map((note,i)=>
+              <p key={'note'+i} className="mt-1 break-words">{i+1}. {note}</p>)}
+            <p className="mt-2 font-medium">Tasks (first 20)</p>
+            {savedPersonal.tasks.length===0&&<p>No personal tasks synced yet.</p>}
+            {savedPersonal.tasks.slice(0,20).map((task,i)=>
+              <p key={'task'+i} className="mt-1 break-words">{i+1}. {task.done?'[done]':'[open]'} {task.title}</p>)}
+            <p className="mt-2 text-amber-200">Review only. Edit personal items on Android and manually sync again.</p>
+          </div>}
+          <p className="mt-2 text-xs text-slate-400">{usb.syncEnabled
+            ? 'Personal sync permitted until revoked or the panel closes.'
+            : 'Personal sync OFF. Pairing alone does not share notes or tasks.'}</p>
+        </div>
         {usb.listening&&!usb.paired&&usb.code&&
           <p className="mt-3 text-slate-200">Enter this one-time code in the Android companion:
             <strong className="block mt-1 text-2xl tracking-widest text-cyan-300 select-all">{usb.code}</strong>
             <span className="text-xs text-slate-400">Expires after 2 minutes. Restart pairing if expired.</span>
           </p>}
-        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired. Use the phone's explicit Send summary action, or the dedicated SPARK Desktop AI screen when AI is separately enabled.</p>}
+        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired. Health summary transfer, AI replies and personal notes/tasks sync require their respective on-phone actions and desktop permissions.</p>}
         {usbNotice&&<p role="status" className="mt-2 text-xs text-slate-300">{usbNotice}</p>}
         <p className="mt-2 text-xs text-amber-200">This is not wireless pairing or phone control. The listener is confined to PC localhost; USB forwarding is temporary. Disconnect USB debugging when finished.</p>
       </div>

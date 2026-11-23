@@ -119,7 +119,7 @@ class SparkMobileActivity : ComponentActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT, dp(53)
         ).apply { topMargin = dp(8); bottomMargin = dp(8) })
 
-        val desktopAiButton = button("SPARK DESKTOP AI  /  SECURE USB LINK") {
+        val desktopAiButton = button("SPARK PC LINK  /  AI & PERSONAL SYNC") {
             startActivity(Intent(this, SparkAiLinkActivity::class.java))
         }
         root.addView(desktopAiButton, LinearLayout.LayoutParams(
