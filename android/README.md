@@ -30,6 +30,11 @@ under SPARK's app-private `userData/mobile-personal` folder. Both locations
 are **not encrypted with an independent SPARK passphrase**; do not store
 passwords, medical records, confidential company information or secrets.
 
+On Windows, click **Review saved personal notes & tasks** in the SPARK
+PHONE / WATCH panel to inspect the first 20 entries from each collection.
+The PC currently provides a review interface, not a desktop editor; edits
+should be made on Android followed by another manual sync.
+
 This is **personal note/task continuity only**. It does not synchronize SPARK
 desktop's AI conversation archive, skill memory, project files, permissions,
 VAOS/VYNDI business data or autonomous tasks. It does not create Wi-Fi
