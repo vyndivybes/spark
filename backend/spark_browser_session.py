@@ -34,6 +34,8 @@ class BrowserSessions:
         self.sio, self.allowed = sio, allowed
         self.launcher, self.interval = launcher, interval
         self.token_authorizer = token_authorizer
+        self.sessions = {}
+        self.lock = asyncio.Lock()
 
     def _authorized(self, data):
         if self.token_authorizer is None:
@@ -42,8 +44,6 @@ class BrowserSessions:
             return bool(isinstance(data, dict) and self.token_authorizer(data.get('workspace_token')))
         except Exception:
             return False
-        self.sessions = {}
-        self.lock = asyncio.Lock()
 
     async def status(self, sid, session_id, state, message):
         await self.sio.emit("web_browser_status", {
