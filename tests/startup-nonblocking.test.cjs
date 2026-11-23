@@ -23,6 +23,7 @@ async function startup(source) {
         './whatsapp-window.cjs':{createWhatsAppWindow:()=>({open:async()=>null,status:()=>null,readChats:async()=>[],close(){}})},
         './workspace-auth.cjs':{trustedWorkspaceSender:()=>false},
         './voicestudio-client.cjs':{createVoiceStudioClient:()=>({render:async()=>{throw Error('VoiceStudio disabled in startup test')}})},
+        './phone-usb-bridge.cjs':{createPhoneUsbBridge:()=>({status:()=>({listening:false}),start:async()=>({}),stop:async()=>({stopped:true}),take:()=>null})},
         './rea-evidence.cjs':{},
         './rea-preview.cjs':require('../electron/rea-preview.cjs'),
         './brain-display.cjs':{readBrainDisplay:async()=>({nodes:[],edges:[]})},
