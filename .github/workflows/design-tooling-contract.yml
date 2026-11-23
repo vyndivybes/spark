@@ -1,0 +1,22 @@
+name: Design tooling contract
+on:
+  pull_request:
+    paths:
+      - opencode.json
+      - docs/development/stitch-chrome-devtools.md
+      - .agents/skills/stitch-design-workflow/SKILL.md
+      - scripts/design-tooling-contract.test.mjs
+      - .github/workflows/design-tooling-contract.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/design-tooling-contract.test.mjs

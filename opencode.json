@@ -1,11 +1,28 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "shell": "powershell.exe",
-  "model": "omniroute/openrouter/liquid/lfm-2.5-2.6b:free",
-  "small_model": "omniroute/openrouter/liquid/lfm-2.5-2.6b:free",
   "mcp": {
     "Neon": {
       "enabled": false
+    },
+    "chrome-devtools": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--isolated",
+        "--no-usage-statistics",
+        "--no-performance-crux"
+      ],
+      "enabled": true
+    },
+    "stitch": {
+      "type": "remote",
+      "url": "{env:STITCH_MCP_URL}",
+      "enabled": false
     }
-  }
+  },
+  "shell": "powershell.exe",
+  "model": "omniroute/openrouter/liquid/lfm-2.5-2.6b:free",
+  "small_model": "omniroute/openrouter/liquid/lfm-2.5-2.6b:free"
 }
