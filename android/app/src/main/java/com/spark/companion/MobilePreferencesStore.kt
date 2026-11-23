@@ -21,7 +21,7 @@ class MobilePreferencesStore(context: Context) : MobileMemoryStore {
             val items = mutableListOf<String>()
             for (i in 0 until source.length()) {
                 val text = source.getString(i)
-                if (text.length !in 1..240) return null
+                if (text.length !in 1..240) throw IllegalStateException("Invalid stored note")
                 items.add(text)
             }
             items
@@ -35,7 +35,7 @@ class MobilePreferencesStore(context: Context) : MobileMemoryStore {
             for (i in 0 until source.length()) {
                 val value = source.getJSONObject(i)
                 val title = value.getString("title")
-                if (title.length !in 1..240) return null
+                if (title.length !in 1..240) throw IllegalStateException("Invalid stored task")
                 items.add(MobileTask(title, value.getBoolean("done")))
             }
             items
