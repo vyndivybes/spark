@@ -14,10 +14,10 @@ export function connectBrowserView(socket, update, { timeout = 45000 } = {}) {
     const start = () => {
         if (disposed) return;
         clearTimeout(timer);
-        if (sessionId && socket?.connected) socket.emit('stop_web_browser', { session_id: sessionId });
+        if (sessionId && socket?.connected) socket.emit('stop_web_browser', { session_id: sessionId, workspace_token: socket.workspaceToken });
         sessionId = globalThis.crypto.randomUUID();
         publish({ state: socket?.connected ? 'starting' : 'connecting', image: null, context: null, message: socket?.connected ? 'Starting local browser...' : 'Connecting to SPARK...' });
-        if (socket?.connected) socket.emit('start_web_browser', { session_id: sessionId });
+        if (socket?.connected) socket.emit('start_web_browser', { session_id: sessionId, workspace_token: socket.workspaceToken });
         arm();
     };
     const status = data => {
@@ -48,7 +48,7 @@ export function connectBrowserView(socket, update, { timeout = 45000 } = {}) {
         retry: start,
         command(data) {
             if (!socket?.connected || !state.image || state.state === 'error') return false;
-            socket.emit('web_browser_command', { ...data, session_id: sessionId });
+            socket.emit('web_browser_command', { ...data, session_id: sessionId, workspace_token: socket.workspaceToken });
             arm();
             return true;
         },
@@ -60,7 +60,7 @@ export function connectBrowserView(socket, update, { timeout = 45000 } = {}) {
             socket?.off('web_browser_status', status);
             socket?.off('web_browser_frame', frame);
             socket?.off('web_browser_context', context);
-            if (socket?.connected) socket.emit('stop_web_browser', { session_id: sessionId });
+            if (socket?.connected) socket.emit('stop_web_browser', { session_id: sessionId, workspace_token: socket.workspaceToken });
         },
     };
 }
