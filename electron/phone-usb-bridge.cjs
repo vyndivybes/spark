@@ -91,7 +91,10 @@ function createPhoneUsbBridge({
       !Number.isSafeInteger(body.sequence)||body.sequence<1||
       body.sequence>1000000||typeof body.prompt!=='string'||
       body.prompt.trim().length<3||body.prompt.length>400||
-      /[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]/.test(body.prompt))
+      [...body.prompt].some(ch=>{
+       const point=ch.codePointAt(0);
+       return (point<32&&point!==9&&point!==10)||point===127;
+      }))
     return reply(res,422,{ok:false,code:'PROMPT_INVALID'});
    if(body.sequence!==lastSequence+1)
     return reply(res,409,{ok:false,code:'SEQUENCE_REJECTED'});
