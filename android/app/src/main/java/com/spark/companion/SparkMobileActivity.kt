@@ -57,10 +57,12 @@ class SparkMobileActivity : ComponentActivity() {
         appendSession("SPARK", "SPARK Mobile online. Independent local notes and tasks ready. No LLM is connected.")
     }
 
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
+
     private fun panel(color: Int, corner: Float = 22f): GradientDrawable =
         GradientDrawable().apply {
             setColor(color)
-            cornerRadius = corner
+            cornerRadius = corner * resources.displayMetrics.density
             setStroke(1, Color.rgb(35, 74, 91))
         }
 
@@ -85,13 +87,13 @@ class SparkMobileActivity : ComponentActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(10, 16, 32))
-            setPadding(22, 20, 22, 18)
+            setPadding(dp(22), dp(20), dp(22), dp(18))
         }
         val title = text("SPARK  /  MOBILE", 27f, Color.rgb(102, 232, 240), true).apply {
-            setPadding(0, 8, 0, 5)
+            setPadding(0, dp(8), 0, dp(5))
         }
         val subtitle = text("LOCAL CORE  •  PERSONAL  •  FREE", 12f, Color.rgb(181, 193, 213)).apply {
-            setPadding(0, 0, 0, 16)
+            setPadding(0, 0, 0, dp(16))
         }
         root.addView(title)
         root.addView(subtitle)
@@ -104,8 +106,8 @@ class SparkMobileActivity : ComponentActivity() {
         )
         for ((label, command) in commands) {
             val item = button(label) { handleCommand(command) }
-            actions.addView(item, LinearLayout.LayoutParams(0, 52, 1f).apply {
-                marginEnd = 6
+            actions.addView(item, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                marginEnd = dp(6)
             })
         }
         root.addView(actions)
@@ -114,21 +116,21 @@ class SparkMobileActivity : ComponentActivity() {
             startActivity(Intent(this, MainActivity::class.java))
         }
         root.addView(healthButton, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 53
-        ).apply { topMargin = 8; bottomMargin = 10 })
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(53)
+        ).apply { topMargin = dp(8); bottomMargin = dp(10) })
 
         val notice = text(
             "This is the independent Android edition: offline notes, task checklist and phone services. " +
             "Full SPARK AI, desktop control, historic memory sync and cinematic voice are not connected.",
             13f, Color.rgb(191, 206, 219)
         ).apply {
-            setPadding(15, 15, 15, 15)
+            setPadding(dp(15), dp(15), dp(15), dp(15))
             background = panel(Color.rgb(18, 31, 51))
         }
         root.addView(notice)
 
         val heading = text("SPARK CONSOLE", 17f, Color.rgb(103, 224, 238), true).apply {
-            setPadding(0, 16, 0, 8)
+            setPadding(0, dp(16), 0, dp(8))
         }
         root.addView(heading)
         val logScroll = ScrollView(this).apply { fillViewport = true }
@@ -140,7 +142,7 @@ class SparkMobileActivity : ComponentActivity() {
         logScroll.addView(transcript)
         root.addView(logScroll, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
-        ).apply { bottomMargin = 12 })
+        ).apply { bottomMargin = dp(12) })
 
         commandInput = EditText(this).apply {
             hint = "Ask SPARK or type: note ..., add task ..."
@@ -149,7 +151,7 @@ class SparkMobileActivity : ComponentActivity() {
             textSize = 15f
             maxLines = 3
             setSingleLine(false)
-            setPadding(16, 12, 16, 12)
+            setPadding(dp(16), dp(12), dp(16), dp(12))
             background = panel(Color.rgb(20, 37, 59))
             contentDescription = "SPARK Mobile text command"
         }
@@ -164,21 +166,21 @@ class SparkMobileActivity : ComponentActivity() {
             commandInput.text.clear()
             handleCommand(command)
         }
-        controls.addView(send, LinearLayout.LayoutParams(0, 50, 1f).apply { marginEnd = 5 })
+        controls.addView(send, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(5) })
         val microphone = button("VOICE IN") { beginSpeechRecognition() }
         controls.addView(microphone, LinearLayout.LayoutParams(0, 50, 1f).apply { marginEnd = 5 })
         audioToggle = button("VOICE OUT: OFF") { toggleVoiceOut() }
-        controls.addView(audioToggle, LinearLayout.LayoutParams(0, 50, 1.5f))
+        controls.addView(audioToggle, LinearLayout.LayoutParams(0, dp(50), 1.5f))
         root.addView(controls, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = 10 })
+        ).apply { topMargin = dp(10) })
 
         val disclaimer = text(
             "Voice input uses your selected Android speech service; an offline result is requested " +
             "but the provider may use the network. Voice output uses an installed offline Android voice only. " +
             "Do not save passwords or secrets in unencrypted app notes.",
             11f, Color.rgb(155, 175, 190)
-        ).apply { setPadding(0, 10, 0, 0) }
+        ).apply { setPadding(0, dp(10), 0, 0) }
         root.addView(disclaimer)
         setContentView(root)
     }
