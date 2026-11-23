@@ -8,8 +8,8 @@ export default function ReaWorkflowBridge({socket}){
     const ipc=window.require?.('electron')?.ipcRenderer;
     if(!ipc)throw Error('Open the SPARK desktop app for previews.');
     const result=await ipc.invoke('spark:rea-preview',{action:data.action,project:data.project,id:data.id});
-    ack({ok:true,message:data.action==='test'?`Hidden browser test ${result.state}; ${result.checks?.length||0} checks.`:'Opened the tested original notes app.'});
-   }catch(e){ack({ok:false,message:e.message||'Preview failed.'});}
+    ack({ok:true,state:result?.state,checkCount:Array.isArray(result?.checks)?result.checks.length:0});
+   }catch{ack({ok:false});}
   };
   socket?.on('rea_workflow_preview',run);return()=>socket?.off('rea_workflow_preview',run);
  },[socket]);
