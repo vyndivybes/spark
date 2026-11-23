@@ -25,6 +25,7 @@ from spark_camera_frames import validate_camera_frame
 from spark_desktop import launch_allowed_app
 from spark_workspace_voice import knowledge_search_query
 from spark_skill_voice import parse_skill_voice
+from spark_browser_voice import parse_browser_voice
 from spark_workbench_voice import parse_workbench_command
 from spark_pc_access import PC_TOOL, PC_INSTRUCTION
 from spark_jarvis import jarvis_question
@@ -659,7 +660,14 @@ class GroqVoiceLoop:
         workbench_command=parse_workbench_command(prompt)
         question=jarvis_question(prompt)
         skill_command=parse_skill_voice(prompt)
-        if skill_command is not None:
+        browser_command=parse_browser_voice(prompt)
+        if browser_command is not None:
+            if self.on_workspace_action is None:
+                answer='The desktop browser command bridge is unavailable.'
+            else:
+                result=await self.on_workspace_action('browser_voice_command', {'command':prompt}, prompt)
+                answer=str(result.get('message') or result.get('error') or 'Browser operation unavailable.')[:500]
+        elif skill_command is not None:
             if self.on_workspace_action is None:
                 answer='Skill Forge is not connected to this voice session.'
             else:
