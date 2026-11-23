@@ -20,6 +20,15 @@
       "type": "remote",
       "url": "{env:STITCH_MCP_URL}",
       "enabled": false
+    },
+    "plannotator": {
+      "type": "local",
+      "command": [
+        "plannotator",
+        "inbox",
+        "mcp"
+      ],
+      "enabled": false
     }
   },
   "shell": "powershell.exe",
