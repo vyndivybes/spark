@@ -14,6 +14,9 @@ test('personal sync stays confined to owner verified desktop cockpit and app-pri
  assert.match(main,/mobileSync:records=>personalMobileStore\.merge\(records\)/);
  assert.match(panel,/action:'set-sync'/);
  assert.match(panel,/Enable personal notes\/tasks sync/);
+ assert.match(main,/case 'personal-list':return personalMobileStore\.read\(\)/);
+ assert.match(panel,/action:'personal-list'/);
+ assert.match(panel,/Review saved personal notes &amp; tasks/);
  assert.match(panel,/action:'stop'/);
  assert.match(store,/open\(name,'wx',0o600\)/);
  assert.match(store,/await fs\.rename\(name,file\)/);
