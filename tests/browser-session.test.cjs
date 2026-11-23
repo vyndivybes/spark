@@ -4,6 +4,7 @@ const { EventEmitter } = require('node:events');
 
 class Socket extends EventEmitter {
     connected = true;
+    workspaceToken = 'A'.repeat(64);
     sent = [];
     emit(name, data) { this.sent.push([name, data]); return super.emit(name, data); }
 }
@@ -17,14 +18,16 @@ test('opening starts a session; frames preserve their MIME type and commands tar
     try {
         const id = socket.sent[0][1].session_id;
         assert.equal(socket.sent[0][0], 'start_web_browser');
+        assert.equal(socket.sent[0][1].workspace_token, socket.workspaceToken);
         assert.equal(client.command({ action: 'reload' }), false);
         socket.emit('web_browser_frame', { session_id: id, image: 'abc', mime_type: 'image/png', url: 'https://example.com' });
         assert.equal(view.image, 'data:image/png;base64,abc');
         assert.equal(client.command({ action: 'reload' }), true);
-        assert.deepEqual(socket.sent.at(-1), ['web_browser_command', { session_id: id, action: 'reload' }]);
+        assert.deepEqual(socket.sent.at(-1), ['web_browser_command', { session_id: id, action: 'reload', workspace_token: socket.workspaceToken }]);
     } finally { client.dispose(); }
     assert.equal(socket.listenerCount('web_browser_frame'), 0);
     assert.equal(socket.sent.at(-1)[0], 'stop_web_browser');
+    assert.equal(socket.sent.at(-1)[1].workspace_token, socket.workspaceToken);
 });
 
 test('retry ignores late frames and reconnect starts a fresh session', async () => {
