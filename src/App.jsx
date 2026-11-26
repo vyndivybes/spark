@@ -28,8 +28,10 @@ const SparkRecordsPanel = deferredPanel(() => import('./components/SparkRecordsP
 const CommandCenter = deferredPanel(() => import('./components/CommandCenter'));
 import EvolutionActivity from './components/EvolutionActivity';
 import './command-center.css';
+import { mountPointerGlow } from './workspace-pointer-glow.mjs';
 import './dashboard.css';
 import './holographic.css';
+import './workspace-pointer-glow.css';
 import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
@@ -114,6 +116,7 @@ function App() {
     const [showPhoneWatch, setShowPhoneWatch] = useState(false);
     const [showReaAudit, setShowReaAudit] = useState(false);
     const [showFocus, setShowFocus] = useState(false);
+    useEffect(mountPointerGlow, []);
     const [showWorkspace, setShowWorkspace] = useState(true);
     const [voiceRequested, setVoiceRequested] = useState(false);
     const startupVoice = useStartupBriefing({socket, connected:socketConnected,
@@ -1811,18 +1814,6 @@ function App() {
                     <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
                 </div>
             )}
-
-            {/* Background Grid/Effects - ALIVE BACKGROUND (Fixed: Static opacity) */}
-            <div
-                className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900 via-black to-black z-0 pointer-events-none"
-                style={{ opacity: 0.6 }}
-            ></div>
-            <div className="absolute inset-0 spark-noise opacity-20 z-0 pointer-events-none mix-blend-overlay"></div>
-
-            {/* Ambient Glow (Fixed: Static) */}
-            <div
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none"
-            />
 
             {/* Top Bar (Draggable) */}
             <div className="spark-toolbar z-50 flex items-center justify-between p-2 border-b border-cyan-500/20 bg-black/40 backdrop-blur-md select-none sticky top-0" style={{ WebkitAppRegion: 'drag' }}>
