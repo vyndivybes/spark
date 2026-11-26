@@ -1,3 +1,26 @@
+# SPARK Mobile 0.6 preview
+
+Pair Android 14+ with Windows using **Phone / Watch → Start USB pairing** in
+SPARK Desktop and `adb reverse tcp:38177 tcp:38177`. On Android, open **PC Link**
+and enter the eight-digit pairing code.
+
+- Enable **AI replies to Android** on the PC for read-only answers from the
+  desktop's configured Gemini or Groq provider.
+- Enable **phone PC control** on the PC to allow **Show Spark**, **Open Calculator**,
+  **Open Notepad**, and **Open WhatsApp**. WhatsApp uses SPARK's existing WhatsApp
+  Web window and may ask you to link your device. Opening the window sends no message.
+- Enable **Voice Out** on Android, install an offline English voice if prompted,
+  then tap **Start hands-free** and allow microphone access. With PC Link in the
+  foreground, say “Hey Spark, open WhatsApp” or “Hey Spark, what is a checklist?”
+  The phone transcribes on-device, reads replies using Android speech, and resumes
+  listening after the reply. Stop hands-free or leave PC Link to stop listening.
+
+PC control and AI are separately enabled per USB pairing. Stop/revoke on the
+desktop to end pairing immediately. A pairing expires after ten minutes. Existing
+provider free-tier limits apply to AI answers.
+
+---
+
 # SPARK Mobile — Android + manual PC personal sync (0.5 preview)
 
 SPARK Mobile now includes **separately approved, explicit USB synchronization

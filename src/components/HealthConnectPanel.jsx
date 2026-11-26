@@ -66,6 +66,13 @@ export default function HealthConnectPanel({onClose}) {
         : 'Mobile AI disabled. Any further phone prompts are denied.');
     }catch{setUsbNotice('Could not change mobile AI permission. Restart USB pairing.');}
   };
+  const togglePcControl=async()=>{
+    const ipc=phoneUsbIpc();
+    if(!ipc)return setUsbNotice('SPARK desktop connection unavailable.');
+    try{
+      setUsb(await ipc.invoke('spark:phone-usb',{action:'set-control',enabled:!usb.controlEnabled}));
+    }catch{setUsbNotice('Could not change phone PC control. Restart USB pairing.');}
+  };
   const togglePersonalSync=async()=>{
     const ipc=phoneUsbIpc();
     if(!ipc)return setUsbNotice('SPARK desktop connection unavailable.');
@@ -155,6 +162,14 @@ export default function HealthConnectPanel({onClose}) {
           <p role="status" className="mt-2 text-xs text-slate-300">
             {usb.aiEnabled?'Mobile AI read-only replies permitted until revoked or session expiry.':'Mobile AI OFF. Pairing alone cannot use desktop AI.'}
           </p>
+        </div>
+        <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
+          <p className="font-semibold text-cyan-200">Phone PC control</p>
+          <p className="mt-1 text-xs text-slate-300">Let your paired phone show SPARK or open Calculator, Notepad, or WhatsApp Web during this USB session.</p>
+          <button type="button" disabled={!usb.listening} onClick={togglePcControl}
+            className="mt-2 px-3 py-2 rounded border border-cyan-700 disabled:opacity-50">
+            {usb.controlEnabled?'Disable phone PC control':'Enable phone PC control'}
+          </button>
         </div>
         <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
           <p className="font-semibold text-cyan-200">Personal notes & tasks — separate sync approval</p>

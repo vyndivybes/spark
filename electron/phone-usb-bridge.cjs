@@ -1,6 +1,6 @@
 'use strict';
 // Personal, physical-USB-only preview. No LAN listener, cloud storage,
-// reverse control, background sync, or business-operation permissions.
+// unrestricted control, background sync, or business-operation permissions.
 const http=require('node:http');
 const {randomInt,randomBytes,timingSafeEqual}=require('node:crypto');
 const {validateRecords}=require('./mobile-personal-sync.cjs');
@@ -24,17 +24,17 @@ function createPhoneUsbBridge({
  port=38177,now=Date.now,
  generateCode=()=>String(randomInt(0,100000000)).padStart(8,'0'),
  generateToken=()=>randomBytes(32).toString('hex'),
- mobileChat=null,mobileSync=null
+ mobileChat=null,mobileSync=null,mobileControl=null
 }={}){
  if(!Number.isInteger(port)||port<0||port>65535)throw Error('PHONE_USB_PORT_INVALID');
  let server=null,code=null,deadline=0,token=null,pairedUntil=0,
   badAttempts=0,lastSequence=0,pending=null,actualPort=null,
-  aiEnabled=false,chatBusy=false,conversation=[],syncEnabled=false,syncBusy=false;
+  aiEnabled=false,chatBusy=false,conversation=[],syncEnabled=false,syncBusy=false,controlEnabled=false,controlBusy=false;
  function state(){
   return {listening:Boolean(server),host:'127.0.0.1',
    port:actualPort,code:server&&!token&&now()<deadline?code:null,
    expiresAt:deadline,paired:Boolean(token&&now()<pairedUntil),
-   pending:Boolean(pending),aiEnabled,syncEnabled};
+   pending:Boolean(pending),aiEnabled,syncEnabled,controlEnabled};
  }
  function reply(res,status,message){
   res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',
@@ -57,7 +57,7 @@ function createPhoneUsbBridge({
  }
  async function handle(req,res){
   const url=req.url,host='127.0.0.1:'+actualPort;
-  if(req.method!=='POST'||!['/pair','/summary','/mobile-chat','/mobile-sync'].includes(url))
+  if(req.method!=='POST'||!['/pair','/summary','/mobile-chat','/mobile-sync','/mobile-control'].includes(url))
    return reply(res,405,{ok:false,code:'METHOD_NOT_ALLOWED'});
   if(req.headers.host!==host||req.headers.origin||
      req.socket.remoteAddress!=='127.0.0.1')
@@ -87,6 +87,27 @@ function createPhoneUsbBridge({
   if(!token||!matchesSecret(auth,'Bearer '+token))
    return reply(res,403,{ok:false,code:'SESSION_DENIED'});
   if(now()>=pairedUntil)return reply(res,410,{ok:false,code:'SESSION_EXPIRED'});
+  if(chatBusy||syncBusy||controlBusy)
+   return reply(res,409,{ok:false,code:'SESSION_BUSY'});
+  if(url==='/mobile-control'){
+   if(!controlEnabled||typeof mobileControl!=='function')
+    return reply(res,403,{ok:false,code:'PC_CONTROL_DISABLED'});
+   if(Object.keys(body).sort().join(',')!=='command,sequence'||
+      !['show-spark','open-calculator','open-notepad','open-whatsapp'].includes(body.command)||
+      !Number.isSafeInteger(body.sequence)||body.sequence<1||body.sequence>1000000)
+    return reply(res,422,{ok:false,code:'PC_COMMAND_INVALID'});
+   if(body.sequence!==lastSequence+1)
+    return reply(res,409,{ok:false,code:'SEQUENCE_REJECTED'});
+   const session=token;
+   const sequence=body.sequence;
+   lastSequence=sequence;
+   controlBusy=true;
+   let accepted=false;
+   try{accepted=await mobileControl(body.command)===true;}
+   catch{accepted=false;}
+   finally{if(token===session)controlBusy=false;}
+   return reply(res,200,{ok:true,accepted,sequence});
+  }
   if(url==='/mobile-sync'){
    if(!syncEnabled||typeof mobileSync!=='function')
     return reply(res,403,{ok:false,code:'SYNC_DISABLED'});
@@ -98,7 +119,6 @@ function createPhoneUsbBridge({
    catch{return reply(res,422,{ok:false,code:'SYNC_INVALID'});}
    if(body.sequence!==lastSequence+1)
     return reply(res,409,{ok:false,code:'SEQUENCE_REJECTED'});
-   if(syncBusy)return reply(res,409,{ok:false,code:'SYNC_BUSY'});
    syncBusy=true;
    const session=token;
    try{
@@ -109,7 +129,7 @@ function createPhoneUsbBridge({
     return reply(res,200,{ok:true,personalOnly:true,records:merged,sequence:lastSequence});
    }catch{
     return reply(res,503,{ok:false,code:'SYNC_UNAVAILABLE'});
-   }finally{syncBusy=false;}
+   }finally{if(token===session)syncBusy=false;}
   }
   if(url==='/mobile-chat'){
    if(!aiEnabled||typeof mobileChat!=='function')
@@ -125,7 +145,6 @@ function createPhoneUsbBridge({
     return reply(res,422,{ok:false,code:'PROMPT_INVALID'});
    if(body.sequence!==lastSequence+1)
     return reply(res,409,{ok:false,code:'SEQUENCE_REJECTED'});
-   if(chatBusy)return reply(res,409,{ok:false,code:'AI_BUSY'});
    chatBusy=true;
    const session=token;
    try{
@@ -147,7 +166,7 @@ function createPhoneUsbBridge({
                           advisoryOnly:true,sequence:lastSequence});
    }catch{
     return reply(res,503,{ok:false,code:'AI_PROVIDER_UNAVAILABLE'});
-   }finally{chatBusy=false;}
+   }finally{if(token===session)chatBusy=false;}
   }
   if(Object.keys(body).sort().join(',')!=='sequence,summary'||
      !Number.isSafeInteger(body.sequence)||body.sequence<1||
@@ -166,7 +185,7 @@ function createPhoneUsbBridge({
    if(!/^[0-9]{8}$/.test(code))throw Error('PHONE_USB_CODE_INVALID');
    deadline=now()+PAIRING_MS;badAttempts=0;token=null;pairedUntil=0;
    lastSequence=0;pending=null;aiEnabled=false;chatBusy=false;conversation=[];
-   syncEnabled=false;syncBusy=false;
+   syncEnabled=false;syncBusy=false;controlEnabled=false;controlBusy=false;
    const fresh=http.createServer((req,res)=>void handle(req,res).catch(()=>
     !res.headersSent?reply(res,503,{ok:false,code:'USB_TRANSFER_FAILED'}):res.end()));
    fresh.requestTimeout=10000;
@@ -195,12 +214,17 @@ function createPhoneUsbBridge({
    syncEnabled=enabled;
    return state();
   },
+  setControlEnabled(enabled){
+   if(typeof enabled!=='boolean'||!server)throw Error('PHONE_USB_CONTROL_UNAVAILABLE');
+   controlEnabled=enabled;
+   return state();
+  },
   async stop(){
    const existing=server;server=null;
    code=null;token=null;deadline=0;pairedUntil=0;
    badAttempts=0;lastSequence=0;pending=null;actualPort=null;
    aiEnabled=false;chatBusy=false;conversation=[];
-   syncEnabled=false;syncBusy=false;
+   syncEnabled=false;syncBusy=false;controlEnabled=false;controlBusy=false;
    if(existing){
     existing.closeAllConnections();
     await new Promise(resolve=>existing.close(resolve));

@@ -9,7 +9,7 @@ test('personal sync stays confined to owner verified desktop cockpit and app-pri
  const panel=read('src/components/HealthConnectPanel.jsx');
  const store=read('electron/mobile-personal-sync.cjs');
  assert.match(main,/trustedWorkspaceSender\(event,mainWindow/);
- assert.match(main,/\['set-ai','set-sync'\]\.includes\(request\.action\)/);
+ assert.match(main,/\['set-ai','set-sync','set-control'\]\.includes\(request\.action\)/);
  assert.match(main,/createMobilePersonalStore\(path\.join\(app\.getPath\('userData'\),'mobile-personal'\)\)/);
  assert.match(main,/mobileSync:records=>personalMobileStore\.merge\(records\)/);
  assert.match(panel,/action:'set-sync'/);

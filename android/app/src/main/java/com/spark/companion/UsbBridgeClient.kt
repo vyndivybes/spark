@@ -67,6 +67,18 @@ object UsbBridgeClient {
             Advisory(answer, provider)
         }
 
+    suspend fun control(token: String, sequence: Int, command: String): Boolean =
+        withContext(Dispatchers.IO) {
+            require(UsbPairingProtocol.validToken(token))
+            require(sequence in 1..1_000_000)
+            val response = post("/mobile-control",
+                JSONObject().put("sequence", sequence).put("command", command), token)
+            if (response.status != 200) throw IllegalStateException("PC command not acknowledged")
+            val result = JSONObject(response.body)
+            check(result.optBoolean("ok") && result.optInt("sequence") == sequence)
+            result.getBoolean("accepted")
+        }
+
     suspend fun syncPersonal(
         token: String, sequence: Int, records: MobilePersonalSnapshot
     ): MobilePersonalSnapshot = withContext(Dispatchers.IO) {
@@ -119,7 +131,7 @@ object UsbBridgeClient {
     }
 
     private fun post(path: String, payload: JSONObject, token: String?): Reply {
-        require(path in setOf("/pair", "/summary", "/mobile-chat", "/mobile-sync"))
+        require(path in setOf("/pair", "/summary", "/mobile-chat", "/mobile-sync", "/mobile-control"))
         val body = payload.toString().toByteArray(StandardCharsets.UTF_8)
         require(body.size <= 6000)
         val conn = URL(UsbPairingProtocol.BASE_URL + path)

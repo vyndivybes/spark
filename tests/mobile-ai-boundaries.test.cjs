@@ -14,7 +14,7 @@ test('desktop mobile AI must obtain separate founder-permitted session and never
  assert.match(main,/X-SPARK-Workspace-Token/);
  assert.match(main,/127\.0\.0\.1/);
  assert.match(main,/trustedWorkspaceSender\(event,mainWindow/);
- assert.match(main,/\['set-ai','set-sync'\]\.includes\(request\.action\)/);
+ assert.match(main,/\['set-ai','set-sync','set-control'\]\.includes\(request\.action\)/);
  assert.match(main,/typeof request\.enabled==='boolean'/);
  assert.match(panel,/action:'set-ai'/);
  assert.match(panel,/Enable AI replies to Android/);
@@ -39,7 +39,7 @@ test('SPARK Mobile has dedicated explicit consent UI and no arbitrary network en
  assert.match(ui,/promptInput\.setText\(heard\)/);
  assert.match(ui,/No API keys are stored on Android/);
  assert.match(protocol,/BASE_URL = "http:\/\/127\.0\.0\.1:38177"/);
- assert.match(client,/require\(path in setOf\("\/pair", "\/summary", "\/mobile-chat", "\/mobile-sync"\)\)/);
+ assert.match(client,/require\(path in setOf\("\/pair", "\/summary", "\/mobile-chat", "\/mobile-sync", "\/mobile-control"\)\)/);
  assert.match(manifest,/SparkAiLinkActivity" android:exported="false"/);
  assert.doesNotMatch(ui,/GROQ_API_KEY|GEMINI_API_KEY|autoSend|WebView|exec\(/);
 });
