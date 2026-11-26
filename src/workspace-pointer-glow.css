@@ -1,0 +1,37 @@
+.workspace-pointer-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms ease-out;
+}
+
+.workspace-pointer-glow::before {
+  position: absolute;
+  inset: -26px;
+  content: '';
+  background:
+    radial-gradient(circle at 41% 49%, rgb(79 164 255 / 0.43), transparent 45%),
+    radial-gradient(circle at 59% 51%, rgb(156 132 253 / 0.30), transparent 47%),
+    radial-gradient(circle at 52% 65%, rgb(255 170 143 / 0.20), transparent 38%);
+}
+
+.workspace-pointer-glow.is-visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce), (any-hover: none), (forced-colors: active) {
+  .workspace-pointer-glow { display: none; }
+}
+
+.spark-cockpit,
+.command-mode.spark-cockpit .command-center {
+  background:
+    radial-gradient(ellipse at 68% 13%, #20293e 0%, transparent 59%),
+    radial-gradient(ellipse at 99% 30%, #251f37 0%, transparent 52%),
+    #0b111c;
+}
