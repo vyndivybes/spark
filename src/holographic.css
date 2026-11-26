@@ -2,7 +2,6 @@
 .command-mode.spark-cockpit{--sd-bg:#080f16;--sd-surface:#101c26;--sd-line:#213640;--sd-ink:#e5f2f6;--sd-muted:#92acb7;--sd-accent:#7ee0ef;background:var(--sd-bg)}
 .command-mode .spark-toolbar{background:#070d13!important;border-color:#20313b!important}
 .command-mode .spark-brand h1,.command-mode .spark-window-actions>div,.command-mode .spark-window-actions>button{color:#93b3be}
-.holo-dashboard{background:var(--sd-bg)!important}
 .holo-dashboard .sd-nav{min-height:70px;background:#0a121b;border-bottom-color:#263b47}
 .holo-dashboard .sd-brand{font-size:27px!important;letter-spacing:-1px}
 .holo-dashboard .sd-brand-symbol{color:var(--sd-accent)}

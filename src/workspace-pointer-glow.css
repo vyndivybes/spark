@@ -28,7 +28,7 @@
   .workspace-pointer-glow { display: none; }
 }
 
-.spark-cockpit,
+.spark-cockpit:is(.command-mode, .voice-mode),
 .command-mode.spark-cockpit .command-center {
   background:
     radial-gradient(ellipse at 68% 13%, #20293e 0%, transparent 59%),

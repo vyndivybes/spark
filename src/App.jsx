@@ -29,9 +29,9 @@ const CommandCenter = deferredPanel(() => import('./components/CommandCenter'));
 import EvolutionActivity from './components/EvolutionActivity';
 import './command-center.css';
 import { mountPointerGlow } from './workspace-pointer-glow.mjs';
-import './workspace-pointer-glow.css';
 import './dashboard.css';
 import './holographic.css';
+import './workspace-pointer-glow.css';
 import ReminderToast from './components/ReminderToast';
 import {formatHealthReport, formatTranscript} from './utils/sessionTools.mjs';
 
