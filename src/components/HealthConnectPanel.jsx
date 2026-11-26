@@ -126,41 +126,41 @@ export default function HealthConnectPanel({onClose}) {
       <div className="flex justify-between gap-3 border-b border-cyan-900/70 pb-3">
         <div>
           <h2 className="flex items-center gap-2 font-bold text-lg text-cyan-300"><Smartphone size={20}/> PHONE / WATCH</h2>
-          <p className="text-slate-300 mt-1">Android Health Connect — seven-day activity reader</p>
+          <p className="text-slate-300 mt-1">Pair your Android phone or import a seven-day activity summary</p>
         </div>
         <button type="button" aria-label="Close Phone and Watch" onClick={onClose}
           className="p-2 rounded-lg border border-slate-700 hover:bg-slate-800"><X size={18}/></button>
       </div>
       <div className="mt-4 p-3 rounded-xl border border-slate-700 bg-slate-900/70">
-        <h3 className="flex items-center gap-2 font-semibold text-cyan-200"><Watch size={17}/>Garmin fēnix 7 pathway</h3>
+        <h3 className="flex items-center gap-2 font-semibold text-cyan-200"><Watch size={17}/>Import Garmin activity</h3>
         <p className="text-slate-300 mt-2 leading-relaxed">
           Sync your watch with Garmin Connect on Android 14+. Enable Garmin Connect's
           one-way sharing to Health Connect, then grant SPARK Companion permission
           to read exercise sessions, steps and distance. Activity totals may also
           include other apps or your phone.
         </p>
-        <p className="mt-2 text-amber-200 font-medium">Not a live Bluetooth pairing. No automatic PC sync or verified Garmin-only totals.</p>
+        <p className="mt-2 text-amber-200 font-medium">Import runs on request. Garmin activity reaches SPARK through Health Connect, whose totals can include other sources.</p>
       </div>
       <div className="mt-4 p-3 rounded-xl border border-cyan-900/70 bg-cyan-950/20">
-        <h3 className="font-semibold text-cyan-200">USB phone pairing — local-only preview</h3>
-        <p className="mt-2 text-xs text-slate-300">Connect a phone with trusted USB debugging and Android platform-tools. In PowerShell run:</p>
+        <h3 className="font-semibold text-cyan-200">Pair over USB</h3>
+        <p className="mt-2 text-xs text-slate-300">Connect your phone over USB and approve USB debugging for this PC. Open PowerShell with Android Platform Tools available and run the command below.</p>
         <code className="block mt-2 text-xs rounded bg-slate-950 p-2 select-all">adb reverse tcp:38177 tcp:38177</code>
         <div className="flex gap-2 mt-3">
           <button type="button" disabled={usb.listening} onClick={()=>changeUsb('start')}
             className="px-3 py-2 rounded bg-cyan-800 hover:bg-cyan-700 disabled:opacity-50">Start USB pairing</button>
           <button type="button" disabled={!usb.listening} onClick={()=>changeUsb('stop')}
-            className="px-3 py-2 rounded border border-slate-600 disabled:opacity-50">Stop / revoke</button>
+            className="px-3 py-2 rounded border border-slate-600 disabled:opacity-50">End USB session</button>
         </div>
         <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
-          <p className="font-semibold text-cyan-200">SPARK Mobile AI — separate desktop approval</p>
-          <p className="text-xs text-slate-300 mt-1">Enable optional read-only AI answers to paired Android. Mobile text may be sent by your PC to its existing Gemini or Groq provider. This does not grant file, browser, agent, email, purchase or business-write controls, and does not add a paid subscription.</p>
+          <p className="font-semibold text-cyan-200">AI answers on Android</p>
+          <p className="text-xs text-slate-300 mt-1">SPARK uses your existing Gemini or Groq provider to answer questions from Android within your current plan limits. Questions may leave your device. Answers are read-only.</p>
           <button type="button" disabled={!usb.listening}
             onClick={toggleMobileAi}
             className="mt-2 px-3 py-2 rounded border border-cyan-700 disabled:opacity-50">
             {usb.aiEnabled?'Disable mobile AI replies':'Enable AI replies to Android'}
           </button>
           <p role="status" className="mt-2 text-xs text-slate-300">
-            {usb.aiEnabled?'Mobile AI read-only replies permitted until revoked or session expiry.':'Mobile AI OFF. Pairing alone cannot use desktop AI.'}
+            {usb.aiEnabled?'AI answers enabled for this session.':'AI answers off.'}
           </p>
         </div>
         <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
@@ -172,8 +172,8 @@ export default function HealthConnectPanel({onClose}) {
           </button>
         </div>
         <div className="mt-3 rounded border border-slate-700 bg-slate-950/50 p-3">
-          <p className="font-semibold text-cyan-200">Personal notes & tasks — separate sync approval</p>
-          <p className="mt-1 text-xs text-slate-300">Allow the paired Android app to merge up to 100 notes and 100 checklist items with SPARK's app-private Windows storage. Sync happens only when you tap it on Android. It keeps the union of records; deletions are not propagated and completed tasks stay completed. Stored personal text is not separately encrypted. Never sync passwords or company secrets.</p>
+          <p className="font-semibold text-cyan-200">Sync notes and tasks</p>
+          <p className="mt-1 text-xs text-slate-300">Tap Sync on Android to merge up to 100 notes and 100 tasks with SPARK on this PC. Completed tasks stay completed. Deleted items can reappear. SPARK stores the copy locally without separate encryption. Keep passwords and company secrets out of sync.</p>
           <button type="button" disabled={!usb.listening}
             onClick={togglePersonalSync}
             className="mt-2 px-3 py-2 rounded border border-cyan-700 disabled:opacity-50">
@@ -200,13 +200,13 @@ export default function HealthConnectPanel({onClose}) {
             : 'Personal sync OFF. Pairing alone does not share notes or tasks.'}</p>
         </div>
         {usb.listening&&!usb.paired&&usb.code&&
-          <p className="mt-3 text-slate-200">Enter this one-time code in the Android companion:
+          <p className="mt-3 text-slate-200">Enter this code in SPARK Mobile → PC Link
             <strong className="block mt-1 text-2xl tracking-widest text-cyan-300 select-all">{usb.code}</strong>
-            <span className="text-xs text-slate-400">Expires after 2 minutes. Restart pairing if expired.</span>
+            <span className="text-xs text-slate-400">The code expires in two minutes.</span>
           </p>}
-        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired. Health summary transfer, AI replies and personal notes/tasks sync require their respective on-phone actions and desktop permissions.</p>}
+        {usb.listening&&usb.paired&&<p className="mt-3 text-emerald-300">Android paired. Enable the features you want to use for this session.</p>}
         {usbNotice&&<p role="status" className="mt-2 text-xs text-slate-300">{usbNotice}</p>}
-        <p className="mt-2 text-xs text-amber-200">This is not wireless pairing or phone control. The listener is confined to PC localhost; USB forwarding is temporary. Disconnect USB debugging when finished.</p>
+        <p className="mt-2 text-xs text-amber-200">Pairing uses USB forwarding to this PC’s localhost address. Turn off USB debugging when you finish.</p>
       </div>
       <ol className="mt-4 list-decimal pl-5 text-slate-200 space-y-2">
         <li>Install the SPARK Companion Android debug APK after the Android build succeeds.</li>
