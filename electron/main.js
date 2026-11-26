@@ -203,7 +203,25 @@ app.whenReady().then(async () => {
         return createVoiceStudioClient().render(text);
     });
     const personalMobileStore=createMobilePersonalStore(path.join(app.getPath('userData'),'mobile-personal'));
-    phoneUsbBridge=createPhoneUsbBridge({mobileSync:records=>personalMobileStore.merge(records),mobileChat:async({prompt,history})=>{
+    phoneUsbBridge=createPhoneUsbBridge({mobileControl:async command=>{
+        if(process.platform!=='win32'||!mainWindow||mainWindow.isDestroyed())return false;
+        if(command==='show-spark'){
+            if(mainWindow.isMinimized())mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+            return true;
+        }
+        if(command==='open-whatsapp')return (await whatsappWindow.open()).opened===true;
+        const executable={ 'open-calculator':'calc.exe','open-notepad':'notepad.exe' }[command];
+        if(!executable||!process.env.SystemRoot)return false;
+        const child=spawn(path.join(process.env.SystemRoot,'System32',executable),[],{
+            detached:true,stdio:'ignore',shell:false
+        });
+        return new Promise(resolve=>{
+            child.once('error',()=>resolve(false));
+            child.once('spawn',()=>{child.unref();resolve(true);});
+        });
+    },mobileSync:records=>personalMobileStore.merge(records),mobileChat:async({prompt,history})=>{
         // Only Electron owns the desktop workspace token. Android never sees it.
         const port=Number(process.env.SPARK_BACKEND_PORT||8000);
         if(!Number.isInteger(port)||port<1024||port>65535)
@@ -235,7 +253,7 @@ app.whenReady().then(async () => {
              (Object.keys(request).length===1&&
               ['start','stop','status','take','personal-list'].includes(request.action)) ||
              (Object.keys(request).sort().join(',')==='action,enabled'&&
-              ['set-ai','set-sync'].includes(request.action)&&
+              ['set-ai','set-sync','set-control'].includes(request.action)&&
               typeof request.enabled==='boolean')
            ))
             throw Error('PHONE_USB_ACTION_DENIED');
@@ -245,6 +263,7 @@ app.whenReady().then(async () => {
             case 'status':return phoneUsbBridge.status();
             case 'take':return phoneUsbBridge.take();
             case 'set-ai':return phoneUsbBridge.setAiEnabled(request.enabled);
+            case 'set-control':return phoneUsbBridge.setControlEnabled(request.enabled);
             case 'set-sync':return phoneUsbBridge.setSyncEnabled(request.enabled);
             case 'personal-list':return personalMobileStore.read();
         }
