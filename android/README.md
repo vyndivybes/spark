@@ -36,8 +36,8 @@ available as an optional, separate desktop approval.
 3. On the PC click **Enable personal notes/tasks sync**. You may separately
    enable AI replies, but AI is **not required for personal sync**.
 4. On the phone, open **SPARK PC LINK / AI & PERSONAL SYNC**, enter the
-   current eight-digit code and tap **PAIR WITH SPARK PC**.
-5. Tap **SYNC PERSONAL NOTES / TASKS**. Android sends only its existing local
+   current eight-digit code and tap **Pair with SPARK**.
+5. Tap **Sync notes and tasks**. Android sends only its existing local
    notes and tasks, and receives a merged, bounded snapshot from the PC.
 6. Sync is manual; there is no background upload or periodic synchronization.
    Close the desktop panel or click Stop to revoke the session, then remove
@@ -83,12 +83,12 @@ Gemini or Groq provider configured on your Windows SPARK PC.
 4. Select **Enable AI replies to Android** in desktop PHONE / WATCH.
    This explicit desktop action authorizes only text-generation replies.
 5. In SPARK Mobile, open **SPARK DESKTOP AI / SECURE USB LINK**. Enter the
-   short-lived eight-digit code and tap **PAIR WITH SPARK PC**.
-6. Enter a question and tap **ASK SPARK (READ-ONLY)**. Android voice input,
+   short-lived eight-digit code and tap **Pair with SPARK**.
+6. Enter a question and tap **Ask or run command**. Android voice input,
    if available, only fills the question box: tap ASK separately to send.
 7. Choose VOICE OUT if an installed Android *offline* English TTS voice is
    present. This is **not** VoiceStudio or cinematic voice.
-8. Select **Disable mobile AI replies** or **Stop / revoke** on the PC,
+8. Select **Disable mobile AI replies** or **End USB session** on the PC,
    close the PHONE / WATCH panel, disconnect USB, and run
    `adb reverse --remove tcp:38177` after use.
 
@@ -216,7 +216,7 @@ PC's debug authorization afterward.
    Open the PC's PHONE / WATCH panel to see the received summary, held only
    in memory. You can repeat the action after SPARK consumes the previous
    summary. No other phone content is accessible.
-6. To revoke immediately, press **Stop / revoke** or close the desktop panel.
+6. To revoke immediately, press **End USB session** or close the desktop panel.
    Disconnect the cable, then run `adb reverse --remove tcp:38177` to clear
    forwarding and turn off USB debugging when finished.
 

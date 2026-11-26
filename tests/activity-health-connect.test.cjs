@@ -63,6 +63,6 @@ test('SPARK cockpit offers real manual Health Connect import and no fake direct 
  assert.match(app,/PHONE \/ WATCH/);
  assert.match(panel,/parseHealthConnectSummary/);
  assert.match(panel,/Paste summary/);
- assert.match(panel,/Not a live Bluetooth pairing/i);
+ assert.match(panel,/Import runs on request/i);
  assert.doesNotMatch(panel,/socket.emit\('pair_garmin'/);
 });

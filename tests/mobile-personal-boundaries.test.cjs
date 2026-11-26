@@ -27,7 +27,7 @@ test('Android personal sync has an explicit user-triggered button and no silent 
  const ui=read('android/app/src/main/java/com/spark/companion/SparkAiLinkActivity.kt');
  const client=read('android/app/src/main/java/com/spark/companion/UsbBridgeClient.kt');
  const prefs=read('android/app/src/main/java/com/spark/companion/MobilePreferencesStore.kt');
- assert.match(ui,/sync = button\("SYNC PERSONAL NOTES \/ TASKS"\)/);
+ assert.match(ui,/sync = button\("Sync notes and tasks"\)/);
  assert.match(ui,/UsbBridgeClient\.syncPersonal\(session, next, local\)/);
  assert.match(ui,/mobileStore\.applyPersonalSync\(merged\)/);
  assert.match(client,/post\("\/mobile-sync", outgoing, token\)/);

@@ -110,12 +110,11 @@ class SparkAiLinkActivity : ComponentActivity() {
             setPadding(24, 18, 24, 24)
             setBackgroundColor(Color.rgb(9, 16, 32))
         }
-        root.addView(label("SPARK  /  PC LINK", 24f))
+        root.addView(label("PC Link", 24f))
         root.addView(label(
-            "AI answers and optional PC controls over trusted USB. " +
-            "Open PC PHONE / WATCH, Start USB pairing, run adb reverse " +
-            "tcp:38177 tcp:38177. Enable AI replies and/or personal notes/tasks sync separately on the PC. " +
-            "AI questions go to your selected provider via the PC. Personal sync never goes to the cloud. " +
+            "On your PC, open Phone / Watch and start USB pairing. Run adb reverse " +
+            "tcp:38177 tcp:38177, then enter the code below. Enable the features you need on the PC. " +
+            "AI questions use your PC’s configured provider. Notes and tasks sync over USB. " +
             "No API keys are stored on Android."
         ))
         val code = EditText(this).apply {
@@ -127,7 +126,7 @@ class SparkAiLinkActivity : ComponentActivity() {
         }
         root.addView(code)
         status = label("Not paired. Offline SPARK Mobile remains usable.")
-        root.addView(button("PAIR WITH SPARK PC") {
+        root.addView(button("Pair with SPARK") {
             if (pairing || requestBusy || token != null) return@button
             val clean = code.text.toString()
             if (clean.length != 8 || !clean.all { it in '0'..'9' }) {
@@ -181,13 +180,13 @@ class SparkAiLinkActivity : ComponentActivity() {
             maxLines = 4
         }
         root.addView(promptInput)
-        send = button("ASK OR RUN COMMAND") {
+        send = button("Ask or run command") {
             stopHandsFree()
             submit(promptInput.text.toString())
         }
         send.isEnabled = false
         root.addView(send)
-        sync = button("SYNC PERSONAL NOTES / TASKS") {
+        sync = button("Sync notes and tasks") {
             val session = token ?: return@button
             if (requestBusy) return@button
             stopHandsFree()
@@ -244,7 +243,7 @@ class SparkAiLinkActivity : ComponentActivity() {
             "Questions transcribed on the phone go to your PC’s configured AI provider.",
             12f
         ))
-        root.addView(button("VOICE IN — FILL QUESTION") {
+        root.addView(button("Dictate a question") {
             stopHandsFree()
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
